@@ -129,12 +129,31 @@ Action terrain → écriture DB locale (source de vérité) → SyncQueue (en_at
 - Mock-location détecté ⇒ blocage (critère éliminatoire).
 - OCR échoué ⇒ fallback saisie manuelle de la plaque.
 
+## 8 bis. Contraintes appareils bas de gamme (exigence forte)
+
+Cible terrain : vieux Android, peu de RAM, stockage et batterie limités, réseau absent.
+La conception doit garantir le fonctionnement sur Android Go / 1–2 Go de RAM.
+
+| Sujet | Exigence |
+|---|---|
+| **minSdkVersion** | 23 (Android 6.0) — couvre le parc bas de gamme, supporte caméra + ML Kit |
+| **RAM cible** | 1–2 Go ; device de test type Android Go |
+| **Taille APK** | < 30 Mo ; **split par ABI** (`arm64-v8a`, `armeabi-v7a`), pas de fat APK |
+| **Photos (tueur de RAM)** | Compression **à la capture** (max ~1600 px, JPEG ~70 %) ; jamais charger l'image pleine résolution en mémoire ; vignettes en liste via `cacheWidth` |
+| **OCR plaque** | **On-demand** sur une seule frame capturée (pas de flux live) ; modèle ML Kit chargé une fois ; fallback saisie manuelle si lent/échec |
+| **Caméra** | `ResolutionPreset.medium` pour le preview ; libérer le `CameraController` à la sortie de l'écran |
+| **Carte** | `flutter_map` avec cache de tuiles offline ; carte **optionnelle, non bloquante** en zone sans réseau |
+| **Stockage** | **Purge des photos après synchronisation confirmée** ; conserver le hash en DB comme preuve |
+| **GPS** | Timeout + dernière position connue en repli ; précision adaptative ; **pas de tracking continu** (économie batterie) |
+| **UI / perf** | `ListView.builder` paginé ; Riverpod `select` pour limiter les rebuilds ; UI sobre, animations minimales ; tester Impeller, fallback Skia si glitch GPU |
+
 ## 9. Stratégie de tests
 
 - **Unit** : usecases, `ScoringEngine` (règles Niveau 1 et 2), `MockLocationGuard`, calcul distance Haversine, génération ID `MICA-YYYY-XXXX`.
 - **Repository** : DB Drift in-memory + `RemoteDataSource` mocké.
 - **Widget** : écrans capture, chargement, ajout mine, arrivée dépôt.
 - **TDD** sur toute la logique métier déterministe (scoring, validation GPS) — critique anti-fraude.
+- **Bas de gamme** : test de compression photo (taille/dimensions max respectées), validation manuelle sur device Android Go réel avant livraison (capture → OCR → enregistrement sans OOM).
 
 ## 10. Hors périmètre (Phase 3, plus tard)
 
