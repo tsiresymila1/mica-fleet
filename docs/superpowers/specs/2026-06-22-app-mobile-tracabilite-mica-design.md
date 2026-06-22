@@ -66,7 +66,7 @@ Chaque feature : `domain/` (entities, repositories abstraits, usecases) +
 | **MineRepository** | Référentiel mines (GPS + rayon) synchronisé d'Odoo, lu offline | Sync, DB | 1 |
 | **LoadingModule** | Créer chargement, ajouter mines (≤3), générer ID `MICA-YYYY-XXXX`, saisie réf/couleur/quantité | Capture, OCR, Mine, DB | 1 |
 | **SyncModule** | File d'attente persistante, upload photos multipart, retry backoff, anti-doublon | RemoteDataSource, DB | 1 |
-| **TransportModule** | Transbordement : photo déchargement + rechargement, nouvelle plaque, contrôle rayon GPS | Capture, DB | 2 |
+| **TransportModule** | Chaîne de transbordements **dynamique (0..N)** : pour chaque maillon → photo déchargement + rechargement, plaque avant/après, contrôle rayon GPS ; ajout/suppression de maillon | Capture, DB | 2 |
 | **DepotModule** | Arrivée : chauffeur / n° permis / photo permis (opt) / n° lot, détection dépôt, validation GPS zone | Capture, DB | 2 |
 | **ScoringEngine** | Pré-calcul local : Niveau 1 éligibilité (Pass/Fail) + estimation indicative Niveau 2 | DB | 2 |
 | **DelaisModule** | Suivi délais d'acheminement, rappels/alertes locaux | DB | 2 |
@@ -78,7 +78,7 @@ Chaque feature : `domain/` (entities, repositories abstraits, usecases) +
 - **Chargement**: id `MICA-YYYY-XXXX`, fournisseurId, dateCreation, statutSync, scoreEstime, mines (1–3).
 - **MineChargement** (jointure): chargementId, mineId, référence, couleur, quantitéEstimée, photoId, gps, dateHeure, plaqueOcr.
 - **Photo**: id, chemin fichier, hashSha256, lat, lon, précision, orientation, horodatage, type (mine/déchargement/rechargement/arrivée/permis).
-- **Transbordement**: chargementId, gpsDechargement, gpsRechargement, nouvellePlaque, photos, distanceM, conforme.
+- **Transbordement**: chargementId, **ordre** (séquence dans la chaîne), plaqueAvant, plaqueApres, gpsDechargement, gpsRechargement, photos (déchargement + rechargement), distanceM, conforme. **Nombre dynamique 0..N par chargement** (camion A→B→C→…) — un maillon ordonné par changement de transporteur.
 - **ArriveeDepot**: chargementId, depotId, chauffeur, numPermis, photoPermisId, numLot, gps, statutGpsArrivee, photoArriveeId.
 - **SyncQueue**: id, entité, payload, statut (en_attente / en_cours / synchronise / erreur), tentatives, dernièreErreur.
 
@@ -118,7 +118,7 @@ Action terrain → écriture DB locale (source de vérité) → SyncQueue (en_at
 
 ### Validation GPS
 - Distance Haversine entre point capturé et point autorisé.
-- Transbordement : distance déchargement↔rechargement ≤ rayon paramétré ⇒ conforme.
+- Transbordement : pour **chaque maillon** de la chaîne (0..N), distance déchargement↔rechargement ≤ rayon paramétré ⇒ maillon conforme. Cohérence transport (score C) = chaîne de plaques cohérente bout à bout (A→B→C→…) sur tous les maillons.
 - Arrivée : position dans rayon dépôt ⇒ validée ; détection auto du dépôt concerné.
 
 ## 8. Gestion des erreurs
