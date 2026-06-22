@@ -24,15 +24,17 @@ ne fait qu'un **pré-calcul indicatif** (cohérent avec le CDC §9).
 | State management | **Riverpod** | DI + state testable, scale offline-first |
 | Architecture | **Clean Architecture** feature-first (domain / data / presentation) | Isolation, testabilité |
 | DB locale | **Drift + SQLCipher** | SQLite typé relationnel chiffré, requêtes file de sync/score |
-| HTTP | **dio**, abstrait derrière `RemoteDataSource` | Branchement Odoo découplé, mockable |
+| HTTP | **dio** + **Retrofit** (client REST typé généré), abstrait derrière `RemoteDataSource` | Branchement Odoo découplé, mockable, moins de boilerplate |
 | API Odoo | **Module REST custom** (auth token, upload multipart, batch sync) | Adapté mobile offline |
+| Modèles / states | **Freezed** (data classes immuables, unions sealed, `copyWith`) + `json_serializable` | Immutabilité, égalité, sérialisation JSON, états UI/Failure exhaustifs |
+| Versions | **Dernières versions stables** de tous les packages | À jour, support null-safety / Dart 3 |
 | Caméra | `camera` | Overlay guidé, capture in-app stricte |
 | GPS | `geolocator` | Position + précision (HDOP) |
 | OCR plaque | `google_mlkit_text_recognition` | On-device, offline |
 | Hash | `crypto` (SHA-256) | Photo infalsifiable |
 | Cartes | `flutter_map` | Affichage mines / trajets |
 | Anti-fraude GPS | Canal natif Android (`isFromMockProvider`) | Détection mock-location (critère éliminatoire) |
-| Modèle fonctionnel | `Either<Failure, T>` (dartz) | Pas d'exceptions remontant à l'UI |
+| Modèle fonctionnel | `Either<Failure, T>` (**fpdart**, moderne) ; `Failure` = union **Freezed** sealed | Pas d'exceptions remontant à l'UI, gestion exhaustive |
 | Langue | Français | Conforme CDC |
 
 ## 3. Structure du projet
