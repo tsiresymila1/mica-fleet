@@ -74,12 +74,65 @@ class SyncQueue extends Table {
   Set<Column> get primaryKey => {opId};
 }
 
-@DriftDatabase(
-    tables: [Fournisseurs, Mines, Chargements, MineChargements, SyncQueue])
+@DataClassName('DepotRow')
+class Depots extends Table {
+  TextColumn get id => text()();
+  TextColumn get nom => text()();
+  RealColumn get lat => real()();
+  RealColumn get lon => real()();
+  RealColumn get rayonMetres => real().withDefault(const Constant(20))();
+  BoolColumn get actif => boolean().withDefault(const Constant(true))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('TransbordementRow')
+class Transbordements extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get chargementId => text().references(Chargements, #id)();
+  IntColumn get ordre => integer()(); // séquence dans la chaîne (1..N)
+  TextColumn get plaqueAvant => text().nullable()();
+  TextColumn get plaqueApres => text().nullable()();
+  RealColumn get gpsDechargeLat => real().nullable()();
+  RealColumn get gpsDechargeLon => real().nullable()();
+  RealColumn get gpsRechargeLat => real().nullable()();
+  RealColumn get gpsRechargeLon => real().nullable()();
+  RealColumn get distanceMetres => real().nullable()();
+  BoolColumn get conforme => boolean().withDefault(const Constant(false))();
+  TextColumn get photoDechargePath => text().nullable()();
+  TextColumn get photoRechargePath => text().nullable()();
+}
+
+@DataClassName('ArriveeDepotRow')
+class ArriveesDepot extends Table {
+  TextColumn get chargementId => text().references(Chargements, #id)();
+  TextColumn get depotId => text().references(Depots, #id)();
+  TextColumn get chauffeur => text()();
+  TextColumn get numPermis => text()();
+  TextColumn get photoPermisPath => text().nullable()();
+  TextColumn get numLot => text()();
+  RealColumn get gpsLat => real()();
+  RealColumn get gpsLon => real()();
+  TextColumn get photoArriveePath => text().nullable()();
+  TextColumn get statutGps => text()(); // valide / hors_zone
+  @override
+  Set<Column> get primaryKey => {chargementId};
+}
+
+@DriftDatabase(tables: [
+  Fournisseurs,
+  Mines,
+  Chargements,
+  MineChargements,
+  SyncQueue,
+  Depots,
+  Transbordements,
+  ArriveesDepot,
+])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();
