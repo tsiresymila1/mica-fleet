@@ -8,3 +8,7 @@ build/
 .idea/
 # Node (build script)
 node_modules/
+
+# Drift/Freezed/Retrofit generated
+*.g.dart
+*.freezed.dart

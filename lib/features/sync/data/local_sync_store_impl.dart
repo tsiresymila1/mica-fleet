@@ -1,0 +1,61 @@
+import 'dart:convert';
+import 'package:drift/drift.dart';
+import '../../../core/db/app_database.dart';
+import '../domain/entities/sync_operation.dart';
+import '../domain/repositories/local_sync_store.dart';
+
+class DriftLocalSyncStore implements LocalSyncStore {
+  final AppDatabase db;
+  DriftLocalSyncStore(this.db);
+
+  @override
+  Future<void> enqueue(SyncOperation op) async {
+    await db.into(db.syncQueue).insertOnConflictUpdate(
+          SyncQueueCompanion.insert(
+            opId: op.opId,
+            entityType: op.entityType,
+            entityId: op.entityId,
+            opType: op.opType.name,
+            payload: jsonEncode(op.payload),
+            createdAt: op.createdAt,
+            status: Value(op.status.name),
+            attempts: Value(op.attempts),
+          ),
+        );
+  }
+
+  @override
+  Future<List<SyncOperation>> pending() async {
+    final q = db.select(db.syncQueue)
+      ..where((t) => t.status.equals('pending'))
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+    final rows = await q.get();
+    return rows.map(_toEntity).toList();
+  }
+
+  @override
+  Future<void> updateStatus(String opId, SyncStatus status,
+      {int? attempts, String? lastError, DateTime? nextRetryAt}) async {
+    await (db.update(db.syncQueue)..where((t) => t.opId.equals(opId))).write(
+      SyncQueueCompanion(
+        status: Value(status.name),
+        attempts: attempts == null ? const Value.absent() : Value(attempts),
+        lastError: Value(lastError),
+        nextRetryAt: Value(nextRetryAt),
+      ),
+    );
+  }
+
+  SyncOperation _toEntity(SyncQueueRow r) => SyncOperation(
+        opId: r.opId,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        opType: SyncOpType.values.byName(r.opType),
+        payload: jsonDecode(r.payload) as Map<String, dynamic>,
+        status: SyncStatus.values.byName(r.status),
+        attempts: r.attempts,
+        lastError: r.lastError,
+        createdAt: r.createdAt,
+        nextRetryAt: r.nextRetryAt,
+      );
+}
