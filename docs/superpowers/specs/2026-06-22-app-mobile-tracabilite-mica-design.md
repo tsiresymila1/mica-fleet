@@ -67,7 +67,7 @@ Chaque feature : `domain/` (entities, repositories abstraits, usecases) +
 | **MockLocationGuard** | Détecte GPS falsifié → flag éliminatoire bloquant | canal natif | 1 |
 | **MineRepository** | Référentiel mines (GPS + rayon) synchronisé d'Odoo, lu offline | Sync, DB | 1 |
 | **LoadingModule** | Créer chargement, ajouter mines (≤3), générer ID `MICA-YYYY-XXXX`, saisie réf/couleur/quantité | Capture, OCR, Mine, DB | 1 |
-| **SyncModule** | File d'attente persistante, upload photos multipart, retry backoff, anti-doublon | RemoteDataSource, DB | 1 |
+| **SyncEngine** | Moteur de sync op-based (voir §6 bis) : op-log persistant, push idempotent, pull référentiel, retry backoff, upload photos multipart | LocalSyncStore, RemoteDataSource, DB | 1 |
 | **TransportModule** | Chaîne de transbordements **dynamique (0..N)** : pour chaque maillon → photo déchargement + rechargement, plaque avant/après, contrôle rayon GPS ; ajout/suppression de maillon | Capture, DB | 2 |
 | **DepotModule** | Arrivée : chauffeur / n° permis / photo permis (opt) / n° lot, détection dépôt, validation GPS zone | Capture, DB | 2 |
 | **ScoringEngine** | Pré-calcul local : Niveau 1 éligibilité (Pass/Fail) + estimation indicative Niveau 2 | DB | 2 |
@@ -82,7 +82,7 @@ Chaque feature : `domain/` (entities, repositories abstraits, usecases) +
 - **Photo**: id, chemin fichier, hashSha256, lat, lon, précision, orientation, horodatage, type (mine/déchargement/rechargement/arrivée/permis).
 - **Transbordement**: chargementId, **ordre** (séquence dans la chaîne), plaqueAvant, plaqueApres, gpsDechargement, gpsRechargement, photos (déchargement + rechargement), distanceM, conforme. **Nombre dynamique 0..N par chargement** (camion A→B→C→…) — un maillon ordonné par changement de transporteur.
 - **ArriveeDepot**: chargementId, depotId, chauffeur, numPermis, photoPermisId, numLot, gps, statutGpsArrivee, photoArriveeId.
-- **SyncQueue**: id, entité, payload, statut (en_attente / en_cours / synchronise / erreur), tentatives, dernièreErreur.
+- **SyncOperation** (table `sync_queue`): opId (UUID), entityType, entityId, opType (create/update/delete), payload, status (pending/syncing/synced/failed), attempts, lastError, createdAt, nextRetryAt. Voir §6 bis.
 
 ## 6. Flux de données (offline-first)
 
@@ -98,6 +98,44 @@ Action terrain → écriture DB locale (source de vérité) → SyncQueue (en_at
 - ID unique généré localement → dédoublonnage côté Odoo.
 - Photos : fichiers sur disque + hash en DB ; upload multipart différé.
 - Référentiel mines : tiré d'Odoo quand réseau dispo, consultable offline.
+
+## 6 bis. Moteur de synchronisation (Sync Engine)
+
+Inspiré de `Harsh4114/offline_sync_engine` (op-based sync), **adapté et simplifié** au cas
+mica : single-writer (un chargement créé sur un seul appareil) + push vers Odoo + pull en
+lecture du référentiel mines.
+
+### Principes repris du modèle
+- **Op-based** : chaque mutation métier produit une opération journalisée (`SyncOperation`), pas une synchro d'état brute.
+- **Statuts** : `pending → syncing → synced` / `failed`.
+- **Idempotence** : chaque opération porte un `opId` (UUID) ; Odoo déduplique sur cet id → ré-livraison sans effet de bord.
+- **Adaptateurs** : contrats abstraits `LocalSyncStore` et `RemoteDataSource` (Retrofit/Odoo), implémentations mockables pour les tests.
+- **Replay** : au démarrage de la sync, rejeu des opérations `pending` dans l'ordre de création (FIFO causal).
+
+### Simplifications volontaires (vs le repo source)
+- **Pas de vector clocks ni de merge concurrent** : single-writer par entité, aucune édition concurrente multi-device → inutile (YAGNI). Le mobile fait foi pour les chargements ; Odoo fait foi pour le référentiel mines et le score définitif.
+- **Conflits** : push-dominant. Le pull ne concerne que des données de référence en lecture (mines, dépôts, paramètres) → écrasement local simple.
+
+### Composants
+- `SyncOperation` (Freezed + table Drift `sync_queue`) : `opId`, `entityType`, `entityId`, `opType` (create/update/delete), `payload`, `status`, `attempts`, `lastError`, `createdAt`, `nextRetryAt`.
+- `LocalSyncStore` : enqueue / lecture des `pending` / mise à jour statut (Drift).
+- `RemoteDataSource` : push opération + upload photos multipart + pull référentiel (Retrofit).
+- `SyncEngine` (API principale, façon `SyncManager`) : `enqueue(op)`, `sync()` (push pending → pull référentiel), exposé via provider Riverpod.
+- **Déclenchement** : retour réseau (`connectivity_plus`), après action terrain, et manuel.
+
+### Flux
+```
+Action terrain → écriture DB locale → enqueue(SyncOperation) [pending]
+réseau dispo → SyncEngine.sync():
+   1. push : pour chaque pending (FIFO) → RemoteDataSource → [synced] | [failed +retry]
+   2. upload photos liées en multipart (différé)
+   3. pull : référentiel mines / dépôts / paramètres → écrasement local
+```
+
+### Retry & robustesse
+- Backoff exponentiel via `nextRetryAt` ; opération jamais perdue (écrite avant toute tentative réseau).
+- Idempotence garantie côté Odoo par `opId`.
+- Photos purgées après confirmation `synced` (cf. §8 bis), hash conservé en preuve.
 
 ## 7. Règles métier critiques (à tester en priorité)
 
@@ -153,6 +191,7 @@ La conception doit garantir le fonctionnement sur Android Go / 1–2 Go de RAM.
 
 - **Unit** : usecases, `ScoringEngine` (règles Niveau 1 et 2), `MockLocationGuard`, calcul distance Haversine, génération ID `MICA-YYYY-XXXX`.
 - **Repository** : DB Drift in-memory + `RemoteDataSource` mocké.
+- **SyncEngine** : enqueue → push → statut `synced` ; retry sur échec ; idempotence (même `opId` rejoué = pas de doublon) ; replay FIFO des `pending`. Adaptateurs in-memory mockés.
 - **Widget** : écrans capture, chargement, ajout mine, arrivée dépôt.
 - **TDD** sur toute la logique métier déterministe (scoring, validation GPS) — critique anti-fraude.
 - **Bas de gamme** : test de compression photo (taille/dimensions max respectées), validation manuelle sur device Android Go réel avant livraison (capture → OCR → enregistrement sans OOM).
