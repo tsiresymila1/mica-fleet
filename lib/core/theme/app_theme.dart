@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// Thème « minéral guidé » — pensé pour le terrain : fort contraste plein soleil,
 /// grandes cibles tactiles, icône + texte court, états couleur lisibles.
@@ -20,8 +19,20 @@ class AppColors {
 class AppTheme {
   static ThemeData build() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
-    final display = GoogleFonts.bricolageGrotesque;
-    final body = GoogleFonts.plusJakartaSans;
+    TextStyle display(
+            {double? fontSize, FontWeight? fontWeight, Color? color}) =>
+        TextStyle(
+            fontFamily: 'BricolageGrotesque',
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            color: color);
+    TextStyle body(
+            {double? fontSize, FontWeight? fontWeight, Color? color}) =>
+        TextStyle(
+            fontFamily: 'PlusJakartaSans',
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            color: color);
 
     final scheme = const ColorScheme.light(
       primary: AppColors.primary,
