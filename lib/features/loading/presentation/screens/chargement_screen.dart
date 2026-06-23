@@ -5,6 +5,7 @@ import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/mine_chargement.dart';
 import 'add_mine_screen.dart';
+import 'suivi_chargement_screen.dart';
 
 class ChargementScreen extends ConsumerStatefulWidget {
   final String fournisseurId;
@@ -48,7 +49,8 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
       (c) {
         messenger.showSnackBar(
             SnackBar(content: Text('Chargement ${c.id} validé et synchronisé')));
-        navigator.pop();
+        navigator.pushReplacement(MaterialPageRoute(
+            builder: (_) => SuiviChargementScreen(chargementId: c.id)));
       },
     );
   }
