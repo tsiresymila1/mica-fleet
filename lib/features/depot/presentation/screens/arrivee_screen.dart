@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/capture_photo_screen.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../providers/depot_provider.dart';
 
@@ -31,7 +33,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   Future<void> _captureArrivee() async {
     final p = await Navigator.of(context).push<CapturedPhoto>(
         MaterialPageRoute(
-            builder: (_) => const CapturePhotoScreen(titre: 'Arrivée dépôt')));
+            builder: (_) => const CapturePhotoScreen(titre: 'Photo arrivée')));
     if (p != null) setState(() => _photo = p);
   }
 
@@ -41,7 +43,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     final photo = _photo;
     if (photo == null) {
       messenger.showSnackBar(
-          const SnackBar(content: Text('Photo d\'arrivée obligatoire')));
+          const SnackBar(content: Text('Prends d\'abord la photo')));
       return;
     }
     setState(() => _saving = true);
@@ -67,8 +69,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
             (f) => messenger.showSnackBar(
                 const SnackBar(content: Text('Échec enregistrement'))),
             (_) {
-              messenger.showSnackBar(SnackBar(content: Text(
-                  'Arrivée validée au dépôt ${arrivee.depotId}')));
+              messenger.showSnackBar(
+                  const SnackBar(content: Text('Arrivée validée')));
               navigator.pop();
             },
           );
@@ -83,45 +85,54 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Arrivée au dépôt')),
         body: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           children: [
-            Card(
-              child: ListTile(
-                leading: Icon(
-                    _photo == null ? Icons.camera_alt : Icons.check_circle,
-                    color: _photo == null ? null : Colors.green),
-                title: const Text('Photo d\'arrivée (géolocalisée)'),
-                subtitle: _photo == null
-                    ? const Text('Non capturée')
-                    : Text('GPS ${_photo!.lat.toStringAsFixed(5)}, '
-                        '${_photo!.lon.toStringAsFixed(5)}'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _captureArrivee,
-              ),
+            StepHeader(
+                numero: 1,
+                titre: 'La photo',
+                sousTitre: 'Camion déchargé au dépôt'),
+            const SizedBox(height: 12),
+            ActionTile(
+              icon: _photo == null ? Icons.camera_alt : Icons.verified,
+              color: _photo == null ? AppColors.primary : AppColors.ok,
+              titre: _photo == null ? 'Prendre la photo' : 'Photo prise',
+              sousTitre: _photo == null
+                  ? 'Avec position GPS'
+                  : 'GPS ${_photo!.lat.toStringAsFixed(4)}, '
+                      '${_photo!.lon.toStringAsFixed(4)}',
+              onTap: _captureArrivee,
+              trailing: _photo == null
+                  ? null
+                  : const StatusPill(kind: PillKind.ok, label: 'OK'),
             ),
+            const SizedBox(height: 24),
+            StepHeader(numero: 2, titre: 'Le chauffeur'),
             const SizedBox(height: 12),
             TextField(
                 controller: _chauffeurCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Nom du chauffeur',
-                    border: OutlineInputBorder())),
+                    prefixIcon: Icon(Icons.person))),
             const SizedBox(height: 12),
             TextField(
                 controller: _permisCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Numéro de permis',
-                    border: OutlineInputBorder())),
+                    prefixIcon: Icon(Icons.badge))),
             const SizedBox(height: 12),
             TextField(
                 controller: _lotCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'Numéro de lot', border: OutlineInputBorder())),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-                icon: const Icon(Icons.check),
-                label: Text(_saving ? '...' : 'Valider l\'arrivée'),
-                onPressed: _saving ? null : _save),
+                    labelText: 'Numéro de lot',
+                    prefixIcon: Icon(Icons.inventory_2))),
           ],
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: BigButton(
+              icon: Icons.check,
+              label: _saving ? 'Validation…' : 'Valider l\'arrivée',
+              onPressed: _saving ? null : _save),
         ),
       );
 }

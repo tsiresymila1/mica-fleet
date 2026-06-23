@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../../domain/entities/transbordement.dart';
 import '../providers/transport_provider.dart';
 import 'add_maillon_screen.dart';
@@ -33,56 +35,93 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     final ctrl = ref.read(chaineControllerProvider.notifier);
     if (!ctrl.chaineCoherente) {
       messenger.showSnackBar(const SnackBar(
-          content: Text('Chaîne de plaques incohérente (A→B→C)')));
+          content: Text('Les plaques ne se suivent pas')));
       return;
     }
     final ok = await ctrl.persist(widget.chargementId);
     messenger.showSnackBar(SnackBar(
-        content: Text(ok ? 'Transbordements enregistrés' : 'Échec enregistrement')));
+        content: Text(ok ? 'Transbordements enregistrés' : 'Échec')));
   }
 
   @override
   Widget build(BuildContext context) {
     final chaine = ref.watch(chaineControllerProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Transbordements')),
-      body: chaine.isEmpty
-          ? const Center(child: Text('Aucun transbordement (transport direct)'))
-          : ListView.builder(
-              itemCount: chaine.length,
-              itemBuilder: (_, i) {
-                final m = chaine[i];
-                return ListTile(
-                  leading: CircleAvatar(child: Text('${m.ordre}')),
-                  title: Text(
-                      '${m.plaqueAvant ?? '?'} → ${m.plaqueApres ?? '?'}'),
-                  subtitle: Text(m.conforme
-                      ? 'GPS conforme'
-                      : 'GPS hors rayon (${kRayonTransbordementMetres.toInt()} m)'),
-                  trailing: Icon(
-                      m.conforme ? Icons.check_circle : Icons.error,
-                      color: m.conforme ? Colors.green : Colors.orange),
-                  onLongPress: () => ref
-                      .read(chaineControllerProvider.notifier)
-                      .removeMaillon(m.ordre),
-                );
-              },
-            ),
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+      appBar: AppBar(title: const Text('Changements de camion')),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FloatingActionButton.extended(
-              heroTag: 'addm',
-              onPressed: _addMaillon,
-              icon: const Icon(Icons.add),
-              label: const Text('Maillon')),
-          const SizedBox(width: 12),
-          FloatingActionButton.extended(
-              heroTag: 'savem',
-              onPressed: chaine.isEmpty ? null : _save,
-              icon: const Icon(Icons.save),
-              label: const Text('Enregistrer')),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            child: StepHeader(
+                numero: 1,
+                titre: 'La chaîne',
+                sousTitre: 'Un bloc par changement de camion'),
+          ),
+          Expanded(
+            child: chaine.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 96,
+                          height: 96,
+                          decoration: BoxDecoration(
+                              color: AppColors.gold.withValues(alpha: 0.12),
+                              shape: BoxShape.circle),
+                          child: const Icon(Icons.local_shipping,
+                              size: 44, color: AppColors.gold),
+                        ),
+                        const SizedBox(height: 16),
+                        Text('Aucun changement',
+                            style: Theme.of(context).textTheme.titleMedium),
+                        Text('Transport direct vers le dépôt',
+                            style: Theme.of(context).textTheme.bodyMedium),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
+                    itemCount: chaine.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
+                    itemBuilder: (_, i) {
+                      final m = chaine[i];
+                      return ActionTile(
+                        icon: Icons.swap_horiz,
+                        color: m.conforme ? AppColors.ok : AppColors.warn,
+                        titre: '${m.plaqueAvant ?? '?'} → ${m.plaqueApres ?? '?'}',
+                        sousTitre: 'Bloc ${m.ordre} · appui long pour retirer',
+                        trailing: StatusPill(
+                          kind: m.conforme ? PillKind.ok : PillKind.warn,
+                          label: m.conforme ? 'GPS ok' : 'Hors zone',
+                        ),
+                        onLongPress: () => ref
+                            .read(chaineControllerProvider.notifier)
+                            .removeMaillon(m.ordre),
+                      );
+                    },
+                  ),
+          ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+                onPressed: _addMaillon,
+                icon: const Icon(Icons.add),
+                label: const Text('Ajouter')),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: BigButton(
+                icon: Icons.save,
+                label: 'Enregistrer',
+                onPressed: chaine.isEmpty ? null : _save),
+          ),
+        ]),
       ),
     );
   }

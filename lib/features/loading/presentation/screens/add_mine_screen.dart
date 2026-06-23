@@ -1,6 +1,8 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/data/capture_service_impl.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
@@ -8,8 +10,7 @@ import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
 import '../../domain/entities/mine_chargement.dart';
 
-/// Saisie d'une mine : sélection mine, photo in-app (GPS+hash), OCR plaque, données produit.
-/// Retourne un [MineChargement] via Navigator.pop, ou null si annulé.
+/// Saisie d'une mine : photo in-app (GPS+hash), OCR plaque, mine + données produit.
 class AddMineScreen extends ConsumerStatefulWidget {
   const AddMineScreen({super.key});
   @override
@@ -24,10 +25,10 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   Mine? _mine;
   CapturedPhoto? _photo;
   bool _capturing = false;
-  String _plaque = '';
   final _refCtrl = TextEditingController();
   final _couleurCtrl = TextEditingController();
   final _qteCtrl = TextEditingController();
+  final _plaqueCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -40,7 +41,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       final cams = await availableCameras();
       if (cams.isEmpty) {
         setState(() {
-          _initError = 'Aucune caméra disponible';
+          _initError = 'Aucune caméra';
           _initializing = false;
         });
         return;
@@ -55,7 +56,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       });
     } catch (e) {
       setState(() {
-        _initError = 'Erreur caméra : $e';
+        _initError = 'Erreur caméra';
         _initializing = false;
       });
     }
@@ -67,6 +68,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     _refCtrl.dispose();
     _couleurCtrl.dispose();
     _qteCtrl.dispose();
+    _plaqueCtrl.dispose();
     super.dispose();
   }
 
@@ -76,23 +78,23 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     setState(() => _capturing = true);
     final messenger = ScaffoldMessenger.of(context);
     try {
-      // Anti-fraude : refuse si position simulée.
       final mock =
           await ref.read(mockLocationGuardProvider).isMockLocationActive();
       if (mock) {
         messenger.showSnackBar(const SnackBar(
-            content: Text('Position GPS simulée détectée — capture refusée')));
+            content: Text('GPS faux détecté — photo refusée')));
         return;
       }
       final photo = await CameraCaptureService(cam).capture();
-      final plaque = await ref.read(plateOcrServiceProvider).readPlate(photo.path);
+      final plaque =
+          await ref.read(plateOcrServiceProvider).readPlate(photo.path);
       if (!mounted) return;
       setState(() {
         _photo = photo;
-        if (plaque != null) _plaque = plaque;
+        if (plaque != null) _plaqueCtrl.text = plaque;
       });
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Échec capture : $e')));
+      messenger.showSnackBar(const SnackBar(content: Text('Échec photo')));
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
@@ -101,15 +103,16 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   void _save() {
     if (_mine == null || _photo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mine et photo obligatoires')));
+          const SnackBar(content: Text('Choisis la mine et prends la photo')));
       return;
     }
     Navigator.of(context).pop(MineChargement(
       mineId: _mine!.id,
       reference: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
-      couleur: _couleurCtrl.text.trim().isEmpty ? null : _couleurCtrl.text.trim(),
+      couleur:
+          _couleurCtrl.text.trim().isEmpty ? null : _couleurCtrl.text.trim(),
       quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
-      plaqueOcr: _plaque.isEmpty ? null : _plaque,
+      plaqueOcr: _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
       photo: _photo,
     ));
   }
@@ -121,77 +124,92 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       appBar: AppBar(title: const Text('Ajouter une mine')),
       body: _initializing
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Aperçu caméra / photo capturée
-                  AspectRatio(
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+              children: [
+                StepHeader(
+                    numero: 1,
+                    titre: 'La photo',
+                    sousTitre: 'Camion + plaque + mica visibles'),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
                     aspectRatio: 3 / 4,
                     child: _photo != null
                         ? _PhotoInfo(photo: _photo!)
                         : _initError != null
-                            ? Center(child: Text(_initError!))
+                            ? Container(
+                                color: AppColors.line,
+                                child: Center(child: Text(_initError!)))
                             : (_cam != null
                                 ? CameraPreview(_cam!)
                                 : const SizedBox.shrink()),
                   ),
-                  const SizedBox(height: 8),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.camera_alt),
-                    label: Text(_photo == null ? 'Prendre la photo' : 'Reprendre'),
-                    onPressed: (_capturing || _cam == null) ? null : _capture,
+                ),
+                const SizedBox(height: 12),
+                BigButton(
+                  icon: _photo == null ? Icons.camera_alt : Icons.refresh,
+                  label: _photo == null ? 'Prendre la photo' : 'Reprendre',
+                  color: _photo == null ? null : AppColors.gold,
+                  onPressed: (_capturing || _cam == null) ? null : _capture,
+                ),
+                const SizedBox(height: 24),
+                StepHeader(numero: 2, titre: 'La mine'),
+                const SizedBox(height: 12),
+                minesAsync.when(
+                  loading: () => const LinearProgressIndicator(),
+                  error: (e, _) =>
+                      const Text('Impossible de charger les mines'),
+                  data: (mines) => DropdownButtonFormField<Mine>(
+                    initialValue: _mine,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                        labelText: 'Choisir la mine',
+                        prefixIcon: Icon(Icons.landscape)),
+                    items: mines
+                        .map((m) =>
+                            DropdownMenuItem(value: m, child: Text(m.nom)))
+                        .toList(),
+                    onChanged: (m) => setState(() => _mine = m),
                   ),
-                  const SizedBox(height: 16),
-                  minesAsync.when(
-                    loading: () => const LinearProgressIndicator(),
-                    error: (e, _) => Text('Erreur mines : $e'),
-                    data: (mines) => DropdownButtonFormField<Mine>(
-                      initialValue: _mine,
-                      decoration: const InputDecoration(
-                          labelText: 'Mine', border: OutlineInputBorder()),
-                      items: mines
-                          .map((m) => DropdownMenuItem(value: m, child: Text(m.nom)))
-                          .toList(),
-                      onChanged: (m) => setState(() => _mine = m),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    decoration: InputDecoration(
-                        labelText: 'Plaque (OCR)', border: const OutlineInputBorder(),
-                        hintText: _plaque),
-                    controller: TextEditingController(text: _plaque),
-                    onChanged: (v) => _plaque = v,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: _refCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Référence produit',
-                          border: OutlineInputBorder())),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: _couleurCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Couleur', border: OutlineInputBorder())),
-                  const SizedBox(height: 12),
-                  TextField(
-                      controller: _qteCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                          labelText: 'Quantité estimée (kg)',
-                          border: OutlineInputBorder())),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.check),
-                    label: const Text('Enregistrer la mine'),
-                    onPressed: _save,
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 24),
+                StepHeader(numero: 3, titre: 'Les détails'),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _plaqueCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Plaque du camion',
+                      prefixIcon: Icon(Icons.directions_car)),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: _couleurCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Couleur du mica',
+                        prefixIcon: Icon(Icons.palette))),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: _refCtrl,
+                    decoration: const InputDecoration(
+                        labelText: 'Référence (si connue)',
+                        prefixIcon: Icon(Icons.tag))),
+                const SizedBox(height: 12),
+                TextField(
+                    controller: _qteCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true),
+                    decoration: const InputDecoration(
+                        labelText: 'Quantité estimée (kg)',
+                        prefixIcon: Icon(Icons.scale))),
+              ],
             ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: BigButton(
+            icon: Icons.check, label: 'Enregistrer', onPressed: _save),
+      ),
     );
   }
 }
@@ -201,17 +219,19 @@ class _PhotoInfo extends StatelessWidget {
   const _PhotoInfo({required this.photo});
   @override
   Widget build(BuildContext context) => Container(
-        color: Colors.black12,
-        padding: const EdgeInsets.all(12),
+        color: AppColors.primary.withValues(alpha: 0.06),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.check_circle, color: Colors.green, size: 48),
-            const SizedBox(height: 8),
-            Text('GPS : ${photo.lat.toStringAsFixed(5)}, '
-                '${photo.lon.toStringAsFixed(5)} (±${photo.precision.toStringAsFixed(0)} m)'),
-            Text('Hash : ${photo.sha256.substring(0, 16)}…'),
+            const Icon(Icons.verified, color: AppColors.ok, size: 64),
+            const SizedBox(height: 12),
+            const StatusPill(kind: PillKind.ok, label: 'Photo prise'),
+            const SizedBox(height: 12),
+            Text(
+                'GPS ${photo.lat.toStringAsFixed(4)}, '
+                '${photo.lon.toStringAsFixed(4)}',
+                style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       );

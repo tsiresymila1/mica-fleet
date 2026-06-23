@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'core/db/app_database.dart';
 import 'core/db/dev_seed.dart';
 import 'core/di/providers.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 
 Future<void> main() async {
@@ -30,8 +31,8 @@ class MicaFleetApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Mica Fleet',
-        theme: ThemeData(
-            colorSchemeSeed: const Color(0xFF1F4E79), useMaterial3: true),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.build(),
         home: const LoginScreen(),
       );
 }

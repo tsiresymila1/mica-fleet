@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../providers/auth_provider.dart';
 import '../../../loading/presentation/screens/chargement_screen.dart';
 
@@ -28,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final r = await ref.read(loginProvider)(_ctrl.text);
     r.match(
       (f) => setState(() {
-        _error = 'Échec connexion';
+        _error = 'Identifiant inconnu';
         _loading = false;
       }),
       (fournisseur) {
@@ -40,29 +42,58 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Connexion fournisseur')),
-        body: Padding(
-          padding: const EdgeInsets.all(24),
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Scaffold(
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const Spacer(flex: 2),
+              // Marque
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                        colors: [AppColors.primary, AppColors.primaryDark],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    borderRadius: BorderRadius.circular(28)),
+                child: const Icon(Icons.terrain, color: AppColors.gold, size: 52),
+              ),
+              const SizedBox(height: 20),
+              Text('Mica', style: t.displaySmall!.copyWith(fontSize: 40)),
+              const SizedBox(height: 4),
+              Text('Suivi du chargement à la mine',
+                  style: t.bodyMedium, textAlign: TextAlign.center),
+              const Spacer(flex: 1),
+              // Saisie
               TextField(
-                  controller: _ctrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Identifiant fournisseur',
-                      border: OutlineInputBorder())),
-              if (_error != null)
-                Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(_error!,
-                        style: const TextStyle(color: Colors.red))),
-              const SizedBox(height: 16),
-              FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  child: Text(_loading ? '...' : 'Se connecter')),
+                controller: _ctrl,
+                textInputAction: TextInputAction.go,
+                onSubmitted: (_) => _submit(),
+                style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  labelText: 'Mon identifiant',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                StatusPill(kind: PillKind.danger, label: _error!),
+              ],
+              const SizedBox(height: 20),
+              BigButton(
+                icon: Icons.login,
+                label: _loading ? 'Connexion…' : 'Entrer',
+                onPressed: _loading ? null : _submit,
+              ),
+              const Spacer(flex: 2),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/mine_chargement.dart';
@@ -18,7 +20,6 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   @override
   void initState() {
     super.initState();
-    // Démarre un nouveau chargement en mémoire dès l'ouverture.
     Future.microtask(() => ref
         .read(chargementControllerProvider.notifier)
         .startNew(widget.fournisseurId));
@@ -45,10 +46,11 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
         .validateAndPersist();
     res.match(
       (f) => messenger.showSnackBar(SnackBar(
-          content: Text(f is ValidationFailure ? f.message : 'Échec validation'))),
+          content:
+              Text(f is ValidationFailure ? f.message : 'Échec validation'))),
       (c) {
         messenger.showSnackBar(
-            SnackBar(content: Text('Chargement ${c.id} validé et synchronisé')));
+            SnackBar(content: Text('Chargement ${c.id} enregistré')));
         navigator.pushReplacement(MaterialPageRoute(
             builder: (_) => SuiviChargementScreen(chargementId: c.id)));
       },
@@ -63,11 +65,10 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(chargement == null
-            ? 'Nouveau chargement'
-            : 'Chargement ${chargement.id}'),
+        title: const Text('Chargement'),
         actions: [
           IconButton(
+              tooltip: 'Synchroniser',
               icon: const Icon(Icons.sync),
               onPressed: () => ref.read(triggerSyncProvider).sync()),
         ],
@@ -75,57 +76,115 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
       body: chargement == null
           ? const Center(child: CircularProgressIndicator())
           : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text('${mines.length}/3 mines',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                  child: StepHeader(
+                    numero: 1,
+                    titre: 'Mes mines',
+                    sousTitre: 'Ajoute de 1 à 3 mines avec photo',
+                  ),
                 ),
+                // Compteur de progression visuel (pastilles)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(children: [
+                    for (var i = 0; i < 3; i++)
+                      Expanded(
+                        child: Container(
+                          margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: i < mines.length
+                                ? AppColors.primary
+                                : AppColors.line,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                  ]),
+                ),
+                const SizedBox(height: 12),
                 Expanded(
                   child: mines.isEmpty
-                      ? const Center(child: Text('Aucune mine ajoutée'))
-                      : ListView.builder(
+                      ? _EmptyMines()
+                      : ListView.separated(
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
                           itemCount: mines.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (_, i) {
                             final m = mines[i];
-                            return ListTile(
-                              leading: CircleAvatar(child: Text('${i + 1}')),
-                              title: Text(m.mineId),
-                              subtitle: Text([
+                            return ActionTile(
+                              icon: Icons.landscape,
+                              color: AppColors.primary,
+                              titre: 'Mine ${i + 1}',
+                              sousTitre: [
                                 if (m.couleur != null) m.couleur,
-                                if (m.plaqueOcr != null) 'Plaque ${m.plaqueOcr}',
+                                if (m.plaqueOcr != null) m.plaqueOcr,
                                 if (m.quantiteEstimee != null)
                                   '${m.quantiteEstimee} kg',
-                              ].whereType<String>().join(' · ')),
-                              trailing: m.photo != null
-                                  ? const Icon(Icons.photo, color: Colors.green)
-                                  : const Icon(Icons.warning, color: Colors.orange),
+                              ].whereType<String>().join('  •  '),
+                              trailing: StatusPill(
+                                kind: m.photo != null
+                                    ? PillKind.ok
+                                    : PillKind.warn,
+                                label: m.photo != null ? 'Photo' : 'Manque',
+                              ),
                             );
                           },
                         ),
                 ),
               ],
             ),
-      floatingActionButton: chargement == null
+      bottomNavigationBar: chargement == null
           ? null
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FloatingActionButton.extended(
-                  heroTag: 'add',
-                  onPressed: peutAjouter ? _addMine : null,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Mine'),
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Row(children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: peutAjouter ? _addMine : null,
+                    icon: const Icon(Icons.add_a_photo, size: 24),
+                    label: const Text('Ajouter'),
+                  ),
                 ),
                 const SizedBox(width: 12),
-                FloatingActionButton.extended(
-                  heroTag: 'validate',
-                  onPressed: mines.isEmpty ? null : _validate,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Valider'),
+                Expanded(
+                  child: BigButton(
+                    icon: Icons.check,
+                    label: 'Valider',
+                    onPressed: mines.isEmpty ? null : _validate,
+                  ),
                 ),
-              ],
+              ]),
             ),
     );
   }
+}
+
+class _EmptyMines extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle),
+              child: const Icon(Icons.add_a_photo,
+                  size: 44, color: AppColors.primary),
+            ),
+            const SizedBox(height: 16),
+            Text('Appuie sur « Ajouter »',
+                style: Theme.of(context).textTheme.titleMedium),
+            Text('pour photographier la première mine',
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        ),
+      );
 }
