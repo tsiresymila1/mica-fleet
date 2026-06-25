@@ -15,13 +15,14 @@ class DevSeeder {
         id: 'F001', nom: 'Fournisseur Démo'));
 
     const mines = [
-      ('M001', 'Carrière Andilana', -18.91000, 47.52000, 'Analamanga'),
-      ('M002', 'Carrière Ambatomena', -18.92500, 47.53500, 'Analamanga'),
-      ('M003', 'Carrière Sahatany', -19.00000, 47.60000, 'Vakinankaratra'),
+      ('M001', 'Carrière Andilana', -18.91000, 47.52000, 'Ambohidratrimo', 'Andilana', 'Analamanga'),
+      ('M002', 'Carrière Ambatomena', -18.92500, 47.53500, 'Manjakandriana', 'Ambatomena', 'Analamanga'),
+      ('M003', 'Carrière Sahatany', -19.00000, 47.60000, 'Antsirabe II', 'Sahatany', 'Vakinankaratra'),
     ];
-    for (final (id, nom, lat, lon, region) in mines) {
+    for (final (id, nom, lat, lon, district, commune, region) in mines) {
       await db.into(db.mines).insert(MinesCompanion.insert(
           id: id, nom: nom, lat: lat, lon: lon,
+          district: Value(district), commune: Value(commune),
           region: Value(region)));
     }
 

@@ -16,6 +16,10 @@ class ValidateArrivee {
     required String chauffeur,
     required String numPermis,
     required String numLot,
+    String? plaqueArrivee,
+    String? plaqueAttendue, // dernière plaque connue (chaîne ou chargement)
+    String? photoArriveePath,
+    String? photoPermisPath,
   }) {
     if (chauffeur.trim().isEmpty ||
         numPermis.trim().isEmpty ||
@@ -37,6 +41,18 @@ class ValidateArrivee {
       gpsLat: lat,
       gpsLon: lon,
       statutGps: 'valide',
+      plaqueArrivee: plaqueArrivee,
+      plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
+      photoArriveePath: photoArriveePath,
+      photoPermisPath: photoPermisPath,
     ));
+  }
+
+  /// Vrai si plaque d'arrivée == plaque attendue (anti-fraude immatriculation).
+  /// Si l'une est inconnue, on ne peut pas infirmer → cohérent.
+  bool _coherente(String? arrivee, String? attendue) {
+    if (arrivee == null || attendue == null) return true;
+    String norm(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    return norm(arrivee) == norm(attendue);
   }
 }

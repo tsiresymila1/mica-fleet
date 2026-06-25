@@ -46,6 +46,9 @@ class DepotRepositoryImpl implements DepotRepository {
               statutGps: a.statutGps,
               photoPermisPath: Value(a.photoPermisPath),
               photoArriveePath: Value(a.photoArriveePath),
+              plaqueArrivee: Value(a.plaqueArrivee),
+              plaqueCoherente: Value(a.plaqueCoherente),
+              scoreTracabilite: Value(a.scoreTracabilite),
             ),
           );
       await syncStore.enqueue(SyncOperation(
@@ -61,6 +64,9 @@ class DepotRepositoryImpl implements DepotRepository {
           'num_lot': a.numLot,
           'gps': [a.gpsLat, a.gpsLon],
           'statut_gps': a.statutGps,
+          'plaque_arrivee': a.plaqueArrivee,
+          'plaque_coherente': a.plaqueCoherente,
+          'score_tracabilite': a.scoreTracabilite,
         },
         createdAt: DateTime.now(),
       ));
@@ -68,5 +74,20 @@ class DepotRepositoryImpl implements DepotRepository {
     } catch (e) {
       return left(Failure.database(e.toString()));
     }
+  }
+
+  @override
+  Future<ChargementResume> chargementResume(String chargementId) async {
+    final mines = await (db.select(db.mineChargements)
+          ..where((t) => t.chargementId.equals(chargementId)))
+        .get();
+    final charg = await (db.select(db.chargements)
+          ..where((t) => t.id.equals(chargementId)))
+        .getSingleOrNull();
+    return (
+      nbMines: mines.length,
+      cree: charg?.dateCreation,
+      plaque: mines.isNotEmpty ? mines.first.plaqueOcr : null,
+    );
   }
 }

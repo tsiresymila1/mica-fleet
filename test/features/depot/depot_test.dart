@@ -41,4 +41,28 @@ void main() {
         numLot: 'L1');
     expect(r.getRight().toNullable()!.depotId, 'D1');
   });
+
+  test('plaque cohérente si arrivée == attendue (normalisée)', () {
+    final r = ValidateArrivee(DetectDepot())(
+        chargementId: 'C1', depots: depots, lat: -18.90005, lon: 47.5,
+        chauffeur: 'J', numPermis: 'P', numLot: 'L',
+        plaqueArrivee: '1234 tbr', plaqueAttendue: '1234-TBR');
+    expect(r.getRight().toNullable()!.plaqueCoherente, isTrue);
+  });
+
+  test('plaque incohérente si arrivée != attendue', () {
+    final r = ValidateArrivee(DetectDepot())(
+        chargementId: 'C1', depots: depots, lat: -18.90005, lon: 47.5,
+        chauffeur: 'J', numPermis: 'P', numLot: 'L',
+        plaqueArrivee: '9999 ABC', plaqueAttendue: '1234 TBR');
+    expect(r.getRight().toNullable()!.plaqueCoherente, isFalse);
+  });
+
+  test('plaque cohérente par défaut si attendue inconnue', () {
+    final r = ValidateArrivee(DetectDepot())(
+        chargementId: 'C1', depots: depots, lat: -18.90005, lon: 47.5,
+        chauffeur: 'J', numPermis: 'P', numLot: 'L',
+        plaqueArrivee: '9999 ABC', plaqueAttendue: null);
+    expect(r.getRight().toNullable()!.plaqueCoherente, isTrue);
+  });
 }

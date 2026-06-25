@@ -114,6 +114,9 @@ class ArriveesDepot extends Table {
   RealColumn get gpsLat => real()();
   RealColumn get gpsLon => real()();
   TextColumn get photoArriveePath => text().nullable()();
+  TextColumn get plaqueArrivee => text().nullable()();
+  BoolColumn get plaqueCoherente => boolean().withDefault(const Constant(true))();
+  IntColumn get scoreTracabilite => integer().nullable()();
   TextColumn get statutGps => text()(); // valide / hors_zone
   @override
   Set<Column> get primaryKey => {chargementId};
@@ -132,7 +135,7 @@ class ArriveesDepot extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();

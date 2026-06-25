@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/capture_photo_screen.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../domain/entities/transbordement.dart';
 
 /// Saisie d'un maillon de transbordement : plaques avant/après + GPS déchargement/rechargement.
@@ -28,6 +29,13 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
   Future<CapturedPhoto?> _capture(String titre) => Navigator.of(context)
       .push<CapturedPhoto>(MaterialPageRoute(
           builder: (_) => CapturePhotoScreen(titre: titre)));
+
+  /// OCR sur la photo, préremplit le champ plaque si vide.
+  Future<void> _ocrInto(TextEditingController ctrl, String path) async {
+    if (ctrl.text.trim().isNotEmpty) return;
+    final plaque = await ref.read(plateOcrServiceProvider).readPlate(path);
+    if (plaque != null && mounted) ctrl.text = plaque;
+  }
 
   void _save() {
     if (_decharge == null || _recharge == null) {
@@ -63,7 +71,10 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
               photo: _decharge,
               onTap: () async {
                 final p = await _capture('Déchargement');
-                if (p != null) setState(() => _decharge = p);
+                if (p != null) {
+                  setState(() => _decharge = p);
+                  await _ocrInto(_avantCtrl, p.path);
+                }
               },
             ),
             const SizedBox(height: 12),
@@ -78,7 +89,10 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
               photo: _recharge,
               onTap: () async {
                 final p = await _capture('Rechargement');
-                if (p != null) setState(() => _recharge = p);
+                if (p != null) {
+                  setState(() => _recharge = p);
+                  await _ocrInto(_apresCtrl, p.path);
+                }
               },
             ),
             const SizedBox(height: 24),
