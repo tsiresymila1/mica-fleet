@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
+import '../../../journal/data/journal_service.dart';
 import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/chargement.dart';
@@ -11,8 +13,9 @@ import '../../domain/repositories/loading_repository.dart';
 class LoadingRepositoryImpl implements LoadingRepository {
   final AppDatabase db;
   final LocalSyncStore syncStore;
+  final JournalService journal;
   final _uuid = const Uuid();
-  LoadingRepositoryImpl(this.db, this.syncStore);
+  LoadingRepositoryImpl(this.db, this.syncStore, this.journal);
 
   @override
   Future<int> nextSequence(int year) async {
@@ -52,30 +55,32 @@ class LoadingRepositoryImpl implements LoadingRepository {
               );
         }
       });
+      final payload = <String, dynamic>{
+        'id': c.id,
+        'fournisseur_id': c.fournisseurId,
+        'statut': c.statut,
+        'mines': c.mines
+            .map((m) => {
+                  'mine_id': m.mineId,
+                  'reference': m.reference,
+                  'couleur': m.couleur,
+                  'quantite_estimee': m.quantiteEstimee,
+                  'plaque': m.plaqueOcr,
+                  'lat': m.photo?.lat,
+                  'lon': m.photo?.lon,
+                  'hash': m.photo?.sha256,
+                })
+            .toList(),
+      };
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
         entityType: 'chargement',
         entityId: c.id,
         opType: SyncOpType.create,
-        payload: {
-          'id': c.id,
-          'fournisseur_id': c.fournisseurId,
-          'statut': c.statut,
-          'mines': c.mines
-              .map((m) => {
-                    'mine_id': m.mineId,
-                    'reference': m.reference,
-                    'couleur': m.couleur,
-                    'quantite_estimee': m.quantiteEstimee,
-                    'plaque': m.plaqueOcr,
-                    'lat': m.photo?.lat,
-                    'lon': m.photo?.lon,
-                    'hash': m.photo?.sha256,
-                  })
-              .toList(),
-        },
+        payload: payload,
         createdAt: DateTime.now(),
       ));
+      await journal.append('chargement', c.id, jsonEncode(payload));
       return right(c);
     } catch (e) {
       return left(Failure.database(e.toString()));

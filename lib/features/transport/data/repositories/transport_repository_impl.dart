@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../journal/data/journal_service.dart';
 import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/transbordement.dart';
@@ -12,8 +14,9 @@ import '../../domain/repositories/transport_repository.dart';
 class TransportRepositoryImpl implements TransportRepository {
   final AppDatabase db;
   final LocalSyncStore syncStore;
+  final JournalService journal;
   final _uuid = const Uuid();
-  TransportRepositoryImpl(this.db, this.syncStore);
+  TransportRepositoryImpl(this.db, this.syncStore, this.journal);
 
   @override
   Future<Either<Failure, Unit>> persistChaine(
@@ -40,27 +43,29 @@ class TransportRepositoryImpl implements TransportRepository {
               );
         }
       });
+      final payload = <String, dynamic>{
+        'chargement_id': chargementId,
+        'maillons': chaine
+            .map((m) => {
+                  'ordre': m.ordre,
+                  'plaque_avant': m.plaqueAvant,
+                  'plaque_apres': m.plaqueApres,
+                  'gps_decharge': [m.gpsDechargeLat, m.gpsDechargeLon],
+                  'gps_recharge': [m.gpsRechargeLat, m.gpsRechargeLon],
+                  'distance_m': _distance(m),
+                  'conforme': m.conforme,
+                })
+            .toList(),
+      };
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
         entityType: 'transbordement',
         entityId: chargementId,
         opType: SyncOpType.update,
-        payload: {
-          'chargement_id': chargementId,
-          'maillons': chaine
-              .map((m) => {
-                    'ordre': m.ordre,
-                    'plaque_avant': m.plaqueAvant,
-                    'plaque_apres': m.plaqueApres,
-                    'gps_decharge': [m.gpsDechargeLat, m.gpsDechargeLon],
-                    'gps_recharge': [m.gpsRechargeLat, m.gpsRechargeLon],
-                    'distance_m': _distance(m),
-                    'conforme': m.conforme,
-                  })
-              .toList(),
-        },
+        payload: payload,
         createdAt: DateTime.now(),
       ));
+      await journal.append('transbordement', chargementId, jsonEncode(payload));
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));

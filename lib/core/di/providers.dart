@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../db/app_database.dart';
 import '../network/dio_client.dart';
 import '../notifications/notification_service.dart';
+import '../../features/journal/data/journal_service.dart';
 import '../../features/sync/data/mock_remote_data_source.dart';
 import '../../features/sync/data/local_sync_store_impl.dart';
 import '../../features/sync/data/remote_data_source_retrofit.dart';
@@ -15,6 +16,9 @@ final dbProvider =
 
 final notificationServiceProvider =
     Provider<NotificationService>((ref) => NotificationService());
+
+final journalServiceProvider =
+    Provider<JournalService>((ref) => JournalService(ref.watch(dbProvider)));
 
 final localSyncStoreProvider =
     Provider<LocalSyncStore>((ref) => DriftLocalSyncStore(ref.watch(dbProvider)));

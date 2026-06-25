@@ -7,7 +7,9 @@ import '../../domain/usecases/detect_depot.dart';
 import '../../domain/usecases/validate_arrivee.dart';
 
 final depotRepoProvider = Provider<DepotRepository>((ref) => DepotRepositoryImpl(
-    ref.watch(dbProvider), ref.watch(localSyncStoreProvider)));
+    ref.watch(dbProvider),
+    ref.watch(localSyncStoreProvider),
+    ref.watch(journalServiceProvider)));
 
 final detectDepotProvider = Provider((ref) => DetectDepot());
 

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
+import 'package:mica_fleet/features/journal/data/journal_service.dart';
 import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
 import 'package:mica_fleet/features/transport/data/repositories/transport_repository_impl.dart';
 import 'package:mica_fleet/features/transport/domain/entities/transbordement.dart';
@@ -12,7 +13,7 @@ void main() {
   setUp(() async {
     db = AppDatabase.memory();
     sync = DriftLocalSyncStore(db);
-    repo = TransportRepositoryImpl(db, sync);
+    repo = TransportRepositoryImpl(db, sync, JournalService(db));
     await db.into(db.chargements).insert(ChargementsCompanion.insert(
         id: 'MICA-2026-0001',
         fournisseurId: 'F001',

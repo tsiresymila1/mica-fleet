@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/features/depot/data/repositories/depot_repository_impl.dart';
 import 'package:mica_fleet/features/depot/domain/entities/arrivee_depot.dart';
+import 'package:mica_fleet/features/journal/data/journal_service.dart';
 import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
 
 void main() {
@@ -13,7 +14,7 @@ void main() {
   setUp(() async {
     db = AppDatabase.memory();
     sync = DriftLocalSyncStore(db);
-    repo = DepotRepositoryImpl(db, sync);
+    repo = DepotRepositoryImpl(db, sync, JournalService(db));
     await db.into(db.depots).insert(DepotsCompanion.insert(
         id: 'D1', nom: 'Dépôt 1', lat: -18.9, lon: 47.5));
     await db.into(db.depots).insert(DepotsCompanion.insert(

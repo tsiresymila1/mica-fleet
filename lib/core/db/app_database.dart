@@ -122,6 +122,19 @@ class ArriveesDepot extends Table {
   Set<Column> get primaryKey => {chargementId};
 }
 
+@DataClassName('JournalEntryRow')
+class JournalEntries extends Table {
+  IntColumn get seq => integer()(); // assigné séquentiellement (chaînage)
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get dataHash => text()();
+  TextColumn get prevHash => text()();
+  TextColumn get entryHash => text()();
+  DateTimeColumn get createdAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {seq};
+}
+
 @DriftDatabase(tables: [
   Fournisseurs,
   Mines,
@@ -131,11 +144,12 @@ class ArriveesDepot extends Table {
   Depots,
   Transbordements,
   ArriveesDepot,
+  JournalEntries,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();

@@ -13,8 +13,8 @@ import '../../domain/usecases/add_mine_to_chargement.dart';
 import '../../domain/usecases/validate_chargement.dart';
 
 final loadingRepoProvider = Provider<LoadingRepository>((ref) =>
-    LoadingRepositoryImpl(
-        ref.watch(dbProvider), ref.watch(localSyncStoreProvider)));
+    LoadingRepositoryImpl(ref.watch(dbProvider),
+        ref.watch(localSyncStoreProvider), ref.watch(journalServiceProvider)));
 
 final addMineUsecaseProvider = Provider((ref) => AddMineToChargement());
 final validateChargementUsecaseProvider =

@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
+import '../../../journal/data/journal_service.dart';
 import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/arrivee_depot.dart';
@@ -12,8 +14,9 @@ import '../../domain/repositories/depot_repository.dart';
 class DepotRepositoryImpl implements DepotRepository {
   final AppDatabase db;
   final LocalSyncStore syncStore;
+  final JournalService journal;
   final _uuid = const Uuid();
-  DepotRepositoryImpl(this.db, this.syncStore);
+  DepotRepositoryImpl(this.db, this.syncStore, this.journal);
 
   @override
   Future<List<Depot>> activeDepots() async {
@@ -51,25 +54,27 @@ class DepotRepositoryImpl implements DepotRepository {
               scoreTracabilite: Value(a.scoreTracabilite),
             ),
           );
+      final payload = <String, dynamic>{
+        'chargement_id': a.chargementId,
+        'depot_id': a.depotId,
+        'chauffeur': a.chauffeur,
+        'num_permis': a.numPermis,
+        'num_lot': a.numLot,
+        'gps': [a.gpsLat, a.gpsLon],
+        'statut_gps': a.statutGps,
+        'plaque_arrivee': a.plaqueArrivee,
+        'plaque_coherente': a.plaqueCoherente,
+        'score_tracabilite': a.scoreTracabilite,
+      };
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
         entityType: 'arrivee_depot',
         entityId: a.chargementId,
         opType: SyncOpType.update,
-        payload: {
-          'chargement_id': a.chargementId,
-          'depot_id': a.depotId,
-          'chauffeur': a.chauffeur,
-          'num_permis': a.numPermis,
-          'num_lot': a.numLot,
-          'gps': [a.gpsLat, a.gpsLon],
-          'statut_gps': a.statutGps,
-          'plaque_arrivee': a.plaqueArrivee,
-          'plaque_coherente': a.plaqueCoherente,
-          'score_tracabilite': a.scoreTracabilite,
-        },
+        payload: payload,
         createdAt: DateTime.now(),
       ));
+      await journal.append('arrivee_depot', a.chargementId, jsonEncode(payload));
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));

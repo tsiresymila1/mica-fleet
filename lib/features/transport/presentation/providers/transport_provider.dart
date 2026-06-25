@@ -10,8 +10,8 @@ import '../../domain/usecases/validate_transbordement.dart';
 const kRayonTransbordementMetres = 20.0; // ponytail: paramétrable Odoo plus tard
 
 final transportRepoProvider = Provider<TransportRepository>((ref) =>
-    TransportRepositoryImpl(
-        ref.watch(dbProvider), ref.watch(localSyncStoreProvider)));
+    TransportRepositoryImpl(ref.watch(dbProvider),
+        ref.watch(localSyncStoreProvider), ref.watch(journalServiceProvider)));
 
 final _addProvider = Provider((ref) => AddTransbordement());
 final _removeProvider = Provider((ref) => RemoveTransbordement());
