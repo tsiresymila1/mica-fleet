@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/error/failure.dart';
@@ -28,9 +29,28 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _permisCtrl = TextEditingController();
   final _lotCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
+  final Map<String, TextEditingController> _lotParCouleur = {};
+  List<String> _couleurs = [];
   CapturedPhoto? _photo;
   CapturedPhoto? _permisPhoto;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() async {
+      final resume = await ref
+          .read(depotRepoProvider)
+          .chargementResume(widget.chargementId);
+      if (!mounted) return;
+      setState(() {
+        _couleurs = resume.couleurs;
+        for (final c in _couleurs) {
+          _lotParCouleur[c] = TextEditingController();
+        }
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -38,6 +58,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     _permisCtrl.dispose();
     _lotCtrl.dispose();
     _plaqueCtrl.dispose();
+    for (final c in _lotParCouleur.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -111,6 +134,23 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           const SnackBar(content: Text('Prends d\'abord la photo')));
       return;
     }
+    // Lots : un par couleur si le chargement a des couleurs, sinon champ unique.
+    String numLot;
+    String? lotsJson;
+    if (_couleurs.isEmpty) {
+      numLot = _lotCtrl.text;
+    } else {
+      final map = {
+        for (final c in _couleurs) c: _lotParCouleur[c]!.text.trim()
+      };
+      if (map.values.any((v) => v.isEmpty)) {
+        messenger.showSnackBar(const SnackBar(
+            content: Text('Renseigne un numéro de lot par couleur')));
+        return;
+      }
+      numLot = map.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+      lotsJson = jsonEncode(map);
+    }
     setState(() => _saving = true);
     try {
       final depots = await ref.read(depotRepoProvider).activeDepots();
@@ -122,7 +162,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         lon: photo.lon,
         chauffeur: _chauffeurCtrl.text,
         numPermis: _permisCtrl.text,
-        numLot: _lotCtrl.text,
+        numLot: numLot,
         plaqueArrivee:
             _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
         plaqueAttendue: attendue,
@@ -137,9 +177,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
               lat: photo.lat,
               lon: photo.lon,
               plaqueCoherente: arrivee.plaqueCoherente);
-          final res = await ref
-              .read(depotRepoProvider)
-              .persistArrivee(arrivee.copyWith(scoreTracabilite: score.score));
+          final res = await ref.read(depotRepoProvider).persistArrivee(
+              arrivee.copyWith(
+                  scoreTracabilite: score.score, lotsJson: lotsJson));
           res.match(
             (f) => messenger.showSnackBar(
                 const SnackBar(content: Text('Échec enregistrement'))),
@@ -218,12 +258,24 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                 if (p != null) setState(() => _permisPhoto = p);
               },
             ),
+            const SizedBox(height: 24),
+            StepHeader(numero: 3, titre: 'Les lots'),
             const SizedBox(height: 12),
-            TextField(
-                controller: _lotCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Numéro de lot',
-                    prefixIcon: Icon(Icons.inventory_2))),
+            if (_couleurs.isEmpty)
+              TextField(
+                  controller: _lotCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Numéro de lot',
+                      prefixIcon: Icon(Icons.inventory_2)))
+            else
+              for (final c in _couleurs) ...[
+                TextField(
+                    controller: _lotParCouleur[c],
+                    decoration: InputDecoration(
+                        labelText: 'Lot — $c',
+                        prefixIcon: const Icon(Icons.inventory_2))),
+                const SizedBox(height: 12),
+              ],
           ],
         ),
         bottomNavigationBar: SafeArea(

@@ -4,7 +4,12 @@ import '../entities/arrivee_depot.dart';
 import '../entities/depot.dart';
 
 /// Résumé d'un chargement utile au scoring/cohérence à l'arrivée.
-typedef ChargementResume = ({int nbMines, DateTime? cree, String? plaque});
+typedef ChargementResume = ({
+  int nbMines,
+  DateTime? cree,
+  String? plaque,
+  List<String> couleurs,
+});
 
 abstract class DepotRepository {
   Future<List<Depot>> activeDepots();

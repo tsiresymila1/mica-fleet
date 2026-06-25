@@ -117,6 +117,7 @@ class ArriveesDepot extends Table {
   TextColumn get plaqueArrivee => text().nullable()();
   BoolColumn get plaqueCoherente => boolean().withDefault(const Constant(true))();
   IntColumn get scoreTracabilite => integer().nullable()();
+  TextColumn get lotsJson => text().nullable()(); // {couleur: n° lot}
   TextColumn get statutGps => text()(); // valide / hors_zone
   @override
   Set<Column> get primaryKey => {chargementId};
@@ -149,7 +150,7 @@ class JournalEntries extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();

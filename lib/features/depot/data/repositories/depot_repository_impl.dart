@@ -52,6 +52,7 @@ class DepotRepositoryImpl implements DepotRepository {
               plaqueArrivee: Value(a.plaqueArrivee),
               plaqueCoherente: Value(a.plaqueCoherente),
               scoreTracabilite: Value(a.scoreTracabilite),
+              lotsJson: Value(a.lotsJson),
             ),
           );
       final payload = <String, dynamic>{
@@ -65,6 +66,7 @@ class DepotRepositoryImpl implements DepotRepository {
         'plaque_arrivee': a.plaqueArrivee,
         'plaque_coherente': a.plaqueCoherente,
         'score_tracabilite': a.scoreTracabilite,
+        'lots': a.lotsJson,
       };
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
@@ -89,10 +91,17 @@ class DepotRepositoryImpl implements DepotRepository {
     final charg = await (db.select(db.chargements)
           ..where((t) => t.id.equals(chargementId)))
         .getSingleOrNull();
+    final couleurs = mines
+        .map((m) => m.couleur)
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toSet()
+        .toList();
     return (
       nbMines: mines.length,
       cree: charg?.dateCreation,
       plaque: mines.isNotEmpty ? mines.first.plaqueOcr : null,
+      couleurs: couleurs,
     );
   }
 }

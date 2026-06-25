@@ -15,6 +15,8 @@ abstract class ArriveeDepot with _$ArriveeDepot {
     String? plaqueArrivee,
     @Default(true) bool plaqueCoherente,
     int? scoreTracabilite,
+    String? lotsJson, // {couleur: n° lot} encodé JSON
+
     String? photoPermisPath,
     String? photoArriveePath,
   }) = _ArriveeDepot;
