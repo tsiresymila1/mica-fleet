@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/capture_photo_screen.dart';
+import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../domain/entities/transbordement.dart';
@@ -39,8 +40,9 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
 
   void _save() {
     if (_decharge == null || _recharge == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Photos déchargement et rechargement obligatoires')));
+      showAppMessage(
+          context, 'Photos déchargement et rechargement obligatoires',
+          kind: AppMsgKind.warning);
       return;
     }
     Navigator.of(context).pop(Transbordement(

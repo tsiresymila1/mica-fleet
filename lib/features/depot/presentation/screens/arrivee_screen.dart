@@ -126,12 +126,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   }
 
   Future<void> _save() async {
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final photo = _photo;
     if (photo == null) {
-      messenger.showSnackBar(
-          const SnackBar(content: Text('Prends d\'abord la photo')));
+      await showAppMessage(context, 'Prends d\'abord la photo',
+          kind: AppMsgKind.warning);
       return;
     }
     // Lots : un par couleur si le chargement a des couleurs, sinon champ unique.
@@ -144,8 +143,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         for (final c in _couleurs) c: _lotParCouleur[c]!.text.trim()
       };
       if (map.values.any((v) => v.isEmpty)) {
-        messenger.showSnackBar(const SnackBar(
-            content: Text('Renseigne un numéro de lot par couleur')));
+        await showAppMessage(context, 'Renseigne un numéro de lot par couleur',
+            kind: AppMsgKind.warning);
         return;
       }
       numLot = map.entries.map((e) => '${e.key}: ${e.value}').join(', ');
@@ -170,8 +169,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         photoPermisPath: _permisPhoto?.path,
       );
       await validation.match(
-        (f) async => messenger.showSnackBar(SnackBar(
-            content: Text(f is ValidationFailure ? f.message : 'Échec'))),
+        (f) async {
+          if (mounted) {
+            await showAppMessage(
+                context, f is ValidationFailure ? f.message : 'Échec',
+                kind: AppMsgKind.error);
+          }
+        },
         (arrivee) async {
           final score = await _computeScore(
               lat: photo.lat,
@@ -180,13 +184,15 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           final res = await ref.read(depotRepoProvider).persistArrivee(
               arrivee.copyWith(
                   scoreTracabilite: score.score, lotsJson: lotsJson));
-          res.match(
-            (f) => messenger.showSnackBar(
-                const SnackBar(content: Text('Échec enregistrement'))),
-            (_) {
+          if (!mounted) return;
+          await res.match(
+            (f) async => showAppMessage(context, 'Échec enregistrement',
+                kind: AppMsgKind.error),
+            (_) async {
               if (!arrivee.plaqueCoherente) {
-                messenger.showSnackBar(const SnackBar(
-                    content: Text('Attention : plaque différente du départ')));
+                await showAppMessage(
+                    context, 'Attention : plaque différente du départ',
+                    kind: AppMsgKind.warning);
               }
               navigator.pushReplacement(MaterialPageRoute(
                   builder: (_) => ScoreResultScreen(
