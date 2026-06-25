@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:crypto/crypto.dart';
 import 'package:geolocator/geolocator.dart';
+import '../../../core/utils/location.dart';
 import '../domain/entities/captured_photo.dart';
 import '../domain/services/capture_service.dart';
 
@@ -11,6 +12,7 @@ class CameraCaptureService implements CaptureService {
 
   @override
   Future<CapturedPhoto> capture() async {
+    await ensureLocationReady();
     final file = await controller.takePicture();
     final bytes = await File(file.path).readAsBytes();
     final digest = sha256.convert(bytes).toString();

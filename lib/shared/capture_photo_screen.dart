@@ -75,7 +75,8 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
       final photo = await CameraCaptureService(cam).capture();
       navigator.pop(photo);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Échec capture : $e')));
+      messenger.showSnackBar(SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
       if (mounted) setState(() => _capturing = false);
     }

@@ -94,7 +94,8 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         if (plaque != null) _plaqueCtrl.text = plaque;
       });
     } catch (e) {
-      messenger.showSnackBar(const SnackBar(content: Text('Échec photo')));
+      messenger.showSnackBar(SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', ''))));
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
