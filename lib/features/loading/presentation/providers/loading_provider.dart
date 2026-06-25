@@ -3,6 +3,8 @@ import 'package:fpdart/fpdart.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/utils/loading_id.dart';
+import '../../../delais/domain/delai_alert_planner.dart';
+import '../../../delais/domain/entities/delai_config.dart';
 import '../../data/repositories/loading_repository_impl.dart';
 import '../../domain/entities/chargement.dart';
 import '../../domain/entities/mine_chargement.dart';
@@ -60,7 +62,17 @@ class ChargementController extends Notifier<Chargement?> {
       (f) => Future.value(left(f)),
       (c) async {
         final saved = await ref.read(loadingRepoProvider).persist(c);
-        saved.match((_) {}, (persisted) => state = null);
+        await saved.match((_) async {}, (persisted) async {
+          state = null;
+          // Programme les rappels de délai (livraison au dépôt).
+          const config = DelaiConfig();
+          final rappels = DelaiAlertPlanner().planifier(
+              persisted.dateCreation, config.directVersDepot,
+              seuil: config.seuilAlerteAvant);
+          await ref
+              .read(notificationServiceProvider)
+              .scheduleRappels(persisted.id.hashCode & 0x7ff0, rappels);
+        });
         return saved;
       },
     );

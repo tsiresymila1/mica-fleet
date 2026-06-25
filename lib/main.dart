@@ -14,6 +14,7 @@ Future<void> main() async {
   if (kDebugMode) await DevSeeder(db).seedIfEmpty();
   final container =
       ProviderContainer(overrides: [dbProvider.overrideWithValue(db)]);
+  await container.read(notificationServiceProvider).init();
 
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {
