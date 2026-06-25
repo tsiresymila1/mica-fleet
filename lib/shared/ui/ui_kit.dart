@@ -135,6 +135,56 @@ class ActionTile extends StatelessWidget {
       );
 }
 
+enum AppMsgKind { info, success, warning, error }
+
+/// Dialog modal simple et lisible (remplace les SnackBars) : grosse icône
+/// colorée + message court + un seul bouton « OK ». Adapté faible niveau lecture.
+Future<void> showAppMessage(BuildContext context, String message,
+    {AppMsgKind kind = AppMsgKind.info, String? titre}) {
+  final (color, icon, defautTitre) = switch (kind) {
+    AppMsgKind.success => (AppColors.ok, Icons.check_circle, 'Réussi'),
+    AppMsgKind.warning => (AppColors.warn, Icons.error, 'Attention'),
+    AppMsgKind.error => (AppColors.danger, Icons.cancel, 'Erreur'),
+    AppMsgKind.info => (AppColors.primary, Icons.info, 'Information'),
+  };
+  return showDialog<void>(
+    context: context,
+    builder: (ctx) => Dialog(
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 42),
+            ),
+            const SizedBox(height: 16),
+            Text(titre ?? defautTitre,
+                style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message,
+                style: Theme.of(ctx).textTheme.bodyLarge,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            BigButton(
+                icon: Icons.check,
+                label: 'OK',
+                color: color,
+                onPressed: () => Navigator.of(ctx).pop()),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 /// Bouton plein largeur avec grosse icône — action principale d'un écran.
 class BigButton extends StatelessWidget {
   final IconData icon;

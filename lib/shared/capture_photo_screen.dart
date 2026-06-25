@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/capture/data/capture_service_impl.dart';
 import '../features/capture/domain/entities/captured_photo.dart';
 import '../features/capture/presentation/providers/capture_providers.dart';
+import 'ui/ui_kit.dart';
 
 /// Écran de capture réutilisable : photo in-app + GPS + hash, blocage mock-location.
 /// Retourne un [CapturedPhoto] via Navigator.pop, ou null si annulé.
@@ -62,21 +63,25 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
     final cam = _cam;
     if (cam == null) return;
     setState(() => _capturing = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     try {
       final mock =
           await ref.read(mockLocationGuardProvider).isMockLocationActive();
       if (mock) {
-        messenger.showSnackBar(const SnackBar(
-            content: Text('Position GPS simulée détectée — capture refusée')));
+        if (mounted) {
+          await showAppMessage(
+              context, 'Position GPS simulée détectée — capture refusée',
+              kind: AppMsgKind.warning);
+        }
         return;
       }
       final photo = await CameraCaptureService(cam).capture();
-      navigator.pop(photo);
+      if (mounted) Navigator.of(context).pop(photo);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) {
+        await showAppMessage(
+            context, e.toString().replaceFirst('Exception: ', ''),
+            kind: AppMsgKind.error);
+      }
     } finally {
       if (mounted) setState(() => _capturing = false);
     }

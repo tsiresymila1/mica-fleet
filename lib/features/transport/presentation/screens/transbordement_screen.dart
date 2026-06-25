@@ -31,16 +31,17 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   }
 
   Future<void> _save() async {
-    final messenger = ScaffoldMessenger.of(context);
     final ctrl = ref.read(chaineControllerProvider.notifier);
     if (!ctrl.chaineCoherente) {
-      messenger.showSnackBar(const SnackBar(
-          content: Text('Les plaques ne se suivent pas')));
+      await showAppMessage(context, 'Les plaques ne se suivent pas',
+          kind: AppMsgKind.warning);
       return;
     }
     final ok = await ctrl.persist(widget.chargementId);
-    messenger.showSnackBar(SnackBar(
-        content: Text(ok ? 'Transbordements enregistrés' : 'Échec')));
+    if (!mounted) return;
+    await showAppMessage(
+        context, ok ? 'Transbordements enregistrés' : 'Échec',
+        kind: ok ? AppMsgKind.success : AppMsgKind.error);
   }
 
   @override

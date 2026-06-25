@@ -26,31 +26,34 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   }
 
   Future<void> _addMine() async {
-    final messenger = ScaffoldMessenger.of(context);
     final mine = await Navigator.of(context).push<MineChargement>(
         MaterialPageRoute(builder: (_) => const AddMineScreen()));
     if (mine == null) return;
     final res = ref.read(chargementControllerProvider.notifier).addMine(mine);
     res.match(
-      (f) => messenger.showSnackBar(SnackBar(
-          content: Text(f is ValidationFailure ? f.message : 'Erreur'))),
+      (f) {
+        if (mounted) {
+          showAppMessage(context, f is ValidationFailure ? f.message : 'Erreur',
+              kind: AppMsgKind.warning);
+        }
+      },
       (_) {},
     );
   }
 
   Future<void> _validate() async {
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final res = await ref
         .read(chargementControllerProvider.notifier)
         .validateAndPersist();
+    if (!mounted) return;
     res.match(
-      (f) => messenger.showSnackBar(SnackBar(
-          content:
-              Text(f is ValidationFailure ? f.message : 'Échec validation'))),
-      (c) {
-        messenger.showSnackBar(
-            SnackBar(content: Text('Chargement ${c.id} enregistré')));
+      (f) => showAppMessage(
+          context, f is ValidationFailure ? f.message : 'Échec validation',
+          kind: AppMsgKind.error),
+      (c) async {
+        await showAppMessage(context, 'Chargement ${c.id} enregistré',
+            kind: AppMsgKind.success);
         navigator.pushReplacement(MaterialPageRoute(
             builder: (_) => SuiviChargementScreen(chargementId: c.id)));
       },

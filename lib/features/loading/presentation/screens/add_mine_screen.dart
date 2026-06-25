@@ -76,13 +76,14 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     final cam = _cam;
     if (cam == null) return;
     setState(() => _capturing = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
       final mock =
           await ref.read(mockLocationGuardProvider).isMockLocationActive();
       if (mock) {
-        messenger.showSnackBar(const SnackBar(
-            content: Text('GPS faux détecté — photo refusée')));
+        if (mounted) {
+          await showAppMessage(context, 'GPS faux détecté — photo refusée',
+              kind: AppMsgKind.warning);
+        }
         return;
       }
       final photo = await CameraCaptureService(cam).capture();
@@ -94,8 +95,11 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         if (plaque != null) _plaqueCtrl.text = plaque;
       });
     } catch (e) {
-      messenger.showSnackBar(SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', ''))));
+      if (mounted) {
+        await showAppMessage(
+            context, e.toString().replaceFirst('Exception: ', ''),
+            kind: AppMsgKind.error);
+      }
     } finally {
       if (mounted) setState(() => _capturing = false);
     }
@@ -103,8 +107,8 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
 
   void _save() {
     if (_mine == null || _photo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Choisis la mine et prends la photo')));
+      showAppMessage(context, 'Choisis la mine et prends la photo',
+          kind: AppMsgKind.warning);
       return;
     }
     Navigator.of(context).pop(MineChargement(
