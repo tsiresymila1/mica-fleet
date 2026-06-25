@@ -45,6 +45,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Scaffold(
+      appBar: AppBar(leading: null,),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
