@@ -152,6 +152,20 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 5;
 
+  // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
+  // Avant la prod réelle, remplacer par des migrations pas-à-pas qui
+  // préservent les données (m.addColumn / m.createTable par version).
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          for (final table in allTables) {
+            await m.deleteTable(table.actualTableName);
+          }
+          await m.createAll();
+        },
+      );
+
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();
     final file = File(p.join(dir.path, 'mica_fleet.db'));

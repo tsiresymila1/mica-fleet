@@ -35,8 +35,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }),
       (fournisseur) {
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(MaterialPageRoute(
-            builder: (_) => ChargementScreen(fournisseurId: fournisseur.id)));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => ChargementScreen(fournisseurId: fournisseur.id),
+          ),
+        );
       },
     );
   }
@@ -45,7 +48,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(leading: null,),
+      appBar: AppBar(
+        title: Text('Mica', style: t.displaySmall!.copyWith(fontSize: 40)),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -57,17 +62,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryDark],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    borderRadius: BorderRadius.circular(28)),
-                child: const Icon(Icons.terrain, color: AppColors.gold, size: 52),
+                  gradient: const LinearGradient(
+                    colors: [AppColors.primary, AppColors.primaryDark],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Icon(
+                  Icons.terrain,
+                  color: AppColors.gold,
+                  size: 52,
+                ),
               ),
               const SizedBox(height: 20),
               Text('Mica', style: t.displaySmall!.copyWith(fontSize: 40)),
               const SizedBox(height: 4),
-              Text('Suivi du chargement à la mine',
-                  style: t.bodyMedium, textAlign: TextAlign.center),
+              Text(
+                'Suivi du chargement à la mine',
+                style: t.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
               const Spacer(flex: 1),
               // Saisie
               TextField(
