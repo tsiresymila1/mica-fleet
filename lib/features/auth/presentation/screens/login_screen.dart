@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/auth_provider.dart';
-import '../../../loading/presentation/screens/chargement_screen.dart';
+import '../../../loading/presentation/screens/home_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,7 +37,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => ChargementScreen(fournisseurId: fournisseur.id),
+            builder: (_) => HomeScreen(fournisseurId: fournisseur.id),
           ),
         );
       },
