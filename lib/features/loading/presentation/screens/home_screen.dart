@@ -6,7 +6,7 @@ import '../../../sync/presentation/sync_provider.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargements_list_provider.dart';
 import 'chargement_screen.dart';
-import 'suivi_chargement_screen.dart';
+import 'chargement_detail_screen.dart';
 
 /// Accueil après connexion : historique des chargements + bouton nouveau.
 class HomeScreen extends ConsumerWidget {
@@ -59,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
                   onTap: () async {
                     await Navigator.of(context).push(MaterialPageRoute(
                         builder: (_) =>
-                            SuiviChargementScreen(chargementId: c.id)));
+                            ChargementDetailScreen(chargementId: c.id)));
                     ref.invalidate(chargementsListProvider);
                   },
                 );
