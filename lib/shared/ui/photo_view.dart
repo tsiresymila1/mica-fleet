@@ -2,11 +2,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Ouvre une photo en plein écran, zoomable (InteractiveViewer). Sans dépendance.
+/// Ouvre une photo en plein écran, zoomable (InteractiveViewer).
+/// Animation : la vignette « grandit » vers le plein écran (Hero) + fond en fondu.
 void openPhoto(BuildContext context, String path) {
-  Navigator.of(context).push(MaterialPageRoute(
-    fullscreenDialog: true,
-    builder: (_) => _PhotoViewer(path: path),
+  Navigator.of(context).push(PageRouteBuilder(
+    opaque: false,
+    barrierColor: Colors.black,
+    transitionDuration: const Duration(milliseconds: 280),
+    reverseTransitionDuration: const Duration(milliseconds: 220),
+    pageBuilder: (_, __, ___) => _PhotoViewer(path: path),
+    transitionsBuilder: (_, anim, __, child) =>
+        FadeTransition(opacity: anim, child: child),
   ));
 }
 
@@ -25,10 +31,13 @@ class _PhotoViewer extends StatelessWidget {
       ),
       body: Center(
         child: exists
-            ? InteractiveViewer(
-                minScale: 0.8,
-                maxScale: 5,
-                child: Image.file(File(path), fit: BoxFit.contain),
+            ? Hero(
+                tag: path,
+                child: InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 5,
+                  child: Image.file(File(path), fit: BoxFit.contain),
+                ),
               )
             : const Text('Image indisponible',
                 style: TextStyle(color: Colors.white70)),
@@ -51,7 +60,9 @@ class PhotoThumb extends StatelessWidget {
         width: size,
         height: size,
         child: ok
-            ? Image.file(File(path!), fit: BoxFit.cover)
+            ? Hero(
+                tag: path!,
+                child: Image.file(File(path!), fit: BoxFit.cover))
             : Container(
                 color: AppColors.line,
                 child: const Icon(Icons.image_not_supported,
