@@ -1,0 +1,86 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historique complet pour le changelog
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.41.9
+          cache: true
+
+      - name: Dépendances
+        run: flutter pub get
+
+      - name: Génération de code (freezed / drift / retrofit)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Tests
+        run: flutter test
+
+      - name: Build APK (split par ABI)
+        run: flutter build apk --release --split-per-abi
+
+      - name: Renommer les APK
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            if [ -f "$src" ]; then
+              cp "$src" "dist/mica-fleet-${TAG}-${abi}.apk"
+            fi
+          done
+          ls -lh dist
+
+      - name: Générer le changelog
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          RANGE="${PREV:+$PREV..}${TAG}"
+          {
+            echo "## ${TAG}"
+            echo
+            if [ -n "$PREV" ]; then
+              echo "Changements depuis ${PREV} :"
+            else
+              echo "Première release :"
+            fi
+            echo
+            git log $RANGE --pretty='- %s' --no-merges
+          } > RELEASE_CHANGELOG.md
+          cat RELEASE_CHANGELOG.md
+
+      - name: Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mica-fleet-${{ github.ref_name }}-apk
+          path: dist/*.apk
+
+      - name: Publier la release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: mica-fleet ${{ github.ref_name }}
+          body_path: RELEASE_CHANGELOG.md
+          files: dist/*.apk
