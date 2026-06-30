@@ -10,8 +10,8 @@ void openPhoto(BuildContext context, String path) {
     barrierColor: Colors.black,
     transitionDuration: const Duration(milliseconds: 280),
     reverseTransitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (_, __, ___) => _PhotoViewer(path: path),
-    transitionsBuilder: (_, anim, __, child) =>
+    pageBuilder: (_, _, _) => _PhotoViewer(path: path),
+    transitionsBuilder: (_, anim, _, child) =>
         FadeTransition(opacity: anim, child: child),
   ));
 }
