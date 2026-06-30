@@ -7,6 +7,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargements_list_provider.dart';
+import '../providers/loading_provider.dart';
 
 /// Accueil après connexion : historique des chargements + bouton nouveau.
 class HomeScreen extends ConsumerWidget {
@@ -22,9 +23,13 @@ class HomeScreen extends ConsumerWidget {
       drawer: _AccountDrawer(
         nom: fournisseur?.nom ?? 'Fournisseur',
         id: fournisseur?.id ?? '',
-        onLogout: () {
+        onLogout: () async {
           Navigator.of(context).pop(); // ferme le drawer
-          ref.read(authControllerProvider.notifier).logout();
+          final ok = await showConfirm(context, 'Veux-tu te déconnecter ?',
+              titre: 'Déconnexion',
+              confirmLabel: 'Déconnexion',
+              danger: true);
+          if (ok) ref.read(authControllerProvider.notifier).logout();
         },
       ),
       appBar: AppBar(
@@ -53,7 +58,7 @@ class HomeScreen extends ConsumerWidget {
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (_, i) {
                 final c = items[i];
-                return ActionTile(
+                final tile = ActionTile(
                   icon: c.arrive ? Icons.verified : Icons.local_shipping,
                   color: c.arrive ? AppColors.ok : AppColors.gold,
                   titre: c.id,
@@ -68,6 +73,42 @@ class HomeScreen extends ConsumerWidget {
                     await context.push('/detail/${c.id}');
                     ref.invalidate(chargementsListProvider);
                   },
+                );
+                // Finalisé (arrivé) → non supprimable. Sinon swipe pour supprimer.
+                if (c.arrive) return tile;
+                return Dismissible(
+                  key: ValueKey(c.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 24),
+                    decoration: BoxDecoration(
+                        color: AppColors.danger.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.delete, color: AppColors.danger),
+                  ),
+                  confirmDismiss: (_) => showConfirm(
+                      context, 'Supprimer le chargement ${c.id} ?',
+                      titre: 'Supprimer',
+                      confirmLabel: 'Supprimer',
+                      danger: true),
+                  onDismissed: (_) async {
+                    final res = await ref
+                        .read(loadingRepoProvider)
+                        .deleteChargement(c.id);
+                    ref.invalidate(chargementsListProvider);
+                    if (context.mounted) {
+                      await showAppMessage(
+                          context,
+                          res.isRight()
+                              ? 'Chargement supprimé'
+                              : 'Suppression impossible',
+                          kind: res.isRight()
+                              ? AppMsgKind.success
+                              : AppMsgKind.error);
+                    }
+                  },
+                  child: tile,
                 );
               },
             );
@@ -100,20 +141,20 @@ class _AccountDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final initiale = nom.trim().isEmpty ? '?' : nom.trim()[0].toUpperCase();
     return Drawer(
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // En-tête compte
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // En-tête compte
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+            ),
+            child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -147,23 +188,23 @@ class _AccountDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Compte fournisseur'),
-              subtitle: Text(id),
-            ),
-            const Spacer(),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.danger),
-              title: const Text('Se déconnecter',
-                  style: TextStyle(color: AppColors.danger)),
-              onTap: onLogout,
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('Compte fournisseur'),
+            subtitle: Text(id),
+          ),
+          const Spacer(),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.danger),
+            title: const Text('Se déconnecter',
+                style: TextStyle(color: AppColors.danger)),
+            onTap: onLogout,
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

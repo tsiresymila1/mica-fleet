@@ -86,4 +86,37 @@ class LoadingRepositoryImpl implements LoadingRepository {
       return left(Failure.database(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, Unit>> deleteChargement(String chargementId) async {
+    try {
+      // Refuse si déjà arrivé au dépôt (finalisé).
+      final arrivee = await (db.select(db.arriveesDepot)
+            ..where((t) => t.chargementId.equals(chargementId)))
+          .getSingleOrNull();
+      if (arrivee != null) {
+        return left(const Failure.validation(
+            'Chargement déjà arrivé au dépôt — suppression impossible'));
+      }
+      await db.transaction(() async {
+        await (db.delete(db.mineChargements)
+              ..where((t) => t.chargementId.equals(chargementId)))
+            .go();
+        await (db.delete(db.transbordements)
+              ..where((t) => t.chargementId.equals(chargementId)))
+            .go();
+        await (db.delete(db.syncQueue)
+              ..where((t) => t.entityId.equals(chargementId)))
+            .go();
+        await (db.delete(db.chargements)
+              ..where((t) => t.id.equals(chargementId)))
+            .go();
+      });
+      await journal.append('chargement_supprime', chargementId,
+          '{"id":"$chargementId"}');
+      return right(unit);
+    } catch (e) {
+      return left(Failure.database(e.toString()));
+    }
+  }
 }

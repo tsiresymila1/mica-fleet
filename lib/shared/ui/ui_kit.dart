@@ -135,6 +135,59 @@ class ActionTile extends StatelessWidget {
       );
 }
 
+/// Dialog de confirmation (Annuler / Confirmer). Renvoie true si confirmé.
+Future<bool> showConfirm(BuildContext context, String message,
+    {String titre = 'Confirmer',
+    String confirmLabel = 'Confirmer',
+    bool danger = false}) async {
+  final color = danger ? AppColors.danger : AppColors.primary;
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+              child: Icon(danger ? Icons.warning_amber : Icons.help_outline,
+                  color: color, size: 32),
+            ),
+            const SizedBox(height: 16),
+            Text(titre, style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(message,
+                style: Theme.of(ctx).textTheme.bodyLarge,
+                textAlign: TextAlign.center),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('Annuler')),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: BigButton(
+                    icon: danger ? Icons.delete : Icons.check,
+                    label: confirmLabel,
+                    color: color,
+                    onPressed: () => Navigator.of(ctx).pop(true)),
+              ),
+            ]),
+          ],
+        ),
+      ),
+    ),
+  );
+  return ok ?? false;
+}
+
 enum AppMsgKind { info, success, warning, error }
 
 /// Dialog modal simple et lisible (remplace les SnackBars) : grosse icône
