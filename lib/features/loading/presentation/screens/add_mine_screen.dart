@@ -138,7 +138,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                     sousTitre: 'Camion + plaque + mica visibles'),
                 const SizedBox(height: 12),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(10),
                   child: AspectRatio(
                     aspectRatio: 3 / 4,
                     child: _photo != null

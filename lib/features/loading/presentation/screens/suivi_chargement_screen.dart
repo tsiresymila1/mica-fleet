@@ -19,7 +19,7 @@ class SuiviChargementScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                   color: AppColors.ok.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(20)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Row(children: [
                 const Icon(Icons.check_circle, color: AppColors.ok, size: 32),
                 const SizedBox(width: 12),

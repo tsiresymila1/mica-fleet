@@ -96,7 +96,7 @@ class ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(
@@ -107,7 +107,7 @@ class ActionTile extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(8)),
                 child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 14),
@@ -151,7 +151,7 @@ Future<void> showAppMessage(BuildContext context, String message,
     context: context,
     builder: (ctx) => Dialog(
       shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
         child: Column(
@@ -204,9 +204,11 @@ class BigButton extends StatelessWidget {
             ? null
             : FilledButton.styleFrom(
                 backgroundColor: color, foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(64),
+                minimumSize: const Size.fromHeight(52),
+                textStyle: Theme.of(context).textTheme.labelLarge!
+                    .copyWith(fontSize: 15),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18))),
+                    borderRadius: BorderRadius.circular(8))),
         icon: Icon(icon, size: 21),
         label: Text(label),
       );
