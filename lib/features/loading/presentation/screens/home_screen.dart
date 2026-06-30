@@ -15,9 +15,18 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final liste = ref.watch(chargementsListProvider);
+    final fournisseur = ref.watch(authControllerProvider);
     final df = DateFormat('dd/MM/yyyy HH:mm');
 
     return Scaffold(
+      drawer: _AccountDrawer(
+        nom: fournisseur?.nom ?? 'Fournisseur',
+        id: fournisseur?.id ?? '',
+        onLogout: () {
+          Navigator.of(context).pop(); // ferme le drawer
+          ref.read(authControllerProvider.notifier).logout();
+        },
+      ),
       appBar: AppBar(
         title: const Text('Mes chargements'),
         actions: [
@@ -28,11 +37,6 @@ class HomeScreen extends ConsumerWidget {
               await ref.read(triggerSyncProvider).sync();
               ref.invalidate(chargementsListProvider);
             },
-          ),
-          IconButton(
-            tooltip: 'Déconnexion',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
       ),
@@ -79,6 +83,86 @@ class HomeScreen extends ConsumerWidget {
             await context.push('/chargement');
             ref.invalidate(chargementsListProvider);
           },
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountDrawer extends StatelessWidget {
+  final String nom;
+  final String id;
+  final VoidCallback onLogout;
+  const _AccountDrawer(
+      {required this.nom, required this.id, required this.onLogout});
+
+  @override
+  Widget build(BuildContext context) {
+    final initiale = nom.trim().isEmpty ? '?' : nom.trim()[0].toUpperCase();
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // En-tête compte
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.gold,
+                    child: Text(initiale,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall!
+                            .copyWith(color: Colors.white)),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(nom,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge!
+                          .copyWith(color: Colors.white)),
+                  Text('ID : $id',
+                      style: const TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(999)),
+                    child: const Text('Connecté',
+                        style: TextStyle(color: Colors.white, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.badge_outlined),
+              title: const Text('Compte fournisseur'),
+              subtitle: Text(id),
+            ),
+            const Spacer(),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.logout, color: AppColors.danger),
+              title: const Text('Se déconnecter',
+                  style: TextStyle(color: AppColors.danger)),
+              onTap: onLogout,
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
       ),
     );
