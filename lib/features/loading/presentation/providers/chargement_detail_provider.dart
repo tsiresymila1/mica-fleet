@@ -12,18 +12,20 @@ class MineLine {
 
 class TransLine {
   final int ordre;
-  final String? plaqueAvant, plaqueApres;
+  final String? plaqueAvant, plaqueApres, photoDecharge, photoRecharge;
   final bool conforme;
-  const TransLine(this.ordre, this.plaqueAvant, this.plaqueApres, this.conforme);
+  const TransLine(this.ordre, this.plaqueAvant, this.plaqueApres, this.conforme,
+      this.photoDecharge, this.photoRecharge);
 }
 
 class ArriveeLine {
   final String depotId, chauffeur, numPermis, numLot;
-  final String? plaqueArrivee, lotsJson;
+  final String? plaqueArrivee, lotsJson, photoArrivee, photoPermis;
   final bool plaqueCoherente;
   final int? score;
   const ArriveeLine(this.depotId, this.chauffeur, this.numPermis, this.numLot,
-      this.plaqueArrivee, this.lotsJson, this.plaqueCoherente, this.score);
+      this.plaqueArrivee, this.lotsJson, this.plaqueCoherente, this.score,
+      this.photoArrivee, this.photoPermis);
 }
 
 class ChargementDetail {
@@ -63,13 +65,21 @@ final chargementDetailProvider = FutureProvider.autoDispose
             m.gpsLat, m.gpsLon, m.photoPath))
         .toList(),
     trans
-        .map((t) =>
-            TransLine(t.ordre, t.plaqueAvant, t.plaqueApres, t.conforme))
+        .map((t) => TransLine(t.ordre, t.plaqueAvant, t.plaqueApres,
+            t.conforme, t.photoDechargePath, t.photoRechargePath))
         .toList(),
     arr == null
         ? null
-        : ArriveeLine(arr.depotId, arr.chauffeur, arr.numPermis, arr.numLot,
-            arr.plaqueArrivee, arr.lotsJson, arr.plaqueCoherente,
-            arr.scoreTracabilite),
+        : ArriveeLine(
+            arr.depotId,
+            arr.chauffeur,
+            arr.numPermis,
+            arr.numLot,
+            arr.plaqueArrivee,
+            arr.lotsJson,
+            arr.plaqueCoherente,
+            arr.scoreTracabilite,
+            arr.photoArriveePath,
+            arr.photoPermisPath),
   );
 });

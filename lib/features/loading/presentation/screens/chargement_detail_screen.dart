@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargement_detail_provider.dart';
 import 'suivi_chargement_screen.dart';
@@ -29,7 +29,16 @@ class ChargementDetailScreen extends ConsumerWidget {
             ],
             _Section('Infos', [
               _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
-              _kv('Statut', d.statut),
+              const SizedBox(height: 8),
+              Row(children: [
+                const Text('Statut', style: TextStyle(color: AppColors.inkSoft)),
+                const Spacer(),
+                StatusPill(
+                  kind: d.arrivee != null ? PillKind.ok : PillKind.neutral,
+                  label: d.arrivee != null ? 'Arrivé au dépôt' : 'En cours',
+                ),
+              ]),
+              const SizedBox(height: 8),
               _kv('Mines', '${d.mines.length}'),
             ]),
             const SizedBox(height: 16),
@@ -44,15 +53,7 @@ class ChargementDetailScreen extends ConsumerWidget {
             if (d.transbordements.isEmpty)
               const _Muted('Transport direct (aucun changement)')
             else
-              ...d.transbordements.map((t) => Card(
-                    child: ListTile(
-                      leading: CircleAvatar(child: Text('${t.ordre}')),
-                      title: Text('${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}'),
-                      trailing: StatusPill(
-                          kind: t.conforme ? PillKind.ok : PillKind.warn,
-                          label: t.conforme ? 'GPS ok' : 'Hors zone'),
-                    ),
-                  )),
+              ...d.transbordements.map((t) => _TransCard(t: t)),
             const SizedBox(height: 16),
             StepHeader(numero: 3, titre: 'Arrivée'),
             const SizedBox(height: 8),
@@ -84,12 +85,15 @@ class ChargementDetailScreen extends ConsumerWidget {
 }
 
 Widget _kv(String k, String v) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(k, style: const TextStyle(color: AppColors.inkSoft)),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Flexible(
+              child: Text(v,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontWeight: FontWeight.w600))),
         ],
       ),
     );
@@ -128,19 +132,7 @@ class _MineCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: m.photoPath != null && File(m.photoPath!).existsSync()
-                      ? Image.file(File(m.photoPath!), fit: BoxFit.cover)
-                      : Container(
-                          color: AppColors.line,
-                          child: const Icon(Icons.image_not_supported,
-                              color: AppColors.inkSoft)),
-                ),
-              ),
+              PhotoThumb(path: m.photoPath),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -166,34 +158,84 @@ class _MineCard extends StatelessWidget {
       );
 }
 
+class _TransCard extends StatelessWidget {
+  final TransLine t;
+  const _TransCard({required this.t});
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          shape: const Border(),
+          leading: CircleAvatar(child: Text('${t.ordre}')),
+          title: Text('${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}'),
+          subtitle: Text(t.conforme ? 'GPS conforme' : 'GPS hors zone'),
+          trailing: StatusPill(
+              kind: t.conforme ? PillKind.ok : PillKind.warn,
+              label: t.conforme ? 'OK' : '!'),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            Row(children: [
+              Expanded(child: _LabeledThumb('Déchargement', t.photoDecharge)),
+              const SizedBox(width: 12),
+              Expanded(child: _LabeledThumb('Rechargement', t.photoRecharge)),
+            ]),
+          ],
+        ),
+      );
+}
+
 class _ArriveeCard extends StatelessWidget {
   final ArriveeLine a;
   const _ArriveeCard({required this.a});
   @override
   Widget build(BuildContext context) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _kv('Dépôt', a.depotId),
-              _kv('Chauffeur', a.chauffeur),
-              _kv('Permis', a.numPermis),
-              _kv('Lot', a.numLot),
-              if (a.plaqueArrivee != null) _kv('Plaque', a.plaqueArrivee!),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: StatusPill(
-                  kind: a.plaqueCoherente ? PillKind.ok : PillKind.warn,
-                  label: a.plaqueCoherente
-                      ? 'Plaque cohérente'
-                      : 'Plaque différente du départ',
-                ),
+        clipBehavior: Clip.antiAlias,
+        child: ExpansionTile(
+          shape: const Border(),
+          initiallyExpanded: true,
+          leading: const Icon(Icons.warehouse, color: AppColors.primary),
+          title: Text('Dépôt ${a.depotId}'),
+          subtitle: Text(a.chauffeur),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          children: [
+            _kv('Chauffeur', a.chauffeur),
+            _kv('Permis', a.numPermis),
+            _kv('Lot', a.numLot),
+            if (a.plaqueArrivee != null) _kv('Plaque', a.plaqueArrivee!),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: StatusPill(
+                kind: a.plaqueCoherente ? PillKind.ok : PillKind.warn,
+                label: a.plaqueCoherente
+                    ? 'Plaque cohérente'
+                    : 'Plaque différente du départ',
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _LabeledThumb('Arrivée', a.photoArrivee)),
+              const SizedBox(width: 12),
+              Expanded(child: _LabeledThumb('Permis', a.photoPermis)),
+            ]),
+          ],
         ),
+      );
+}
+
+class _LabeledThumb extends StatelessWidget {
+  final String label;
+  final String? path;
+  const _LabeledThumb(this.label, this.path);
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: 4),
+          PhotoThumb(path: path, size: 120),
+        ],
       );
 }
 
