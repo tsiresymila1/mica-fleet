@@ -84,12 +84,12 @@ flutter:
   uses-material-design: true
 
   fonts:
-    - family: BricolageGrotesque
+    - family: Montserrat
       fonts:
-        - asset: assets/fonts/BricolageGrotesque.ttf
-    - family: PlusJakartaSans
+        - asset: assets/fonts/Montserrat.ttf
+    - family: ABeeZee
       fonts:
-        - asset: assets/fonts/PlusJakartaSans.ttf
+        - asset: assets/fonts/ABeeZee.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

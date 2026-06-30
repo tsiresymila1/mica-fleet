@@ -13,8 +13,8 @@ class StepHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 38,
+            height: 38,
             decoration: const BoxDecoration(
                 color: AppColors.gold, shape: BoxShape.circle),
             alignment: Alignment.center,
@@ -22,9 +22,9 @@ class StepHeader extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge!
-                    .copyWith(color: AppColors.ink, fontSize: 24)),
+                    .copyWith(color: Colors.white, fontSize: 17)),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,17 +57,17 @@ class StatusPill extends StatelessWidget {
       PillKind.neutral => (AppColors.line, AppColors.inkSoft, Icons.schedule),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration:
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 18, color: fg),
-        const SizedBox(width: 6),
+        Icon(icon, size: 15, color: fg),
+        const SizedBox(width: 5),
         Text(label,
             style: Theme.of(context)
                 .textTheme
                 .labelLarge!
-                .copyWith(color: fg, fontSize: 14)),
+                .copyWith(color: fg, fontSize: 12.5)),
       ]),
     );
   }
@@ -100,24 +100,24 @@ class ActionTile extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Row(children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(16)),
-                child: Icon(icon, color: color, size: 30),
+                    borderRadius: BorderRadius.circular(12)),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(titre,
                         style: Theme.of(context).textTheme.titleMedium!
-                            .copyWith(fontSize: 18)),
+                            .copyWith(fontSize: 15)),
                     if (sousTitre != null)
                       Text(sousTitre!,
                           style: Theme.of(context).textTheme.bodyMedium),
@@ -158,12 +158,12 @@ Future<void> showAppMessage(BuildContext context, String message,
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 76,
-              height: 76,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 42),
+              child: Icon(icon, color: color, size: 32),
             ),
             const SizedBox(height: 16),
             Text(titre ?? defautTitre,
@@ -207,7 +207,7 @@ class BigButton extends StatelessWidget {
                 minimumSize: const Size.fromHeight(64),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(18))),
-        icon: Icon(icon, size: 26),
+        icon: Icon(icon, size: 21),
         label: Text(label),
       );
 }

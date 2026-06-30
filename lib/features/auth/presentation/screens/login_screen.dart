@@ -59,24 +59,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const Spacer(flex: 2),
               // Marque
               Container(
-                width: 96,
-                height: 96,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [AppColors.primary, AppColors.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(22),
                 ),
                 child: const Icon(
                   Icons.terrain,
                   color: AppColors.gold,
-                  size: 52,
+                  size: 40,
                 ),
               ),
-              const SizedBox(height: 20),
-              Text('Mica', style: t.displaySmall!.copyWith(fontSize: 40)),
+              const SizedBox(height: 16),
+              Text('Mica', style: t.displaySmall),
               const SizedBox(height: 4),
               Text(
                 'Suivi du chargement à la mine',
