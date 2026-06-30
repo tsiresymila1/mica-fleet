@@ -2,11 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:go_router/go_router.dart';
 import 'core/db/app_database.dart';
 import 'core/db/dev_seed.dart';
 import 'core/di/providers.dart';
+import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
-import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +16,17 @@ Future<void> main() async {
   if (kDebugMode) await DevSeeder(db).seedIfEmpty();
   final container =
       ProviderContainer(overrides: [dbProvider.overrideWithValue(db)]);
-  await container.read(notificationServiceProvider).init();
+
+  // Restaure la session existante (garde du routeur).
+  final session = await container.read(authRepositoryProvider).currentSession();
+  container.read(authControllerProvider.notifier).setSession(session);
+
+  final router = container.read(routerProvider);
+
+  // Tap sur une notification de rappel → ouvre le détail du chargement.
+  await container.read(notificationServiceProvider).init(
+        onTap: (chargementId) => router.go('/detail/$chargementId'),
+      );
 
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {
@@ -24,16 +36,17 @@ Future<void> main() async {
   });
 
   runApp(UncontrolledProviderScope(
-      container: container, child: const MicaFleetApp()));
+      container: container, child: MicaFleetApp(router: router)));
 }
 
 class MicaFleetApp extends StatelessWidget {
-  const MicaFleetApp({super.key});
+  final GoRouter router;
+  const MicaFleetApp({super.key, required this.router});
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) => MaterialApp.router(
         title: 'Mica Fleet',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.build(),
-        home: const LoginScreen(),
+        routerConfig: router,
       );
 }

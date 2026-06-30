@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargements_list_provider.dart';
-import 'chargement_screen.dart';
-import 'chargement_detail_screen.dart';
 
 /// Accueil après connexion : historique des chargements + bouton nouveau.
 class HomeScreen extends ConsumerWidget {
-  final String fournisseurId;
-  const HomeScreen({super.key, required this.fournisseurId});
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,6 +28,11 @@ class HomeScreen extends ConsumerWidget {
               await ref.read(triggerSyncProvider).sync();
               ref.invalidate(chargementsListProvider);
             },
+          ),
+          IconButton(
+            tooltip: 'Déconnexion',
+            icon: const Icon(Icons.logout),
+            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
       ),
@@ -57,9 +61,7 @@ class HomeScreen extends ConsumerWidget {
                           kind: c.arrive ? PillKind.ok : PillKind.neutral,
                           label: c.arrive ? 'Arrivé' : 'En cours'),
                   onTap: () async {
-                    await Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) =>
-                            ChargementDetailScreen(chargementId: c.id)));
+                    await context.push('/detail/${c.id}');
                     ref.invalidate(chargementsListProvider);
                   },
                 );
@@ -74,9 +76,7 @@ class HomeScreen extends ConsumerWidget {
           icon: Icons.add,
           label: 'Nouveau chargement',
           onPressed: () async {
-            await Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) =>
-                    ChargementScreen(fournisseurId: fournisseurId)));
+            await context.push('/chargement');
             ref.invalidate(chargementsListProvider);
           },
         ),

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
-import '../../../transport/presentation/screens/transbordement_screen.dart';
-import '../../../depot/presentation/screens/arrivee_screen.dart';
 
 /// Hub d'un chargement validé : accès transbordements et arrivée au dépôt.
 class SuiviChargementScreen extends StatelessWidget {
@@ -46,9 +45,7 @@ class SuiviChargementScreen extends StatelessWidget {
               color: AppColors.gold,
               titre: 'Changer de camion',
               sousTitre: 'Si tu transvases la marchandise',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) =>
-                      TransbordementScreen(chargementId: chargementId))),
+              onTap: () => context.push('/transbordement/$chargementId'),
             ),
             const SizedBox(height: 12),
             Padding(
@@ -60,8 +57,7 @@ class SuiviChargementScreen extends StatelessWidget {
               color: AppColors.primary,
               titre: 'Arrivée au dépôt',
               sousTitre: 'Chauffeur, permis, lot et photo',
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => ArriveeScreen(chargementId: chargementId))),
+              onTap: () => context.push('/arrivee/$chargementId'),
             ),
           ],
         ),

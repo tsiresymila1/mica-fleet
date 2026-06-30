@@ -69,9 +69,9 @@ class ChargementController extends Notifier<Chargement?> {
           final rappels = DelaiAlertPlanner().planifier(
               persisted.dateCreation, config.directVersDepot,
               seuil: config.seuilAlerteAvant);
-          await ref
-              .read(notificationServiceProvider)
-              .scheduleRappels(persisted.id.hashCode & 0x7ff0, rappels);
+          await ref.read(notificationServiceProvider).scheduleRappels(
+              persisted.id.hashCode & 0x7ff0, rappels,
+              payload: persisted.id);
         });
         return saved;
       },

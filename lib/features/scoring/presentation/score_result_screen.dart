@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/ui/ui_kit.dart';
 import '../domain/entities/score_result.dart';
@@ -68,8 +69,7 @@ class ScoreResultScreen extends StatelessWidget {
             BigButton(
               icon: Icons.home,
               label: 'Terminer',
-              onPressed: () =>
-                  Navigator.of(context).popUntil((r) => r.isFirst),
+              onPressed: () => context.go('/home'),
             ),
           ],
         ),

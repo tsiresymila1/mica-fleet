@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargement_detail_provider.dart';
-import 'suivi_chargement_screen.dart';
 
 /// Détail en lecture seule d'un chargement : mines, transbordements, arrivée, score.
 class ChargementDetailScreen extends ConsumerWidget {
@@ -72,9 +72,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                   icon: Icons.local_shipping,
                   label: 'Continuer le transport',
                   color: AppColors.gold,
-                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) =>
-                          SuiviChargementScreen(chargementId: chargementId))),
+                  onPressed: () => context.push('/suivi/$chargementId'),
                 ),
               )
             : null,

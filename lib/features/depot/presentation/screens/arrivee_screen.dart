@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/geo.dart';
@@ -10,7 +11,6 @@ import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../scoring/domain/entities/score_result.dart';
 import '../../../scoring/domain/entities/scoring_inputs.dart';
-import '../../../scoring/presentation/score_result_screen.dart';
 import '../../../scoring/presentation/scoring_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
 import '../providers/depot_provider.dart';
@@ -126,7 +126,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   }
 
   Future<void> _save() async {
-    final navigator = Navigator.of(context);
     final photo = _photo;
     if (photo == null) {
       await showAppMessage(context, 'Prends d\'abord la photo',
@@ -194,10 +193,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                     context, 'Attention : plaque différente du départ',
                     kind: AppMsgKind.warning);
               }
-              navigator.pushReplacement(MaterialPageRoute(
-                  builder: (_) => ScoreResultScreen(
+              if (mounted) {
+                context.pushReplacement('/score',
+                    extra: (
                       resultat: score,
-                      chargementId: widget.chargementId)));
+                      chargementId: widget.chargementId
+                    ));
+              }
             },
           );
         },

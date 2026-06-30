@@ -9,12 +9,19 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static const _channelId = 'delais';
 
-  Future<void> init() async {
+  /// [onTap] reçoit le payload (ex. id de chargement) quand l'utilisateur
+  /// tape une notification → permet d'ouvrir l'écran correspondant.
+  Future<void> init({void Function(String payload)? onTap}) async {
     tzdata.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Indian/Antananarivo')); // Madagascar
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _plugin.initialize(
-        settings: const InitializationSettings(android: android));
+      settings: const InitializationSettings(android: android),
+      onDidReceiveNotificationResponse: (resp) {
+        final p = resp.payload;
+        if (p != null && p.isNotEmpty) onTap?.call(p);
+      },
+    );
     await _plugin
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
@@ -22,7 +29,9 @@ class NotificationService {
   }
 
   /// Programme les rappels futurs (ignore ceux déjà passés).
-  Future<void> scheduleRappels(int baseId, List<RappelDelai> rappels) async {
+  /// [payload] est transmis au tap (ex. id de chargement).
+  Future<void> scheduleRappels(int baseId, List<RappelDelai> rappels,
+      {String? payload}) async {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -43,6 +52,7 @@ class NotificationService {
         scheduledDate: tz.TZDateTime.from(r.quand, tz.local),
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: payload,
       );
     }
   }

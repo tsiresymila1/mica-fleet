@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/auth_provider.dart';
-import '../../../loading/presentation/screens/home_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -27,19 +27,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
       _error = null;
     });
-    final r = await ref.read(loginProvider)(_ctrl.text);
+    final r = await ref.read(authControllerProvider.notifier).login(_ctrl.text);
     r.match(
       (f) => setState(() {
         _error = 'Identifiant inconnu';
         _loading = false;
       }),
       (fournisseur) {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(fournisseurId: fournisseur.id),
-          ),
-        );
+        if (mounted) context.go('/home');
       },
     );
   }

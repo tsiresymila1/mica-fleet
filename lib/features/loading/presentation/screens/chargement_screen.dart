@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/mine_chargement.dart';
 import 'add_mine_screen.dart';
-import 'suivi_chargement_screen.dart';
 
 class ChargementScreen extends ConsumerStatefulWidget {
-  final String fournisseurId;
-  const ChargementScreen({super.key, required this.fournisseurId});
+  const ChargementScreen({super.key});
   @override
   ConsumerState<ChargementScreen> createState() => _ChargementScreenState();
 }
@@ -20,9 +20,12 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => ref
-        .read(chargementControllerProvider.notifier)
-        .startNew(widget.fournisseurId));
+    Future.microtask(() {
+      final id = ref.read(authControllerProvider)?.id;
+      if (id != null) {
+        ref.read(chargementControllerProvider.notifier).startNew(id);
+      }
+    });
   }
 
   Future<void> _addMine() async {
@@ -42,7 +45,6 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   }
 
   Future<void> _validate() async {
-    final navigator = Navigator.of(context);
     final res = await ref
         .read(chargementControllerProvider.notifier)
         .validateAndPersist();
@@ -54,8 +56,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
       (c) async {
         await showAppMessage(context, 'Chargement ${c.id} enregistré',
             kind: AppMsgKind.success);
-        navigator.pushReplacement(MaterialPageRoute(
-            builder: (_) => SuiviChargementScreen(chargementId: c.id)));
+        if (mounted) context.pushReplacement('/suivi/${c.id}');
       },
     );
   }
