@@ -26,11 +26,20 @@ class DriftLocalSyncStore implements LocalSyncStore {
 
   @override
   Future<List<SyncOperation>> pending() async {
+    final now = DateTime.now();
     final q = db.select(db.syncQueue)
-      ..where((t) => t.status.equals('pending'))
+      ..where((t) =>
+          t.status.equals('pending') &
+          (t.nextRetryAt.isNull() | t.nextRetryAt.isSmallerOrEqualValue(now)))
       ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
     final rows = await q.get();
     return rows.map(_toEntity).toList();
+  }
+
+  @override
+  Future<void> resetInFlight() async {
+    await (db.update(db.syncQueue)..where((t) => t.status.equals('syncing')))
+        .write(const SyncQueueCompanion(status: Value('pending')));
   }
 
   @override

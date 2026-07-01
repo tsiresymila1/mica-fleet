@@ -10,22 +10,36 @@ class SyncEngine {
   final AppDatabase db;
   SyncEngine(this.store, this.remote, this.db);
 
-  /// Push FIFO des pending puis pull du référentiel mines.
+  bool _running = false;
+
+  /// Push FIFO des pending (backoff respecté) puis pull du référentiel.
+  /// Ne lève jamais : les erreurs réseau laissent les opérations en attente.
+  /// Réentrance protégée (déclenché à la fois par le réseau et le bouton).
   Future<void> sync() async {
-    final ops = await store.pending();
-    for (final op in ops) {
-      await store.updateStatus(op.opId, SyncStatus.syncing);
-      try {
-        await remote.pushOperation(op);
-        await store.updateStatus(op.opId, SyncStatus.synced);
-      } catch (e) {
-        await store.updateStatus(op.opId, SyncStatus.pending,
-            attempts: op.attempts + 1,
-            lastError: e.toString(),
-            nextRetryAt: _backoff(op.attempts + 1));
+    if (_running) return;
+    _running = true;
+    try {
+      final ops = await store.pending();
+      for (final op in ops) {
+        await store.updateStatus(op.opId, SyncStatus.syncing);
+        try {
+          await remote.pushOperation(op);
+          await store.updateStatus(op.opId, SyncStatus.synced);
+        } catch (e) {
+          await store.updateStatus(op.opId, SyncStatus.pending,
+              attempts: op.attempts + 1,
+              lastError: e.toString(),
+              nextRetryAt: _backoff(op.attempts + 1));
+        }
       }
+      try {
+        await _pullMines();
+      } catch (_) {
+        // Réseau indisponible : le référentiel local reste, on réessaiera.
+      }
+    } finally {
+      _running = false;
     }
-    await _pullMines();
   }
 
   Future<void> _pullMines() async {

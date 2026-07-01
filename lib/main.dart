@@ -28,6 +28,13 @@ Future<void> main() async {
         onTap: (chargementId) => router.go('/detail/$chargementId'),
       );
 
+  // Reprend les opérations bloquées (app tuée en plein push).
+  await container.read(localSyncStoreProvider).resetInFlight();
+
+  // Sync initiale au démarrage : charge le référentiel + pousse les en-attente.
+  // (onConnectivityChanged ne se déclenche pas à froid si déjà en ligne.)
+  container.read(syncEngineProvider).sync();
+
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {
     if (status.any((s) => s != ConnectivityResult.none)) {

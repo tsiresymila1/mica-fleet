@@ -67,11 +67,24 @@ void main() {
       expect(await store.pending(), isEmpty);
     });
 
-    test('push échoué garde pending + incrémente attempts', () async {
+    test('push échoué garde en base + incrémente attempts + backoff futur',
+        () async {
       await store.enqueue(_op('a', DateTime(2026, 1, 1)));
       await SyncEngine(store, _FakeRemote(failTimes: 1), db).sync();
-      final p = await store.pending();
-      expect(p.single.attempts, 1);
+      final rows = await db.select(db.syncQueue).get();
+      expect(rows.single.status, 'pending');
+      expect(rows.single.attempts, 1);
+      expect(rows.single.nextRetryAt, isNotNull);
+      // Exclu de pending() tant que le backoff n'est pas échu.
+      expect(await store.pending(), isEmpty);
+    });
+
+    test('resetInFlight remet les syncing en pending', () async {
+      await store.enqueue(_op('a', DateTime(2026, 1, 1)));
+      await store.updateStatus('a', SyncStatus.syncing);
+      expect(await store.pending(), isEmpty);
+      await store.resetInFlight();
+      expect((await store.pending()).single.opId, 'a');
     });
 
     test('même opId rejoué = pas de doublon distant', () async {
