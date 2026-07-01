@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -195,6 +196,16 @@ class _AccountDrawer extends StatelessWidget {
             title: const Text('Compte fournisseur'),
             subtitle: Text(id),
           ),
+          if (kDebugMode)
+            ListTile(
+              leading: const Icon(Icons.science_outlined),
+              title: const Text('Scénarios (test)'),
+              subtitle: const Text('Simuler sur cet appareil'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/dev-scenarios');
+              },
+            ),
           const Spacer(),
           const Divider(height: 1),
           ListTile(

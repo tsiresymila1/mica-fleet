@@ -11,6 +11,7 @@ import '../../features/transport/presentation/screens/transbordement_screen.dart
 import '../../features/depot/presentation/screens/arrivee_screen.dart';
 import '../../features/scoring/domain/entities/score_result.dart';
 import '../../features/scoring/presentation/score_result_screen.dart';
+import '../../features/dev/dev_scenarios_screen.dart';
 
 /// Données passées à l'écran de score via `extra`.
 typedef ScoreArgs = ({ScoreResult resultat, String chargementId});
@@ -59,6 +60,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             return ScoreResultScreen(
                 resultat: args.resultat, chargementId: args.chargementId);
           }),
+      GoRoute(
+          path: '/dev-scenarios',
+          builder: (_, _) => const DevScenariosScreen()),
     ],
   );
 });
