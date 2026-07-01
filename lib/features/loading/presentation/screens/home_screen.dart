@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
@@ -196,7 +196,7 @@ class _AccountDrawer extends StatelessWidget {
             title: const Text('Compte fournisseur'),
             subtitle: Text(id),
           ),
-          if (kDebugMode)
+          if (AppConfig.demo)
             ListTile(
               leading: const Icon(Icons.science_outlined),
               title: const Text('Scénarios (test)'),
