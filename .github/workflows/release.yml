@@ -39,30 +39,24 @@ jobs:
       - name: Tests
         run: flutter test
 
-      # APK PROD : vrai Odoo (URL depuis la variable de dépôt MICA_ODOO_URL).
+      # APK PROD (universel) : vrai Odoo (URL depuis la variable MICA_ODOO_URL).
       - name: Build APK prod
         env:
           ODOO_URL: ${{ vars.MICA_ODOO_URL }}
         run: |
-          flutter build apk --release --split-per-abi \
+          flutter build apk --release \
             --dart-define=MICA_DEMO=false \
             --dart-define=MICA_ODOO_URL="${ODOO_URL:-https://odoo.example/api}"
-          TAG="${GITHUB_REF_NAME}"
           mkdir -p dist
-          for abi in armeabi-v7a arm64-v8a x86_64; do
-            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
-            [ -f "$src" ] && cp "$src" "dist/mica-fleet-${TAG}-${abi}.apk"
-          done
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/mica-fleet-${GITHUB_REF_NAME}.apk"
 
-      # APK DÉMO : faux backend + seed local (jouable sans serveur).
+      # APK DÉMO (universel) : faux backend + seed local (jouable sans serveur).
       - name: Build APK démo
         run: |
-          flutter build apk --release --split-per-abi --dart-define=MICA_DEMO=true
-          TAG="${GITHUB_REF_NAME}"
-          for abi in armeabi-v7a arm64-v8a x86_64; do
-            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
-            [ -f "$src" ] && cp "$src" "dist/mica-fleet-${TAG}-demo-${abi}.apk"
-          done
+          flutter build apk --release --dart-define=MICA_DEMO=true
+          cp build/app/outputs/flutter-apk/app-release.apk \
+            "dist/mica-fleet-${GITHUB_REF_NAME}-demo.apk"
           ls -lh dist
 
       - name: Générer le changelog
@@ -81,10 +75,9 @@ jobs:
             echo
             git log $RANGE --pretty='- %s' --no-merges
             echo
-            echo "### APK"
-            echo "- \`mica-fleet-${TAG}-<abi>.apk\` — **prod** (connecté à Odoo)"
-            echo "- \`mica-fleet-${TAG}-demo-<abi>.apk\` — **démo** (faux backend + données locales)"
-            echo "- ABIs : \`armeabi-v7a\` (bas de gamme), \`arm64-v8a\`, \`x86_64\` (émulateur)"
+            echo "### APK (universel)"
+            echo "- \`mica-fleet-${TAG}.apk\` — **prod** (connecté à Odoo)"
+            echo "- \`mica-fleet-${TAG}-demo.apk\` — **démo** (faux backend + données locales)"
           } > RELEASE_CHANGELOG.md
           cat RELEASE_CHANGELOG.md
 
