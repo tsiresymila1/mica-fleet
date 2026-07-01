@@ -39,18 +39,29 @@ jobs:
       - name: Tests
         run: flutter test
 
-      - name: Build APK (split par ABI)
-        run: flutter build apk --release --split-per-abi
-
-      - name: Renommer les APK
+      # APK PROD : vrai Odoo (URL depuis la variable de dépôt MICA_ODOO_URL).
+      - name: Build APK prod
+        env:
+          ODOO_URL: ${{ vars.MICA_ODOO_URL }}
         run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=MICA_DEMO=false \
+            --dart-define=MICA_ODOO_URL="${ODOO_URL:-https://odoo.example/api}"
           TAG="${GITHUB_REF_NAME}"
           mkdir -p dist
           for abi in armeabi-v7a arm64-v8a x86_64; do
             src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
-            if [ -f "$src" ]; then
-              cp "$src" "dist/mica-fleet-${TAG}-${abi}.apk"
-            fi
+            [ -f "$src" ] && cp "$src" "dist/mica-fleet-${TAG}-${abi}.apk"
+          done
+
+      # APK DÉMO : faux backend + seed local (jouable sans serveur).
+      - name: Build APK démo
+        run: |
+          flutter build apk --release --split-per-abi --dart-define=MICA_DEMO=true
+          TAG="${GITHUB_REF_NAME}"
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            src="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            [ -f "$src" ] && cp "$src" "dist/mica-fleet-${TAG}-demo-${abi}.apk"
           done
           ls -lh dist
 
@@ -69,6 +80,11 @@ jobs:
             fi
             echo
             git log $RANGE --pretty='- %s' --no-merges
+            echo
+            echo "### APK"
+            echo "- \`mica-fleet-${TAG}-<abi>.apk\` — **prod** (connecté à Odoo)"
+            echo "- \`mica-fleet-${TAG}-demo-<abi>.apk\` — **démo** (faux backend + données locales)"
+            echo "- ABIs : \`armeabi-v7a\` (bas de gamme), \`arm64-v8a\`, \`x86_64\` (émulateur)"
           } > RELEASE_CHANGELOG.md
           cat RELEASE_CHANGELOG.md
 
