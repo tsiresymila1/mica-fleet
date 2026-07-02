@@ -39,10 +39,25 @@ jobs:
       - name: Tests
         run: flutter test
 
+      # Keystore de signature stable (optionnel). Sans secret → clé debug.
+      - name: Préparer le keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+          fi
+
       # APK PROD (universel) : vrai Odoo (URL depuis la variable MICA_ODOO_URL).
       - name: Build APK prod
         env:
           ODOO_URL: ${{ vars.MICA_ODOO_URL }}
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           flutter build apk --release \
             --dart-define=MICA_DEMO=false \
@@ -51,10 +66,15 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk \
             "dist/mica-fleet-${GITHUB_REF_NAME}.apk"
 
-      # APK DÉMO (universel) : faux backend + seed local (jouable sans serveur).
+      # APK DÉMO (universel) : applicationId .demo → coexiste avec la prod.
       - name: Build APK démo
+        env:
+          KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          flutter build apk --release --dart-define=MICA_DEMO=true
+          flutter build apk --release -Pdemo=true --dart-define=MICA_DEMO=true
           cp build/app/outputs/flutter-apk/app-release.apk \
             "dist/mica-fleet-${GITHUB_REF_NAME}-demo.apk"
           ls -lh dist
