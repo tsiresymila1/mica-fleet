@@ -1,5 +1,8 @@
 ## v0.1.0 - 2026-07-02
 
+- chore: remove obsolete v0.1.0 changelog file
+- chore(release): script met à jour CHANGELOG.md + re-tag + push
+- chore(release): v0.1.0
 - ci: APK universel (sans split ABI) en release — prod + démo
 - ci: build APK démo + prod paramétrés (--dart-define, MICA_ODOO_URL variable repo)
 - refactor(config): mode démo via flag --dart-define (MICA_DEMO / MICA_ODOO_URL)
