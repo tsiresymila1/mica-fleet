@@ -12,3 +12,5 @@ node_modules/
 # Drift/Freezed/Retrofit generated
 *.g.dart
 *.freezed.dart
+*.jks
+*.keystore
