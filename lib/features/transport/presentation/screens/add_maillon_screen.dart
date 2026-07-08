@@ -32,14 +32,25 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
       .push<CapturedPhoto>(MaterialPageRoute(
           builder: (_) => CapturePhotoScreen(titre: titre)));
 
-  /// Renseigne la plaque après la photo : OCR en réel, plaque simulée en sim.
-  Future<void> _fillPlate(
-      TextEditingController ctrl, String path, String simPlate) async {
-    if (ctrl.text.trim().isNotEmpty) return;
+  /// Plaque AVANT (camion qui décharge) = plaque du camion actuel (sim) ou OCR.
+  Future<void> _fillAvant(String path) async {
+    if (_avantCtrl.text.trim().isNotEmpty) return;
     final sim = ref.read(simSessionProvider);
-    final plaque =
-        sim != null ? simPlate : await ref.read(plateOcrServiceProvider).readPlate(path);
-    if (plaque != null && mounted) ctrl.text = plaque;
+    final plaque = sim != null
+        ? ref.read(simSessionProvider.notifier).plate
+        : await ref.read(plateOcrServiceProvider).readPlate(path);
+    if (plaque != null && mounted) _avantCtrl.text = plaque;
+  }
+
+  /// Plaque APRÈS (nouveau camion) = nouvelle plaque (sim, fait tourner le
+  /// camion) ou OCR. Chaîne : l'avant du prochain maillon reprendra cette plaque.
+  Future<void> _fillApres(String path) async {
+    if (_apresCtrl.text.trim().isNotEmpty) return;
+    final sim = ref.read(simSessionProvider);
+    final plaque = sim != null
+        ? ref.read(simSessionProvider.notifier).rotateTruck()
+        : await ref.read(plateOcrServiceProvider).readPlate(path);
+    if (plaque != null && mounted) _apresCtrl.text = plaque;
   }
 
   void _save() {
@@ -79,8 +90,7 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
                 final p = await _capture('Déchargement');
                 if (p != null) {
                   setState(() => _decharge = p);
-                  await _fillPlate(_avantCtrl, p.path,
-                      ref.read(simSessionProvider.notifier).plateA);
+                  await _fillAvant(p.path);
                 }
               },
             ),
@@ -98,8 +108,7 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
                 final p = await _capture('Rechargement');
                 if (p != null) {
                   setState(() => _recharge = p);
-                  await _fillPlate(_apresCtrl, p.path,
-                      ref.read(simSessionProvider.notifier).plateB);
+                  await _fillApres(p.path);
                 }
               },
             ),

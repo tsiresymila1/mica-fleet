@@ -93,7 +93,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       // Simulation : la plaque est « lue » après la photo (comme l'OCR).
       final sim = ref.read(simSessionProvider);
       final plaque = sim != null
-          ? ref.read(simSessionProvider.notifier).plateA
+          ? ref.read(simSessionProvider.notifier).plate
           : await ref.read(plateOcrServiceProvider).readPlate(photo.path);
       if (!mounted) return;
       setState(() {

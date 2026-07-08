@@ -85,7 +85,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       // Simulation : plaque du camion B (arrivé), sinon OCR.
       final sim = ref.read(simSessionProvider);
       final plaque = sim != null
-          ? ref.read(simSessionProvider.notifier).plateB
+          ? ref.read(simSessionProvider.notifier).plate
           : await ref.read(plateOcrServiceProvider).readPlate(p.path);
       if (plaque != null && mounted) _plaqueCtrl.text = plaque;
     }

@@ -7,10 +7,9 @@ class SimState {
   final List<SimPoint> points;
   final int transbordementIndex;
   final int stage; // 0 = mine, 1 = transbordement, 2 = dépôt
-  final String plateA; // camion de départ (mine → transbordement)
-  final String plateB; // camion après transbordement (→ dépôt)
-  const SimState(this.points, this.transbordementIndex, this.stage,
-      this.plateA, this.plateB);
+  final String plate; // plaque du camion actuellement en charge
+  const SimState(
+      this.points, this.transbordementIndex, this.stage, this.plate);
 
   int get _idx => switch (stage) {
         0 => 0,
@@ -22,22 +21,34 @@ class SimState {
 }
 
 /// Session de simulation guidée : fournit des coordonnées GPS simulées selon
-/// l'étape (mine → transbordement → dépôt) et la trace à enregistrer.
+/// l'étape (mine → transbordement → dépôt) et la plaque du camion en cours.
 final simSessionProvider =
     NotifierProvider<SimSession, SimState?>(SimSession.new);
 
 class SimSession extends Notifier<SimState?> {
+  final _rng = math.Random();
+
   @override
   SimState? build() => null;
 
   bool get active => state != null;
-  String get plateA => state?.plateA ?? '';
-  String get plateB => state?.plateB ?? '';
+
+  /// Plaque du camion actuellement en charge (chargement, puis après chaque
+  /// transbordement). Chaîne cohérente de bout en bout.
+  String get plate => state?.plate ?? '';
 
   void start(SimPoint depart, SimPoint depot) {
     final (pts, idx) = TripSimulator().generate(depart, depot);
-    final r = math.Random();
-    state = SimState(pts, idx, 0, _randomPlate(r), _randomPlate(r));
+    state = SimState(pts, idx, 0, _randomPlate(_rng));
+  }
+
+  /// Nouveau camion au transbordement : adopte une nouvelle plaque et la renvoie.
+  /// L'avant du maillon = plaque précédente, l'après = cette nouvelle plaque.
+  String rotateTruck() {
+    final s = state!;
+    final next = _randomPlate(_rng);
+    state = SimState(s.points, s.transbordementIndex, s.stage, next);
+    return next;
   }
 
   /// Plaque malgache plausible : 4 chiffres + espace + 3 lettres (ex. 1234 TBR).
@@ -57,8 +68,8 @@ class SimSession extends Notifier<SimState?> {
   void advance() {
     final s = state;
     if (s == null) return;
-    state = SimState(s.points, s.transbordementIndex,
-        (s.stage + 1).clamp(0, 2), s.plateA, s.plateB);
+    state = SimState(
+        s.points, s.transbordementIndex, (s.stage + 1).clamp(0, 2), s.plate);
   }
 
   /// Points de la trace mine → transbordement.
