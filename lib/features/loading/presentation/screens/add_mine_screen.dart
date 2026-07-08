@@ -8,6 +8,7 @@ import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
+import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/mine_chargement.dart';
 
 /// Saisie d'une mine : photo in-app (GPS+hash), OCR plaque, mine + données produit.
@@ -34,6 +35,9 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   void initState() {
     super.initState();
     _initCamera();
+    // Simulation guidée : préremplit la plaque.
+    final sim = ref.read(simSessionProvider);
+    if (sim != null) _plaqueCtrl.text = sim.plate;
   }
 
   Future<void> _initCamera() async {
@@ -86,7 +90,9 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         }
         return;
       }
-      final photo = await CameraCaptureService(cam).capture();
+      final photo =
+          await CameraCaptureService(cam, ref.read(locationSourceProvider))
+              .capture();
       final plaque =
           await ref.read(plateOcrServiceProvider).readPlate(photo.path);
       if (!mounted) return;
@@ -166,8 +172,16 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) =>
                       const Text('Impossible de charger les mines'),
-                  data: (mines) => DropdownButtonFormField<Mine>(
-                    initialValue: _mine,
+                  data: (mines) {
+                    if (ref.read(simSessionProvider) != null &&
+                        _mine == null &&
+                        mines.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _mine = mines.first);
+                      });
+                    }
+                    return DropdownButtonFormField<Mine>(
+                      initialValue: _mine,
                     isExpanded: true,
                     decoration: const InputDecoration(
                         labelText: 'Choisir la mine',
@@ -177,7 +191,8 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                             DropdownMenuItem(value: m, child: Text(m.nom)))
                         .toList(),
                     onChanged: (m) => setState(() => _mine = m),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 24),
                 StepHeader(numero: 3, titre: 'Les détails'),

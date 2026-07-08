@@ -4,6 +4,7 @@ import '../../../../shared/capture_photo_screen.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
+import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/transbordement.dart';
 
 /// Saisie d'un maillon de transbordement : plaques avant/après + GPS déchargement/rechargement.
@@ -19,6 +20,16 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
   final _apresCtrl = TextEditingController();
   CapturedPhoto? _decharge;
   CapturedPhoto? _recharge;
+
+  @override
+  void initState() {
+    super.initState();
+    final sim = ref.read(simSessionProvider);
+    if (sim != null) {
+      _avantCtrl.text = sim.plate;
+      _apresCtrl.text = '${sim.plate}-B'; // nouveau camion
+    }
+  }
 
   @override
   void dispose() {

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/di/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/ui/ui_kit.dart';
 import '../auth/presentation/providers/auth_provider.dart';
 import '../loading/presentation/providers/chargements_list_provider.dart';
 import '../mines/presentation/providers/mines_provider.dart';
+import '../trip/domain/trip_simulator.dart';
+import '../trip/presentation/sim_session.dart';
 import 'dev_scenario_service.dart';
 
 final devScenarioServiceProvider =
@@ -50,6 +53,27 @@ class DevScenariosScreen extends ConsumerWidget {
               return 'Mines placées à ${p.lat.toStringAsFixed(4)}, '
                   '${p.lon.toStringAsFixed(4)}. Le flux marche ici.';
             }),
+          ),
+          const SizedBox(height: 12),
+          ActionTile(
+            icon: Icons.auto_mode,
+            color: AppColors.gold,
+            titre: 'Simulation guidée',
+            sousTitre: 'Trajet auto (plaque + GPS simulés) mine → dépôt',
+            onTap: () async {
+              final ep = await svc.simEndpoints();
+              if (ep == null) {
+                if (context.mounted) {
+                  await showAppMessage(context,
+                      'Utilise d\'abord « Placer les mines ici »',
+                      kind: AppMsgKind.warning);
+                }
+                return;
+              }
+              ref.read(simSessionProvider.notifier).start(
+                  SimPoint(ep.dLat, ep.dLon), SimPoint(ep.aLat, ep.aLon));
+              if (context.mounted) context.push('/chargement');
+            },
           ),
           const SizedBox(height: 12),
           ActionTile(

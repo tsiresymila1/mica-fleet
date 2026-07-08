@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../trip/presentation/sim_session.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../../domain/entities/transbordement.dart';
 import '../providers/transport_provider.dart';
 import 'add_maillon_screen.dart';
@@ -38,6 +40,16 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       return;
     }
     final ok = await ctrl.persist(widget.chargementId);
+    // En simulation : enregistre la trace transbordement → dépôt.
+    if (ok && ref.read(simSessionProvider) != null) {
+      final sim = ref.read(simSessionProvider.notifier);
+      final tracker = ref.read(tripTrackerProvider);
+      for (final p in sim.legTransbordementToDepot()) {
+        await tracker.recordPoint(widget.chargementId, p.lat, p.lon,
+            simule: true);
+      }
+      sim.advance(); // → étape dépôt
+    }
     if (!mounted) return;
     await showAppMessage(
         context, ok ? 'Transbordements enregistrés' : 'Échec',

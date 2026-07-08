@@ -74,6 +74,17 @@ class DevScenarioService {
     await mk(3, null, false, 'Vert');
   }
 
+  /// Coordonnées départ (mine M001) et dépôt (D001) pour la simulation guidée.
+  Future<({double dLat, double dLon, double aLat, double aLon})?>
+      simEndpoints() async {
+    final mine = await (db.select(db.mines)..where((m) => m.id.equals('M001')))
+        .getSingleOrNull();
+    final depot = await (db.select(db.depots)..where((d) => d.id.equals('D001')))
+        .getSingleOrNull();
+    if (mine == null || depot == null) return null;
+    return (dLat: mine.lat, dLon: mine.lon, aLat: depot.lat, aLon: depot.lon);
+  }
+
   /// Vide tous les chargements (et données liées) — remise à zéro rapide.
   Future<void> clearChargements() async {
     await db.transaction(() async {

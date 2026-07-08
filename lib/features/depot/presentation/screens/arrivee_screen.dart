@@ -14,6 +14,7 @@ import '../../../scoring/domain/entities/scoring_inputs.dart';
 import '../../../scoring/presentation/scoring_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
 import '../../../trip/presentation/trip_provider.dart';
+import '../../../trip/presentation/sim_session.dart';
 import '../providers/depot_provider.dart';
 
 /// Validation de l'arrivée au dépôt : photo GPS, plaque (OCR), permis (photo),
@@ -39,6 +40,14 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   @override
   void initState() {
     super.initState();
+    // Simulation guidée : préremplit les champs.
+    final sim = ref.read(simSessionProvider);
+    if (sim != null) {
+      _chauffeurCtrl.text = 'Chauffeur Sim';
+      _permisCtrl.text = 'SIM-PERMIS';
+      _lotCtrl.text = 'SIM-LOT';
+      _plaqueCtrl.text = '${sim.plate}-B';
+    }
     Future.microtask(() async {
       final resume = await ref
           .read(depotRepoProvider)
@@ -190,6 +199,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                 kind: AppMsgKind.error),
             (_) async {
               await ref.read(tripTrackerProvider).stop(); // fin du suivi
+              ref.read(simSessionProvider.notifier).stop(); // fin simulation
               if (!mounted) return;
               if (!arrivee.plaqueCoherente) {
                 await showAppMessage(

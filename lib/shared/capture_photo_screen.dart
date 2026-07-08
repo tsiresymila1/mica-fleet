@@ -74,7 +74,9 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
         }
         return;
       }
-      final photo = await CameraCaptureService(cam).capture();
+      final photo =
+          await CameraCaptureService(cam, ref.read(locationSourceProvider))
+              .capture();
       if (mounted) Navigator.of(context).pop(photo);
     } catch (e) {
       if (mounted) {

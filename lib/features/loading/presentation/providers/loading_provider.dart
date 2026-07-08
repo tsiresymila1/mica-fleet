@@ -6,6 +6,7 @@ import '../../../../core/utils/loading_id.dart';
 import '../../../delais/domain/delai_alert_planner.dart';
 import '../../../delais/domain/entities/delai_config.dart';
 import '../../../trip/presentation/trip_provider.dart';
+import '../../../trip/presentation/sim_session.dart';
 import '../../data/repositories/loading_repository_impl.dart';
 import '../../domain/entities/chargement.dart';
 import '../../domain/entities/mine_chargement.dart';
@@ -73,8 +74,18 @@ class ChargementController extends Notifier<Chargement?> {
           await ref.read(notificationServiceProvider).scheduleRappels(
               persisted.id.hashCode & 0x7ff0, rappels,
               payload: persisted.id);
-          // Démarre le suivi de parcours (transport mine → dépôt).
-          await ref.read(tripTrackerProvider).start(persisted.id);
+          // Suivi de parcours : réel (GPS) ou simulé (trace générée).
+          if (ref.read(simSessionProvider) != null) {
+            final sim = ref.read(simSessionProvider.notifier);
+            final tracker = ref.read(tripTrackerProvider);
+            for (final p in sim.legMineToTransbordement()) {
+              await tracker.recordPoint(persisted.id, p.lat, p.lon,
+                  simule: true);
+            }
+            sim.advance(); // → étape transbordement
+          } else {
+            await ref.read(tripTrackerProvider).start(persisted.id);
+          }
         });
         return saved;
       },
