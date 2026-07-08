@@ -40,13 +40,12 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulation guidée : préremplit les champs.
-    final sim = ref.read(simSessionProvider);
-    if (sim != null) {
+    // Simulation guidée : pré-remplit les infos non liées à la plaque.
+    // (La plaque est renseignée après la photo, comme l'OCR.)
+    if (ref.read(simSessionProvider) != null) {
       _chauffeurCtrl.text = 'Chauffeur Sim';
       _permisCtrl.text = 'SIM-PERMIS';
       _lotCtrl.text = 'SIM-LOT';
-      _plaqueCtrl.text = '${sim.plate}-B';
     }
     Future.microtask(() async {
       final resume = await ref
@@ -83,7 +82,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     if (p == null) return;
     setState(() => _photo = p);
     if (_plaqueCtrl.text.trim().isEmpty) {
-      final plaque = await ref.read(plateOcrServiceProvider).readPlate(p.path);
+      // Simulation : plaque du camion B (arrivé), sinon OCR.
+      final sim = ref.read(simSessionProvider);
+      final plaque = sim != null
+          ? ref.read(simSessionProvider.notifier).plateB
+          : await ref.read(plateOcrServiceProvider).readPlate(p.path);
       if (plaque != null && mounted) _plaqueCtrl.text = plaque;
     }
   }

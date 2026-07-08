@@ -35,9 +35,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   void initState() {
     super.initState();
     _initCamera();
-    // Simulation guidée : préremplit la plaque.
-    final sim = ref.read(simSessionProvider);
-    if (sim != null) _plaqueCtrl.text = sim.plate;
   }
 
   Future<void> _initCamera() async {
@@ -93,8 +90,11 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       final photo =
           await CameraCaptureService(cam, ref.read(locationSourceProvider))
               .capture();
-      final plaque =
-          await ref.read(plateOcrServiceProvider).readPlate(photo.path);
+      // Simulation : la plaque est « lue » après la photo (comme l'OCR).
+      final sim = ref.read(simSessionProvider);
+      final plaque = sim != null
+          ? ref.read(simSessionProvider.notifier).plateA
+          : await ref.read(plateOcrServiceProvider).readPlate(photo.path);
       if (!mounted) return;
       setState(() {
         _photo = photo;

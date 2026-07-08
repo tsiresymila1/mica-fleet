@@ -22,16 +22,6 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
   CapturedPhoto? _recharge;
 
   @override
-  void initState() {
-    super.initState();
-    final sim = ref.read(simSessionProvider);
-    if (sim != null) {
-      _avantCtrl.text = sim.plate;
-      _apresCtrl.text = '${sim.plate}-B'; // nouveau camion
-    }
-  }
-
-  @override
   void dispose() {
     _avantCtrl.dispose();
     _apresCtrl.dispose();
@@ -42,10 +32,13 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
       .push<CapturedPhoto>(MaterialPageRoute(
           builder: (_) => CapturePhotoScreen(titre: titre)));
 
-  /// OCR sur la photo, préremplit le champ plaque si vide.
-  Future<void> _ocrInto(TextEditingController ctrl, String path) async {
+  /// Renseigne la plaque après la photo : OCR en réel, plaque simulée en sim.
+  Future<void> _fillPlate(
+      TextEditingController ctrl, String path, String simPlate) async {
     if (ctrl.text.trim().isNotEmpty) return;
-    final plaque = await ref.read(plateOcrServiceProvider).readPlate(path);
+    final sim = ref.read(simSessionProvider);
+    final plaque =
+        sim != null ? simPlate : await ref.read(plateOcrServiceProvider).readPlate(path);
     if (plaque != null && mounted) ctrl.text = plaque;
   }
 
@@ -86,7 +79,8 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
                 final p = await _capture('Déchargement');
                 if (p != null) {
                   setState(() => _decharge = p);
-                  await _ocrInto(_avantCtrl, p.path);
+                  await _fillPlate(_avantCtrl, p.path,
+                      ref.read(simSessionProvider.notifier).plateA);
                 }
               },
             ),
@@ -104,7 +98,8 @@ class _AddMaillonScreenState extends ConsumerState<AddMaillonScreen> {
                 final p = await _capture('Rechargement');
                 if (p != null) {
                   setState(() => _recharge = p);
-                  await _ocrInto(_apresCtrl, p.path);
+                  await _fillPlate(_apresCtrl, p.path,
+                      ref.read(simSessionProvider.notifier).plateB);
                 }
               },
             ),

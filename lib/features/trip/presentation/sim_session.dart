@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../capture/domain/services/location_source.dart';
 import '../domain/trip_simulator.dart';
@@ -6,9 +7,10 @@ class SimState {
   final List<SimPoint> points;
   final int transbordementIndex;
   final int stage; // 0 = mine, 1 = transbordement, 2 = dépôt
-  final String plate;
-  const SimState(
-      this.points, this.transbordementIndex, this.stage, this.plate);
+  final String plateA; // camion de départ (mine → transbordement)
+  final String plateB; // camion après transbordement (→ dépôt)
+  const SimState(this.points, this.transbordementIndex, this.stage,
+      this.plateA, this.plateB);
 
   int get _idx => switch (stage) {
         0 => 0,
@@ -29,11 +31,22 @@ class SimSession extends Notifier<SimState?> {
   SimState? build() => null;
 
   bool get active => state != null;
-  String get plate => state?.plate ?? 'SIM-1234';
+  String get plateA => state?.plateA ?? '';
+  String get plateB => state?.plateB ?? '';
 
   void start(SimPoint depart, SimPoint depot) {
     final (pts, idx) = TripSimulator().generate(depart, depot);
-    state = SimState(pts, idx, 0, 'SIM-1234');
+    final r = math.Random();
+    state = SimState(pts, idx, 0, _randomPlate(r), _randomPlate(r));
+  }
+
+  /// Plaque malgache plausible : 4 chiffres + espace + 3 lettres (ex. 1234 TBR).
+  static String _randomPlate(math.Random r) {
+    final digits = (1000 + r.nextInt(9000)).toString();
+    const letters = 'ABCDEFGHJKLMNPRSTVWXYZ';
+    final l =
+        List.generate(3, (_) => letters[r.nextInt(letters.length)]).join();
+    return '$digits $l';
   }
 
   GpsFix currentFix() {
@@ -44,8 +57,8 @@ class SimSession extends Notifier<SimState?> {
   void advance() {
     final s = state;
     if (s == null) return;
-    state = SimState(
-        s.points, s.transbordementIndex, (s.stage + 1).clamp(0, 2), s.plate);
+    state = SimState(s.points, s.transbordementIndex,
+        (s.stage + 1).clamp(0, 2), s.plateA, s.plateB);
   }
 
   /// Points de la trace mine → transbordement.
