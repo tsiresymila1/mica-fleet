@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/geo.dart';
 import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../providers/chargement_detail_provider.dart';
 
 /// Détail en lecture seule d'un chargement : mines, transbordements, arrivée, score.
@@ -61,6 +65,10 @@ class ChargementDetailScreen extends ConsumerWidget {
               const _Muted('Pas encore arrivé au dépôt')
             else
               _ArriveeCard(a: d.arrivee!),
+            const SizedBox(height: 16),
+            StepHeader(numero: 4, titre: 'Parcours'),
+            const SizedBox(height: 8),
+            _TrajetSection(chargementId: chargementId),
           ],
         ),
       ),
@@ -234,6 +242,78 @@ class _LabeledThumb extends StatelessWidget {
           const SizedBox(height: 4),
           PhotoThumb(path: path, size: 120),
         ],
+      );
+}
+
+class _TrajetSection extends ConsumerWidget {
+  final String chargementId;
+  const _TrajetSection({required this.chargementId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pts = ref.watch(trajetPointsProvider(chargementId));
+    return pts.when(
+      loading: () => const SizedBox(
+          height: 80, child: Center(child: CircularProgressIndicator())),
+      error: (e, _) => const _Muted('Parcours indisponible'),
+      data: (points) {
+        if (points.length < 2) {
+          return const _Muted('Aucun trajet enregistré');
+        }
+        double dist = 0;
+        for (var i = 1; i < points.length; i++) {
+          dist += haversineMeters(points[i - 1].latitude, points[i - 1].longitude,
+              points[i].latitude, points[i].longitude);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 220,
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCameraFit: CameraFit.coordinates(
+                        coordinates: points,
+                        padding: const EdgeInsets.all(30)),
+                    interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag),
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.radoran.mica_fleet',
+                    ),
+                    PolylineLayer(polylines: [
+                      Polyline(
+                          points: points,
+                          strokeWidth: 4,
+                          color: AppColors.primary),
+                    ]),
+                    MarkerLayer(markers: [
+                      _pin(points.first, AppColors.gold, Icons.play_arrow),
+                      _pin(points.last, AppColors.danger, Icons.flag),
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('${points.length} points · ${(dist / 1000).toStringAsFixed(1)} km',
+                style: Theme.of(context).textTheme.bodyMedium),
+          ],
+        );
+      },
+    );
+  }
+
+  Marker _pin(LatLng p, Color color, IconData icon) => Marker(
+        point: p,
+        width: 32,
+        height: 32,
+        child: Icon(icon, color: color, size: 28),
       );
 }
 
