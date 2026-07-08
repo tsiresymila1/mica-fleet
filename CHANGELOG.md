@@ -1,3 +1,13 @@
+## v1.0.1 - 2026-07-08
+
+- fix(trip): sim — plaques transbordement chaînées (camion qui tourne)
+- feat(trip): sim — plaques aléatoires réalistes cohérentes, remplies après la photo
+- feat(trip): simulation guidée du trajet (étape 3)
+- feat(trip): carte du parcours dans le détail (étape 2)
+- feat(trip): suivi de parcours GPS en arrière-plan (étape 1)
+- chore: ignore local keystore and jks files in git
+- fix(android): démo en applicationId .demo + signature release stable (keystore optionnel)
+
 ## v0.1.0 - 2026-07-02
 
 - chore: remove obsolete v0.1.0 changelog file
