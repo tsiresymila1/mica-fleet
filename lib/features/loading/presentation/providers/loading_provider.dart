@@ -5,6 +5,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/utils/loading_id.dart';
 import '../../../delais/domain/delai_alert_planner.dart';
 import '../../../delais/domain/entities/delai_config.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../../data/repositories/loading_repository_impl.dart';
 import '../../domain/entities/chargement.dart';
 import '../../domain/entities/mine_chargement.dart';
@@ -72,6 +73,8 @@ class ChargementController extends Notifier<Chargement?> {
           await ref.read(notificationServiceProvider).scheduleRappels(
               persisted.id.hashCode & 0x7ff0, rappels,
               payload: persisted.id);
+          // Démarre le suivi de parcours (transport mine → dépôt).
+          await ref.read(tripTrackerProvider).start(persisted.id);
         });
         return saved;
       },

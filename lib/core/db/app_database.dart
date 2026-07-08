@@ -136,6 +136,16 @@ class JournalEntries extends Table {
   Set<Column> get primaryKey => {seq};
 }
 
+@DataClassName('TrajetPointRow')
+class TrajetPoints extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get chargementId => text().references(Chargements, #id)();
+  RealColumn get lat => real()();
+  RealColumn get lon => real()();
+  DateTimeColumn get capturedAt => dateTime()();
+  BoolColumn get simule => boolean().withDefault(const Constant(false))();
+}
+
 @DriftDatabase(tables: [
   Fournisseurs,
   Mines,
@@ -146,11 +156,12 @@ class JournalEntries extends Table {
   Transbordements,
   ArriveesDepot,
   JournalEntries,
+  TrajetPoints,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
   // Avant la prod réelle, remplacer par des migrations pas-à-pas qui

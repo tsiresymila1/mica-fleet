@@ -13,6 +13,7 @@ import '../../../scoring/domain/entities/score_result.dart';
 import '../../../scoring/domain/entities/scoring_inputs.dart';
 import '../../../scoring/presentation/scoring_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../providers/depot_provider.dart';
 
 /// Validation de l'arrivée au dépôt : photo GPS, plaque (OCR), permis (photo),
@@ -188,6 +189,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
             (f) async => showAppMessage(context, 'Échec enregistrement',
                 kind: AppMsgKind.error),
             (_) async {
+              await ref.read(tripTrackerProvider).stop(); // fin du suivi
+              if (!mounted) return;
               if (!arrivee.plaqueCoherente) {
                 await showAppMessage(
                     context, 'Attention : plaque différente du départ',
