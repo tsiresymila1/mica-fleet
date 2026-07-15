@@ -31,7 +31,8 @@ class DriftLocalSyncStore implements LocalSyncStore {
       ..where((t) =>
           t.status.equals('pending') &
           (t.nextRetryAt.isNull() | t.nextRetryAt.isSmallerOrEqualValue(now)))
-      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]);
+      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
+      ..limit(10); // batch max 10 par exécution
     final rows = await q.get();
     return rows.map(_toEntity).toList();
   }
@@ -44,13 +45,19 @@ class DriftLocalSyncStore implements LocalSyncStore {
 
   @override
   Future<void> updateStatus(String opId, SyncStatus status,
-      {int? attempts, String? lastError, DateTime? nextRetryAt}) async {
+      {int? attempts,
+      String? lastError,
+      DateTime? nextRetryAt,
+      int? odooId,
+      DateTime? syncedAt}) async {
     await (db.update(db.syncQueue)..where((t) => t.opId.equals(opId))).write(
       SyncQueueCompanion(
         status: Value(status.name),
         attempts: attempts == null ? const Value.absent() : Value(attempts),
         lastError: Value(lastError),
         nextRetryAt: Value(nextRetryAt),
+        odooId: odooId == null ? const Value.absent() : Value(odooId),
+        syncedAt: syncedAt == null ? const Value.absent() : Value(syncedAt),
       ),
     );
   }
@@ -66,5 +73,7 @@ class DriftLocalSyncStore implements LocalSyncStore {
         lastError: r.lastError,
         createdAt: r.createdAt,
         nextRetryAt: r.nextRetryAt,
+        odooId: r.odooId,
+        syncedAt: r.syncedAt,
       );
 }

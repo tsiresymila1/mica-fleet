@@ -70,6 +70,8 @@ class SyncQueue extends Table {
   TextColumn get lastError => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get nextRetryAt => dateTime().nullable()();
+  IntColumn get odooId => integer().nullable()(); // id du record créé côté Odoo
+  DateTimeColumn get syncedAt => dateTime().nullable()();
   @override
   Set<Column> get primaryKey => {opId};
 }
@@ -161,7 +163,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
   // Avant la prod réelle, remplacer par des migrations pas-à-pas qui

@@ -10,7 +10,7 @@ abstract class OdooApi {
   factory OdooApi(Dio dio, {String baseUrl}) = _OdooApi;
 
   @POST('/mica/sync/operation')
-  Future<void> pushOperation(@Body() Map<String, dynamic> body);
+  Future<dynamic> pushOperation(@Body() Map<String, dynamic> body);
 
   @GET('/mica/mines')
   Future<dynamic> fetchMines();
@@ -21,14 +21,20 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   RetrofitRemoteDataSource(this.api);
 
   @override
-  Future<void> pushOperation(SyncOperation op) {
-    return api.pushOperation({
+  Future<int?> pushOperation(SyncOperation op) async {
+    final resp = await api.pushOperation({
       'op_id': op.opId,
       'entity_type': op.entityType,
       'entity_id': op.entityId,
       'op_type': op.opType.name,
       'payload': op.payload,
     });
+    // Odoo renvoie { "odoo_id": 123 } (ou l'id directement).
+    if (resp is Map && resp['odoo_id'] != null) {
+      return (resp['odoo_id'] as num).toInt();
+    }
+    if (resp is num) return resp.toInt();
+    return null;
   }
 
   @override

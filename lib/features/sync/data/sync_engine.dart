@@ -10,6 +10,8 @@ class SyncEngine {
   final AppDatabase db;
   SyncEngine(this.store, this.remote, this.db);
 
+  static const int maxAttempts = 5; // au-delà → statut failed (terminal)
+
   bool _running = false;
 
   /// Push FIFO des pending (backoff respecté) puis pull du référentiel.
@@ -19,17 +21,25 @@ class SyncEngine {
     if (_running) return;
     _running = true;
     try {
-      final ops = await store.pending();
+      final ops = await store.pending(); // batch max 10
       for (final op in ops) {
         await store.updateStatus(op.opId, SyncStatus.syncing);
         try {
-          await remote.pushOperation(op);
-          await store.updateStatus(op.opId, SyncStatus.synced);
+          final odooId = await remote.pushOperation(op);
+          await store.updateStatus(op.opId, SyncStatus.synced,
+              odooId: odooId, syncedAt: DateTime.now());
         } catch (e) {
-          await store.updateStatus(op.opId, SyncStatus.pending,
-              attempts: op.attempts + 1,
-              lastError: e.toString(),
-              nextRetryAt: _backoff(op.attempts + 1));
+          final attempts = op.attempts + 1;
+          if (attempts >= maxAttempts) {
+            // Échec terminal après N tentatives → intervention manuelle.
+            await store.updateStatus(op.opId, SyncStatus.failed,
+                attempts: attempts, lastError: e.toString());
+          } else {
+            await store.updateStatus(op.opId, SyncStatus.pending,
+                attempts: attempts,
+                lastError: e.toString(),
+                nextRetryAt: _backoff(attempts));
+          }
         }
       }
       try {
@@ -65,8 +75,9 @@ class SyncEngine {
     });
   }
 
+  /// Backoff exponentiel : 1, 2, 4, 8… minutes, plafonné à 6 h.
   DateTime _backoff(int attempts) {
-    final seconds = (attempts * attempts * 5).clamp(5, 600);
-    return DateTime.now().add(Duration(seconds: seconds));
+    final minutes = (1 << (attempts - 1)).clamp(1, 360); // 2^(n-1), max 360 min
+    return DateTime.now().add(Duration(minutes: minutes));
   }
 }

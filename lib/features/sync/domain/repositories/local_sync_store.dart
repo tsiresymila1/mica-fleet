@@ -8,7 +8,11 @@ abstract class LocalSyncStore {
   Future<List<SyncOperation>> pending();
 
   Future<void> updateStatus(String opId, SyncStatus status,
-      {int? attempts, String? lastError, DateTime? nextRetryAt});
+      {int? attempts,
+      String? lastError,
+      DateTime? nextRetryAt,
+      int? odooId,
+      DateTime? syncedAt});
 
   /// Remet les opérations bloquées en `syncing` (app tuée en plein push) vers
   /// `pending`. À appeler au démarrage.

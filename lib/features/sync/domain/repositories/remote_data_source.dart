@@ -11,7 +11,8 @@ class RemoteMine {
 
 abstract class RemoteDataSource {
   /// Push idempotent : Odoo déduplique sur op.opId. Lève en cas d'échec réseau.
-  Future<void> pushOperation(SyncOperation op);
+  /// Renvoie l'id du record créé/mis à jour côté Odoo (odoo_id), ou null.
+  Future<int?> pushOperation(SyncOperation op);
 
   /// Pull du référentiel mines.
   Future<List<RemoteMine>> fetchMines();

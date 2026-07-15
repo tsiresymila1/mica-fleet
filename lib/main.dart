@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:go_router/go_router.dart';
 import 'core/config/app_config.dart';
 import 'core/db/app_database.dart';
+import 'core/sync/background_sync.dart';
 import 'core/db/dev_seed.dart';
 import 'core/di/providers.dart';
 import 'core/router/app_router.dart';
@@ -34,6 +35,9 @@ Future<void> main() async {
   // Sync initiale au démarrage : charge le référentiel + pousse les en-attente.
   // (onConnectivityChanged ne se déclenche pas à froid si déjà en ligne.)
   container.read(syncEngineProvider).sync();
+
+  // Sync périodique garantie en arrière-plan (même app tuée).
+  await registerBackgroundSync();
 
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {

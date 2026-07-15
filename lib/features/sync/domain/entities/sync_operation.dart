@@ -18,5 +18,7 @@ abstract class SyncOperation with _$SyncOperation {
     String? lastError,
     required DateTime createdAt,
     DateTime? nextRetryAt,
+    int? odooId,
+    DateTime? syncedAt,
   }) = _SyncOperation;
 }

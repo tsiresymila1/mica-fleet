@@ -5,10 +5,12 @@ import '../domain/repositories/remote_data_source.dart';
 /// mines factice. Permet de tester le flux de synchronisation sans Odoo réel.
 class MockRemoteDataSource implements RemoteDataSource {
   final List<SyncOperation> recus = [];
+  int _seq = 1000;
 
   @override
-  Future<void> pushOperation(SyncOperation op) async {
+  Future<int?> pushOperation(SyncOperation op) async {
     recus.add(op); // accepté (idempotent côté serveur réel via opId)
+    return ++_seq; // faux odoo_id
   }
 
   @override

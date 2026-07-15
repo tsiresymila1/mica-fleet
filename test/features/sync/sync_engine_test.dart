@@ -17,15 +17,17 @@ SyncOperation _op(String id, DateTime at) => SyncOperation(
 class _FakeRemote implements RemoteDataSource {
   final List<String> pushed = [];
   int failTimes;
-  _FakeRemote({this.failTimes = 0});
+  final bool alwaysFail;
+  _FakeRemote({this.failTimes = 0, this.alwaysFail = false});
 
   @override
-  Future<void> pushOperation(SyncOperation op) async {
-    if (failTimes > 0) {
+  Future<int?> pushOperation(SyncOperation op) async {
+    if (alwaysFail || failTimes > 0) {
       failTimes--;
       throw Exception('net');
     }
     pushed.add(op.opId);
+    return 42; // faux odoo_id
   }
 
   @override
@@ -94,6 +96,29 @@ void main() {
       await engine.sync();
       await engine.sync();
       expect(remote.pushed, ['a']);
+    });
+
+    test('push réussi enregistre odoo_id + syncedAt', () async {
+      await store.enqueue(_op('a', DateTime(2026, 1, 1)));
+      await SyncEngine(store, _FakeRemote(), db).sync();
+      final row = await (db.select(db.syncQueue)
+            ..where((t) => t.opId.equals('a')))
+          .getSingle();
+      expect(row.status, 'synced');
+      expect(row.odooId, 42);
+      expect(row.syncedAt, isNotNull);
+    });
+
+    test('après 5 tentatives → statut failed (terminal)', () async {
+      await store.enqueue(_op('a', DateTime(2026, 1, 1)));
+      // Simule 4 échecs déjà encaissés.
+      await store.updateStatus('a', SyncStatus.pending, attempts: 4);
+      await SyncEngine(store, _FakeRemote(alwaysFail: true), db).sync();
+      final row = await (db.select(db.syncQueue)
+            ..where((t) => t.opId.equals('a')))
+          .getSingle();
+      expect(row.status, 'failed');
+      expect(row.attempts, 5);
     });
 
     test('pull insère les mines en local', () async {
