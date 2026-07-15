@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../journal/data/journal_service.dart';
-import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/transbordement.dart';
 import '../../domain/repositories/transport_repository.dart';
@@ -15,7 +13,6 @@ class TransportRepositoryImpl implements TransportRepository {
   final AppDatabase db;
   final LocalSyncStore syncStore;
   final JournalService journal;
-  final _uuid = const Uuid();
   TransportRepositoryImpl(this.db, this.syncStore, this.journal);
 
   @override
@@ -57,17 +54,7 @@ class TransportRepositoryImpl implements TransportRepository {
                 })
             .toList(),
       };
-      final premier = chaine.isNotEmpty ? chaine.first : null;
-      await syncStore.enqueue(SyncOperation(
-        opId: _uuid.v4(),
-        entityType: 'transbordement',
-        entityId: chargementId,
-        opType: SyncOpType.update,
-        payload: payload,
-        createdAt: DateTime.now(),
-        gpsLat: premier?.gpsDechargeLat,
-        gpsLon: premier?.gpsDechargeLon,
-      ));
+      // Sync unique : envoyée à l'arrivée. Ici on journalise seulement.
       await journal.append('transbordement', chargementId, jsonEncode(payload));
       return right(unit);
     } catch (e) {

@@ -50,7 +50,10 @@ void main() {
     final rows = await db.select(db.arriveesDepot).get();
     expect(rows.single.chauffeur, 'Jean');
 
+    // Envoi unique : à l'arrivée, une seule op 'chargement' (snapshot complet).
     final pending = await sync.pending();
-    expect(pending.single.entityType, 'arrivee_depot');
+    expect(pending.single.entityType, 'chargement');
+    expect(pending.single.payload['id'], 'MICA-2026-0001');
+    expect(pending.single.payload['arrivee'], isNot(null));
   });
 }

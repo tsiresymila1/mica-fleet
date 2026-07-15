@@ -37,6 +37,7 @@ class Chargements extends Table {
   TextColumn get fournisseurId => text()();
   DateTimeColumn get dateCreation => dateTime()();
   TextColumn get statut => text().withDefault(const Constant('brouillon'))();
+  TextColumn get deviceUuid => text().nullable()(); // idempotence sync (stable)
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -167,7 +168,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
   // Avant la prod réelle, remplacer par des migrations pas-à-pas qui

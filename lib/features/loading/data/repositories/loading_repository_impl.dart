@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../journal/data/journal_service.dart';
-import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/chargement.dart';
 import '../../domain/repositories/loading_repository.dart';
@@ -34,6 +33,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 fournisseurId: c.fournisseurId,
                 dateCreation: c.dateCreation,
                 statut: Value(c.statut),
+                deviceUuid: Value(_uuid.v4()), // stable, pour la sync unique
               ),
             );
         for (final m in c.mines) {
@@ -72,19 +72,8 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 })
             .toList(),
       };
-      final firstPhoto = c.mines.isNotEmpty ? c.mines.first.photo : null;
-      await syncStore.enqueue(SyncOperation(
-        opId: _uuid.v4(),
-        entityType: 'chargement',
-        entityId: c.id,
-        opType: SyncOpType.create,
-        payload: payload,
-        createdAt: DateTime.now(),
-        agentLogin: c.fournisseurId,
-        gpsLat: firstPhoto?.lat,
-        gpsLon: firstPhoto?.lon,
-        gpsAccuracy: firstPhoto?.precision,
-      ));
+      // Sync unique : pas d'envoi à cette étape. Le submit complet part à
+      // l'arrivée au dépôt (voir DepotRepositoryImpl). On journalise seulement.
       await journal.append('chargement', c.id, jsonEncode(payload));
       return right(c);
     } catch (e) {

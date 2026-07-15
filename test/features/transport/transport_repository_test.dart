@@ -39,8 +39,8 @@ void main() {
     expect(back.single.ordre, 1);
     expect(back.single.plaqueApres, 'B');
 
-    final pending = await sync.pending();
-    expect(pending.single.entityType, 'transbordement');
+    // Envoi unique : pas de sync à l'étape transbordement.
+    expect(await sync.pending(), isEmpty);
   });
 
   test('persistChaine remplace la chaîne existante', () async {

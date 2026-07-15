@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../journal/data/journal_service.dart';
+import '../../../sync/data/chargement_snapshot_builder.dart';
 import '../../../sync/domain/entities/sync_operation.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/arrivee_depot.dart';
@@ -15,8 +15,9 @@ class DepotRepositoryImpl implements DepotRepository {
   final AppDatabase db;
   final LocalSyncStore syncStore;
   final JournalService journal;
-  final _uuid = const Uuid();
   DepotRepositoryImpl(this.db, this.syncStore, this.journal);
+
+  ChargementSnapshotBuilder get _snapshot => ChargementSnapshotBuilder(db);
 
   @override
   Future<List<Depot>> activeDepots() async {
@@ -55,30 +56,26 @@ class DepotRepositoryImpl implements DepotRepository {
               lotsJson: Value(a.lotsJson),
             ),
           );
-      final payload = <String, dynamic>{
-        'chargement_id': a.chargementId,
-        'depot_id': a.depotId,
-        'chauffeur': a.chauffeur,
-        'num_permis': a.numPermis,
-        'num_lot': a.numLot,
-        'gps': [a.gpsLat, a.gpsLon],
-        'statut_gps': a.statutGps,
-        'plaque_arrivee': a.plaqueArrivee,
-        'plaque_coherente': a.plaqueCoherente,
-        'score_tracabilite': a.scoreTracabilite,
-        'lots': a.lotsJson,
-      };
-      await syncStore.enqueue(SyncOperation(
-        opId: _uuid.v4(),
-        entityType: 'arrivee_depot',
-        entityId: a.chargementId,
-        opType: SyncOpType.update,
-        payload: payload,
-        createdAt: DateTime.now(),
-        gpsLat: a.gpsLat,
-        gpsLon: a.gpsLon,
-      ));
-      await journal.append('arrivee_depot', a.chargementId, jsonEncode(payload));
+      // Envoi UNIQUE : le chargement est complet → on construit le snapshot
+      // global (mines + transbordements + arrivée + trajet) et on l'enfile
+      // en une seule opération de sync.
+      final snap = await _snapshot.build(a.chargementId);
+      if (snap != null) {
+        await syncStore.enqueue(SyncOperation(
+          opId: snap.deviceUuid, // stable → idempotence
+          entityType: 'chargement',
+          entityId: a.chargementId,
+          opType: SyncOpType.create,
+          payload: snap.payload,
+          createdAt: DateTime.now(),
+          agentLogin: snap.agentLogin,
+          gpsLat: snap.gpsLat,
+          gpsLon: snap.gpsLon,
+          gpsAccuracy: snap.gpsAccuracy,
+        ));
+        await journal.append(
+            'arrivee_depot', a.chargementId, jsonEncode(snap.payload));
+      }
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));
