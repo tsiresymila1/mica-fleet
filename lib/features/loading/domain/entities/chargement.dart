@@ -11,6 +11,7 @@ abstract class Chargement with _$Chargement {
     required DateTime dateCreation,
     @Default('brouillon') String statut,
     @Default(<MineChargement>[]) List<MineChargement> mines,
+    String? lotReference, // regroupement Odoo (optionnel)
   }) = _Chargement;
 
   bool get peutAjouterMine => mines.length < 3;

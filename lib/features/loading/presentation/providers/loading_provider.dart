@@ -41,6 +41,14 @@ class ChargementController extends Notifier<Chargement?> {
     );
   }
 
+  /// Référence de lot optionnelle (regroupe plusieurs camions côté Odoo).
+  void setLotReference(String? v) {
+    final current = state;
+    if (current == null) return;
+    state = current.copyWith(
+        lotReference: v == null || v.trim().isEmpty ? null : v.trim());
+  }
+
   Either<Failure, Unit> addMine(MineChargement m) {
     final current = state;
     if (current == null) {

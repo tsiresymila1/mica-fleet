@@ -83,6 +83,7 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 {
   "id": "MICA-2026-0007",
   "supplier_id": "F001",
+  "lot_reference": "LOT-A-2026-06-22",
   "status": "valide",
   "created_at": "2026-06-22 08:00:00",
 
@@ -155,6 +156,11 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 }
 ```
 
+> **`lot_reference`** (optionnel, peut être `null`) : code partagé permettant à
+> Odoo de **regrouper plusieurs chargements-camions** sous un même lot commercial
+> (cas des camions en parallèle / split / fusion). Le terrain reste **1 chargement
+> = 1 camion** ; le regroupement se fait côté Odoo via ce champ.
+>
 > **`mines` et `transloads` sont indépendants.**
 > - `mines` = les sources (1 à 3 carrières) chargées sur le **camion de départ**.
 >   Plusieurs mines = plusieurs carrières sur le **même camion** (même `plate`).

@@ -41,6 +41,7 @@ class ChargementSnapshotBuilder {
     final payload = <String, dynamic>{
       'id': c.id,
       'supplier_id': c.fournisseurId,
+      'lot_reference': c.lotReference, // regroupement Odoo (optionnel, nullable)
       'status': c.statut,
       'created_at': _d(c.dateCreation),
       'mines': mines

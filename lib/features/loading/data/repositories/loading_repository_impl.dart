@@ -34,6 +34,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 dateCreation: c.dateCreation,
                 statut: Value(c.statut),
                 deviceUuid: Value(_uuid.v4()), // stable, pour la sync unique
+                lotReference: Value(c.lotReference),
               ),
             );
         for (final m in c.mines) {
