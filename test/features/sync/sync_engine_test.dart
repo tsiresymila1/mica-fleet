@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
@@ -28,6 +30,14 @@ class _FakeRemote implements RemoteDataSource {
     }
     pushed.add(op.opId);
     return 42; // faux odoo_id
+  }
+
+  final List<String> uploadedFor = [];
+  int lastPhotoCount = 0;
+  @override
+  Future<void> uploadPhotos(String deviceUuid, List photos) async {
+    uploadedFor.add(deviceUuid);
+    lastPhotoCount = photos.length;
   }
 
   @override
@@ -119,6 +129,39 @@ void main() {
           .getSingle();
       expect(row.status, 'failed');
       expect(row.attempts, 5);
+    });
+
+    test('après submit chargement : upload photos batch + purge fichier', () async {
+      final tmp = File('${Directory.systemTemp.path}/mica_test_photo.jpg')
+        ..writeAsBytesSync([1, 2, 3]);
+      await db.into(db.chargements).insert(ChargementsCompanion.insert(
+          id: 'C1',
+          fournisseurId: 'F001',
+          dateCreation: DateTime(2026),
+          deviceUuid: const Value('uuid-1')));
+      await db.into(db.mineChargements).insert(MineChargementsCompanion.insert(
+          chargementId: 'C1',
+          mineId: 'M001',
+          photoPath: Value(tmp.path),
+          photoHash: const Value('h')));
+      await store.enqueue(SyncOperation(
+          opId: 'op1',
+          entityType: 'chargement',
+          entityId: 'C1',
+          opType: SyncOpType.create,
+          payload: const {},
+          createdAt: DateTime(2026, 1, 1)));
+
+      final remote = _FakeRemote();
+      await SyncEngine(store, remote, db).sync();
+
+      expect(remote.uploadedFor, ['uuid-1']);
+      expect(remote.lastPhotoCount, 1);
+      final charg = await (db.select(db.chargements)
+            ..where((t) => t.id.equals('C1')))
+          .getSingle();
+      expect(charg.photosUploaded, isTrue);
+      expect(tmp.existsSync(), isFalse); // fichier purgé
     });
 
     test('pull insère les mines en local', () async {

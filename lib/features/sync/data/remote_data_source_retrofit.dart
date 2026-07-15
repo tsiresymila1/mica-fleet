@@ -22,7 +22,29 @@ abstract class OdooApi {
 
 class RetrofitRemoteDataSource implements RemoteDataSource {
   final OdooApi api;
-  RetrofitRemoteDataSource(this.api);
+  final Dio dio; // pour l'upload multipart dynamique
+  RetrofitRemoteDataSource(this.api, this.dio);
+
+  @override
+  Future<void> uploadPhotos(String deviceUuid, List<PhotoPart> photos) async {
+    if (photos.isEmpty) return;
+    final form = FormData();
+    form.fields.add(MapEntry('device_uuid', deviceUuid));
+    for (var i = 0; i < photos.length; i++) {
+      final p = photos[i];
+      form.fields.add(MapEntry('photos[$i][key]', p.key));
+      if (p.hash != null) {
+        form.fields.add(MapEntry('photos[$i][hash]', p.hash!));
+      }
+      form.files.add(MapEntry(
+          'photos[$i][file]', await MultipartFile.fromFile(p.path)));
+    }
+    final resp = await dio.post('/api/terrain/upload', data: form);
+    final data = resp.data;
+    if (data is Map && data['status'] == 'error') {
+      throw Exception(data['message'] ?? 'Échec upload photos');
+    }
+  }
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {

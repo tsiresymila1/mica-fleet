@@ -34,7 +34,7 @@ final remoteDataSourceProvider = Provider<RemoteDataSource>((ref) {
     baseUrl: ref.watch(odooBaseUrlProvider),
     tokenReader: SecureTokenStore().read,
   );
-  return RetrofitRemoteDataSource(OdooApi(dio));
+  return RetrofitRemoteDataSource(OdooApi(dio), dio);
 });
 
 final syncEngineProvider = Provider<SyncEngine>((ref) => SyncEngine(

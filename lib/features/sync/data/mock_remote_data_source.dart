@@ -14,6 +14,11 @@ class MockRemoteDataSource implements RemoteDataSource {
   }
 
   @override
+  Future<void> uploadPhotos(String deviceUuid, List<PhotoPart> photos) async {
+    // Démo : accepté sans rien envoyer.
+  }
+
+  @override
   Future<List<RemoteMine>> fetchMines() async => [
         RemoteMine('M001', 'Carrière Andilana', -18.91000, 47.52000, 20,
             'Ambohidratrimo', 'Andilana', 'Analamanga', true),

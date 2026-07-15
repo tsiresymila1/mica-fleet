@@ -30,9 +30,12 @@ Future<void> runBackgroundSync() async {
     final store = DriftLocalSyncStore(db);
     final RemoteDataSource remote = AppConfig.demo
         ? MockRemoteDataSource()
-        : RetrofitRemoteDataSource(OdooApi(buildDio(
-            baseUrl: AppConfig.odooBaseUrl,
-            tokenReader: SecureTokenStore().read)));
+        : () {
+            final dio = buildDio(
+                baseUrl: AppConfig.odooBaseUrl,
+                tokenReader: SecureTokenStore().read);
+            return RetrofitRemoteDataSource(OdooApi(dio), dio);
+          }();
     final engine = SyncEngine(store, remote, db);
     await store.resetInFlight();
     await engine.sync();
