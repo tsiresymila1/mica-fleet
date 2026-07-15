@@ -96,6 +96,16 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
       "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
       "captured_at": "2026-06-22 08:00:00",
       "photo": { "key": "mine_M001", "hash": "9f2c...e7" }
+    },
+    {
+      "mine_id": "M002",
+      "reference": "REF-2",
+      "color": "Doré",
+      "estimated_quantity": 80,
+      "plate": "1234 TBR",
+      "lat": -18.92500, "lon": 47.53500, "gps_accuracy": 6.0,
+      "captured_at": "2026-06-22 08:15:00",
+      "photo": { "key": "mine_M002", "hash": "3b71...aa" }
     }
   ],
 
@@ -108,6 +118,15 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
       "distance_m": 11.4, "compliant": true,
       "photo_unload": { "key": "transload_1_unload" },
       "photo_reload": { "key": "transload_1_reload" }
+    },
+    {
+      "order": 2,
+      "plate_before": "5678 ABC", "plate_after": "9012 DEF",
+      "gps_unload": [-18.95000, 47.55000],
+      "gps_reload": [-18.95012, 47.55000],
+      "distance_m": 13.1, "compliant": true,
+      "photo_unload": { "key": "transload_2_unload" },
+      "photo_reload": { "key": "transload_2_reload" }
     }
   ],
 
@@ -118,7 +137,7 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
     "lot_number": "Blanc: LOT-1",
     "gps": [-18.87900, 47.50800],
     "gps_status": "valide",
-    "plate_arrival": "5678 ABC",
+    "plate_arrival": "9012 DEF",
     "plate_consistent": true,
     "lots": { "Blanc": "LOT-1" },
     "traceability_score": 100,
@@ -135,6 +154,17 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
   "traceability_score": 100
 }
 ```
+
+> **`mines` et `transloads` sont indépendants.**
+> - `mines` = les sources (1 à 3 carrières) chargées sur le **camion de départ**.
+>   Plusieurs mines = plusieurs carrières sur le **même camion** (même `plate`).
+> - `transloads` = les **changements de camion** pendant le trajet (A→B→C). Ils
+>   concernent **toute la cargaison** (toutes les mines ensemble), pas une mine
+>   en particulier. Il n'y a **pas de mapping 1:1** mine ↔ transbordement.
+>
+> Chaîne des plaques : `mines[].plate` = camion A ; `transloads[0]` = A→B ;
+> `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. La cohérence
+> se vérifie sur cette chaîne (`plate_after[i] == plate_before[i+1]`).
 
 ### Réponses attendues
 ```json
