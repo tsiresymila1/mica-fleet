@@ -72,6 +72,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 })
             .toList(),
       };
+      final firstPhoto = c.mines.isNotEmpty ? c.mines.first.photo : null;
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
         entityType: 'chargement',
@@ -79,6 +80,10 @@ class LoadingRepositoryImpl implements LoadingRepository {
         opType: SyncOpType.create,
         payload: payload,
         createdAt: DateTime.now(),
+        agentLogin: c.fournisseurId,
+        gpsLat: firstPhoto?.lat,
+        gpsLon: firstPhoto?.lon,
+        gpsAccuracy: firstPhoto?.precision,
       ));
       await journal.append('chargement', c.id, jsonEncode(payload));
       return right(c);

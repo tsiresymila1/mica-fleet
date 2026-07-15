@@ -3,6 +3,7 @@ import 'package:workmanager/workmanager.dart';
 import '../config/app_config.dart';
 import '../db/app_database.dart';
 import '../network/dio_client.dart';
+import '../network/token_store.dart';
 import '../../features/sync/data/local_sync_store_impl.dart';
 import '../../features/sync/data/mock_remote_data_source.dart';
 import '../../features/sync/data/remote_data_source_retrofit.dart';
@@ -29,8 +30,9 @@ Future<void> runBackgroundSync() async {
     final store = DriftLocalSyncStore(db);
     final RemoteDataSource remote = AppConfig.demo
         ? MockRemoteDataSource()
-        : RetrofitRemoteDataSource(
-            OdooApi(buildDio(baseUrl: AppConfig.odooBaseUrl)));
+        : RetrofitRemoteDataSource(OdooApi(buildDio(
+            baseUrl: AppConfig.odooBaseUrl,
+            tokenReader: SecureTokenStore().read)));
     final engine = SyncEngine(store, remote, db);
     await store.resetInFlight();
     await engine.sync();

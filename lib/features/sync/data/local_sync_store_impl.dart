@@ -20,6 +20,10 @@ class DriftLocalSyncStore implements LocalSyncStore {
             createdAt: op.createdAt,
             status: Value(op.status.name),
             attempts: Value(op.attempts),
+            agentLogin: Value(op.agentLogin),
+            gpsLat: Value(op.gpsLat),
+            gpsLon: Value(op.gpsLon),
+            gpsAccuracy: Value(op.gpsAccuracy),
           ),
         );
   }
@@ -75,5 +79,9 @@ class DriftLocalSyncStore implements LocalSyncStore {
         nextRetryAt: r.nextRetryAt,
         odooId: r.odooId,
         syncedAt: r.syncedAt,
+        agentLogin: r.agentLogin,
+        gpsLat: r.gpsLat,
+        gpsLon: r.gpsLon,
+        gpsAccuracy: r.gpsAccuracy,
       );
 }

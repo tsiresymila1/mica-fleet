@@ -18,4 +18,9 @@ class AppConfig {
     'MICA_ODOO_URL',
     defaultValue: 'https://odoo.example/api',
   );
+
+  /// Bearer token Odoo par défaut (repli si rien n'est stocké de façon chiffrée).
+  /// À ne pas mettre en dur : passer via --dart-define ou stocker à l'exécution.
+  static const String odooToken =
+      String.fromEnvironment('MICA_ODOO_TOKEN', defaultValue: '');
 }

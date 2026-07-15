@@ -75,6 +75,8 @@ class DepotRepositoryImpl implements DepotRepository {
         opType: SyncOpType.update,
         payload: payload,
         createdAt: DateTime.now(),
+        gpsLat: a.gpsLat,
+        gpsLon: a.gpsLon,
       ));
       await journal.append('arrivee_depot', a.chargementId, jsonEncode(payload));
       return right(unit);

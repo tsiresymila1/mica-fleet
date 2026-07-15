@@ -57,6 +57,7 @@ class TransportRepositoryImpl implements TransportRepository {
                 })
             .toList(),
       };
+      final premier = chaine.isNotEmpty ? chaine.first : null;
       await syncStore.enqueue(SyncOperation(
         opId: _uuid.v4(),
         entityType: 'transbordement',
@@ -64,6 +65,8 @@ class TransportRepositoryImpl implements TransportRepository {
         opType: SyncOpType.update,
         payload: payload,
         createdAt: DateTime.now(),
+        gpsLat: premier?.gpsDechargeLat,
+        gpsLon: premier?.gpsDechargeLon,
       ));
       await journal.append('transbordement', chargementId, jsonEncode(payload));
       return right(unit);

@@ -5,15 +5,19 @@ import '../domain/repositories/remote_data_source.dart';
 
 part 'remote_data_source_retrofit.g.dart';
 
+/// Contrat du module Odoo `terrain_api` (Technarea).
 @RestApi()
 abstract class OdooApi {
   factory OdooApi(Dio dio, {String baseUrl}) = _OdooApi;
 
-  @POST('/mica/sync/operation')
-  Future<dynamic> pushOperation(@Body() Map<String, dynamic> body);
+  @POST('/api/terrain/submit')
+  Future<dynamic> submit(@Body() Map<String, dynamic> body);
 
-  @GET('/mica/mines')
-  Future<dynamic> fetchMines();
+  @GET('/api/terrain/config')
+  Future<dynamic> config();
+
+  @GET('/api/terrain/status/{id}')
+  Future<dynamic> status(@Path('id') int id);
 }
 
 class RetrofitRemoteDataSource implements RemoteDataSource {
@@ -22,25 +26,44 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
-    final resp = await api.pushOperation({
-      'op_id': op.opId,
-      'entity_type': op.entityType,
-      'entity_id': op.entityId,
-      'op_type': op.opType.name,
+    final resp = await api.submit({
+      'device_uuid': op.opId, // idempotence (UNIQUE côté Odoo)
+      'agent_login': op.agentLogin,
+      'collected_at': _odooDate(op.createdAt),
+      'collecte_type': op.entityType,
+      'gps_lat': op.gpsLat,
+      'gps_lon': op.gpsLon,
+      'gps_accuracy': op.gpsAccuracy,
       'payload': op.payload,
     });
-    // Odoo renvoie { "odoo_id": 123 } (ou l'id directement).
-    if (resp is Map && resp['odoo_id'] != null) {
-      return (resp['odoo_id'] as num).toInt();
+    // Réponse uniforme : lire 'status' (pas le code HTTP).
+    // created (201) et already_synced (200) = succès.
+    if (resp is Map) {
+      final status = resp['status'];
+      if (status == 'error') {
+        throw Exception(resp['message'] ?? 'Erreur serveur');
+      }
+      final data = resp['data'];
+      if (data is Map && data['id'] != null) {
+        return (data['id'] as num).toInt();
+      }
     }
-    if (resp is num) return resp.toInt();
     return null;
   }
 
   @override
   Future<List<RemoteMine>> fetchMines() async {
-    final raw = (await api.fetchMines()) as List<dynamic>;
-    return raw.map((e) {
+    // Le module terrain_api générique renvoie agents + types dans /config.
+    // Le référentiel mines/dépôts mica est à confirmer avec Technarea
+    // (endpoint dédié ou extension de /config → data.mines).
+    final resp = await api.config();
+    List? mines;
+    if (resp is Map) {
+      final data = resp['data'];
+      if (data is Map) mines = data['mines'] as List?;
+    }
+    if (mines == null) return [];
+    return mines.map((e) {
       final m = e as Map<String, dynamic>;
       return RemoteMine(
         m['id'].toString(),
@@ -55,4 +78,8 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       );
     }).toList();
   }
+
+  /// Datetime au format Odoo : 'YYYY-MM-DD HH:MM:SS' (UTC).
+  static String _odooDate(DateTime d) =>
+      d.toUtc().toIso8601String().replaceFirst('T', ' ').split('.').first;
 }

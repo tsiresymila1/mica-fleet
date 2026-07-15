@@ -20,5 +20,9 @@ abstract class SyncOperation with _$SyncOperation {
     DateTime? nextRetryAt,
     int? odooId,
     DateTime? syncedAt,
+    String? agentLogin, // fournisseur (submit terrain_api)
+    double? gpsLat,
+    double? gpsLon,
+    double? gpsAccuracy,
   }) = _SyncOperation;
 }

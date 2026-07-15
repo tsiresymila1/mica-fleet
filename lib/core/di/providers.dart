@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../db/app_database.dart';
 import '../network/dio_client.dart';
+import '../network/token_store.dart';
 import '../notifications/notification_service.dart';
 import '../../features/journal/data/journal_service.dart';
 import '../../features/sync/data/mock_remote_data_source.dart';
@@ -29,7 +30,10 @@ final odooBaseUrlProvider =
 final remoteDataSourceProvider = Provider<RemoteDataSource>((ref) {
   // Mode démo (flag MICA_DEMO) : faux backend. Sinon Retrofit vers Odoo.
   if (AppConfig.demo) return MockRemoteDataSource();
-  final dio = buildDio(baseUrl: ref.watch(odooBaseUrlProvider));
+  final dio = buildDio(
+    baseUrl: ref.watch(odooBaseUrlProvider),
+    tokenReader: SecureTokenStore().read,
+  );
   return RetrofitRemoteDataSource(OdooApi(dio));
 });
 
