@@ -10,13 +10,13 @@ part 'remote_data_source_retrofit.g.dart';
 abstract class OdooApi {
   factory OdooApi(Dio dio, {String baseUrl}) = _OdooApi;
 
-  @POST('/api/terrain/submit')
+  @POST('/api/geospatial/submit')
   Future<dynamic> submit(@Body() Map<String, dynamic> body);
 
-  @GET('/api/terrain/config')
+  @GET('/api/geospatial/config')
   Future<dynamic> config();
 
-  @GET('/api/terrain/status/{id}')
+  @GET('/api/geospatial/status/{id}')
   Future<dynamic> status(@Path('id') int id);
 }
 
@@ -41,7 +41,7 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       form.files.add(MapEntry(
           'photos[$i][file]', await MultipartFile.fromFile(p.path)));
     }
-    final resp = await dio.post('/api/terrain/upload', data: form);
+    final resp = await dio.post('/api/geospatial/upload', data: form);
     final data = resp.data;
     if (data is Map && data['status'] == 'error') {
       throw Exception(data['message'] ?? 'Échec upload photos');

@@ -37,7 +37,7 @@ abstract class AuthRemoteDataSource {
 abstract class AuthApi {
   factory AuthApi(Dio dio, {String baseUrl}) = _AuthApi;
 
-  @POST('/api/terrain/login')
+  @POST('/api/geospatial/login')
   Future<dynamic> login(@Body() Map<String, dynamic> body);
 }
 

@@ -16,7 +16,7 @@ attendues.
 
 ---
 
-## 1. `POST /api/terrain/login`
+## 1. `POST /api/geospatial/login`
 
 Authentifie l'agent et renvoie le token + le référentiel (mines, dépôts). Appelé
 sans token (c'est lui qui le fournit).
@@ -60,7 +60,7 @@ sans token (c'est lui qui le fournit).
 
 ---
 
-## 2. `POST /api/terrain/submit`
+## 2. `POST /api/geospatial/submit`
 
 Envoie **un chargement complet** (mines + transbordements + arrivée). Un seul
 submit par chargement — pas un par étape. Les **photos ne sont pas dans le JSON**
@@ -151,7 +151,7 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 
 ---
 
-## 3. `POST /api/terrain/upload` — toutes les photos en un batch
+## 3. `POST /api/geospatial/upload` — toutes les photos en un batch
 
 Envoyé **après** un submit réussi. **Toutes les photos du chargement en une seule
 requête** `multipart/form-data`. Chaque photo est identifiée par sa `key` (celle
@@ -209,7 +209,7 @@ photos[2][file]   : <binaire JPEG>
 
 ---
 
-## 4. `GET /api/terrain/status/<id>`
+## 4. `GET /api/geospatial/status/<id>`
 
 Vérifie l'état d'un record côté Odoo (optionnel, pour diagnostic).
 
