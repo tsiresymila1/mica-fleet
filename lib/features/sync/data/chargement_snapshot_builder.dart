@@ -40,55 +40,54 @@ class ChargementSnapshotBuilder {
 
     final payload = <String, dynamic>{
       'id': c.id,
-      'fournisseur_id': c.fournisseurId,
-      'statut': c.statut,
-      'date_creation': _d(c.dateCreation),
+      'supplier_id': c.fournisseurId,
+      'status': c.statut,
+      'created_at': _d(c.dateCreation),
       'mines': mines
           .map((m) => {
                 'mine_id': m.mineId,
                 'reference': m.reference,
-                'couleur': m.couleur,
-                'quantite_estimee': m.quantiteEstimee,
-                'plaque': m.plaqueOcr,
+                'color': m.couleur,
+                'estimated_quantity': m.quantiteEstimee,
+                'plate': m.plaqueOcr,
                 'lat': m.gpsLat,
                 'lon': m.gpsLon,
                 'gps_accuracy': m.gpsPrecision,
-                'date_heure': m.dateHeure == null ? null : _d(m.dateHeure!),
+                'captured_at': m.dateHeure == null ? null : _d(m.dateHeure!),
                 'photo': {'key': 'mine_${m.mineId}', 'hash': m.photoHash},
               })
           .toList(),
-      'transbordements': trans
+      'transloads': trans
           .map((t) => {
-                'ordre': t.ordre,
-                'plaque_avant': t.plaqueAvant,
-                'plaque_apres': t.plaqueApres,
-                'gps_decharge': [t.gpsDechargeLat, t.gpsDechargeLon],
-                'gps_recharge': [t.gpsRechargeLat, t.gpsRechargeLon],
+                'order': t.ordre,
+                'plate_before': t.plaqueAvant,
+                'plate_after': t.plaqueApres,
+                'gps_unload': [t.gpsDechargeLat, t.gpsDechargeLon],
+                'gps_reload': [t.gpsRechargeLat, t.gpsRechargeLon],
                 'distance_m': t.distanceMetres,
-                'conforme': t.conforme,
-                'photo_decharge': {'key': 'transb_${t.ordre}_decharge'},
-                'photo_recharge': {'key': 'transb_${t.ordre}_recharge'},
+                'compliant': t.conforme,
+                'photo_unload': {'key': 'transload_${t.ordre}_unload'},
+                'photo_reload': {'key': 'transload_${t.ordre}_reload'},
               })
           .toList(),
-      'arrivee': arr == null
+      'arrival': arr == null
           ? null
           : {
               'depot_id': arr.depotId,
-              'chauffeur': arr.chauffeur,
-              'num_permis': arr.numPermis,
-              'num_lot': arr.numLot,
+              'driver': arr.chauffeur,
+              'license_number': arr.numPermis,
+              'lot_number': arr.numLot,
               'gps': [arr.gpsLat, arr.gpsLon],
-              'statut_gps': arr.statutGps,
-              'plaque_arrivee': arr.plaqueArrivee,
-              'plaque_coherente': arr.plaqueCoherente,
+              'gps_status': arr.statutGps,
+              'plate_arrival': arr.plaqueArrivee,
+              'plate_consistent': arr.plaqueCoherente,
               'lots': arr.lotsJson == null ? null : jsonDecode(arr.lotsJson!),
-              'score_tracabilite': arr.scoreTracabilite,
-              'photo_arrivee': {'key': 'arrivee'},
-              'photo_permis': {'key': 'permis'},
+              'traceability_score': arr.scoreTracabilite,
+              'photo_arrival': {'key': 'arrival'},
+              'photo_license': {'key': 'license'},
             },
-      'trajet':
-          trajet.map((p) => [p.lat, p.lon, _d(p.capturedAt)]).toList(),
-      'score_tracabilite': arr?.scoreTracabilite,
+      'track': trajet.map((p) => [p.lat, p.lon, _d(p.capturedAt)]).toList(),
+      'traceability_score': arr?.scoreTracabilite,
     };
 
     final firstMine = mines.isNotEmpty ? mines.first : null;

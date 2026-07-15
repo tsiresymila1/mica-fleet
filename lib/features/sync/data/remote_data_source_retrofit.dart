@@ -52,7 +52,7 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       'device_uuid': op.opId, // idempotence (UNIQUE côté Odoo)
       'agent_login': op.agentLogin,
       'collected_at': _odooDate(op.createdAt),
-      'collecte_type': op.entityType,
+      'collect_type': op.entityType,
       'gps_lat': op.gpsLat,
       'gps_lon': op.gpsLon,
       'gps_accuracy': op.gpsAccuracy,
@@ -89,14 +89,14 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       final m = e as Map<String, dynamic>;
       return RemoteMine(
         m['id'].toString(),
-        m['nom'] as String,
+        m['name'] as String,
         (m['lat'] as num).toDouble(),
         (m['lon'] as num).toDouble(),
-        (m['rayon_metres'] as num?)?.toDouble() ?? 20,
+        (m['radius_m'] as num?)?.toDouble() ?? 20,
         m['district'] as String?,
         m['commune'] as String?,
         m['region'] as String?,
-        m['actif'] as bool? ?? true,
+        m['active'] as bool? ?? true,
       );
     }).toList();
   }

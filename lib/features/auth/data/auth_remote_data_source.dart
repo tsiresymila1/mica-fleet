@@ -56,7 +56,7 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
     return LoginResult(
       token: data['token'] as String,
       agentId: (agent['login'] ?? login).toString(),
-      agentNom: (agent['nom'] ?? login).toString(),
+      agentNom: (agent['name'] ?? login).toString(),
       mines: _mines(data['mines'] as List?),
       depots: _depots(data['depots'] as List?),
     );
@@ -68,14 +68,14 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       final m = e as Map<String, dynamic>;
       return RemoteMine(
         m['id'].toString(),
-        m['nom'] as String,
+        m['name'] as String,
         (m['lat'] as num).toDouble(),
         (m['lon'] as num).toDouble(),
-        (m['rayon_metres'] as num?)?.toDouble() ?? 20,
+        (m['radius_m'] as num?)?.toDouble() ?? 20,
         m['district'] as String?,
         m['commune'] as String?,
         m['region'] as String?,
-        m['actif'] as bool? ?? true,
+        m['active'] as bool? ?? true,
       );
     }).toList();
   }
@@ -86,11 +86,11 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       final d = e as Map<String, dynamic>;
       return RemoteDepot(
         d['id'].toString(),
-        d['nom'] as String,
+        d['name'] as String,
         (d['lat'] as num).toDouble(),
         (d['lon'] as num).toDouble(),
-        (d['rayon_metres'] as num?)?.toDouble() ?? 20,
-        d['actif'] as bool? ?? true,
+        (d['radius_m'] as num?)?.toDouble() ?? 20,
+        d['active'] as bool? ?? true,
       );
     }).toList();
   }

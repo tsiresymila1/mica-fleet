@@ -54,6 +54,6 @@ void main() {
     final pending = await sync.pending();
     expect(pending.single.entityType, 'chargement');
     expect(pending.single.payload['id'], 'MICA-2026-0001');
-    expect(pending.single.payload['arrivee'], isNot(null));
+    expect(pending.single.payload['arrival'], isNot(null));
   });
 }

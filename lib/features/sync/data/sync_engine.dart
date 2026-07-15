@@ -98,12 +98,12 @@ class SyncEngine {
         .get();
     for (final t in trans) {
       if (t.photoDechargePath != null) {
-        parts.add(
-            PhotoPart('transb_${t.ordre}_decharge', t.photoDechargePath!, null));
+        parts.add(PhotoPart(
+            'transload_${t.ordre}_unload', t.photoDechargePath!, null));
       }
       if (t.photoRechargePath != null) {
-        parts.add(
-            PhotoPart('transb_${t.ordre}_recharge', t.photoRechargePath!, null));
+        parts.add(PhotoPart(
+            'transload_${t.ordre}_reload', t.photoRechargePath!, null));
       }
     }
     final arr = await (db.select(db.arriveesDepot)
@@ -111,10 +111,10 @@ class SyncEngine {
         .getSingleOrNull();
     if (arr != null) {
       if (arr.photoArriveePath != null) {
-        parts.add(PhotoPart('arrivee', arr.photoArriveePath!, null));
+        parts.add(PhotoPart('arrival', arr.photoArriveePath!, null));
       }
       if (arr.photoPermisPath != null) {
-        parts.add(PhotoPart('permis', arr.photoPermisPath!, null));
+        parts.add(PhotoPart('license', arr.photoPermisPath!, null));
       }
     }
     return parts.where((p) => File(p.path).existsSync()).toList();
