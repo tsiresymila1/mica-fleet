@@ -15,16 +15,11 @@ void main() {
     login = Login(repo);
   });
 
-  test('identifiant vide → ValidationFailure', () async {
-    final r = await login('  ');
-    expect(r.isLeft(), isTrue);
-  });
-
-  test('identifiant valide → délègue au repo', () async {
-    when(() => repo.login('F001'))
+  test('délègue identifiant + mot de passe au repo', () async {
+    when(() => repo.login('F001', 'secret'))
         .thenAnswer((_) async => right(const Fournisseur(id: 'F001', nom: 'X')));
-    final r = await login('F001');
+    final r = await login('F001', 'secret');
     expect(r.isRight(), isTrue);
-    verify(() => repo.login('F001')).called(1);
+    verify(() => repo.login('F001', 'secret')).called(1);
   });
 }

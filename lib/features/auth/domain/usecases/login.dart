@@ -7,10 +7,8 @@ class Login {
   final AuthRepository repo;
   Login(this.repo);
 
-  Future<Either<Failure, Fournisseur>> call(String identifiant) {
-    if (identifiant.trim().isEmpty) {
-      return Future.value(left(const Failure.validation('Identifiant requis')));
-    }
-    return repo.login(identifiant.trim());
+  Future<Either<Failure, Fournisseur>> call(
+      String identifiant, String password) {
+    return repo.login(identifiant, password);
   }
 }

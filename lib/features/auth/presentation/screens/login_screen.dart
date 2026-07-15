@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/auth_provider.dart';
@@ -13,12 +14,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _ctrl = TextEditingController();
+  final _pwdCtrl = TextEditingController();
   String? _error;
   bool _loading = false;
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _pwdCtrl.dispose();
     super.dispose();
   }
 
@@ -27,10 +30,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
       _error = null;
     });
-    final r = await ref.read(authControllerProvider.notifier).login(_ctrl.text);
+    final r = await ref
+        .read(authControllerProvider.notifier)
+        .login(_ctrl.text, _pwdCtrl.text);
     r.match(
       (f) => setState(() {
-        _error = 'Identifiant inconnu';
+        _error = f is ValidationFailure ? f.message : 'Identifiant ou mot de passe incorrect';
         _loading = false;
       }),
       (fournisseur) {
@@ -88,6 +93,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Mon identifiant',
                   prefixIcon: Icon(Icons.badge_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _pwdCtrl,
+                obscureText: true,
+                textInputAction: TextInputAction.go,
+                onSubmitted: (_) => _submit(),
+                style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
+                decoration: const InputDecoration(
+                  labelText: 'Mot de passe',
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
               ),
               if (_error != null) ...[
