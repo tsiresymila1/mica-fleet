@@ -14,7 +14,8 @@ class MockRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<void> uploadPhotos(String deviceUuid, List<PhotoPart> photos) async {
+  Future<void> uploadPhotos(
+      String deviceUuid, String loadId, List<PhotoPart> photos) async {
     // Démo : accepté sans rien envoyer.
   }
 

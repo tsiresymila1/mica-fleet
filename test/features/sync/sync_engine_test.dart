@@ -33,10 +33,13 @@ class _FakeRemote implements RemoteDataSource {
   }
 
   final List<String> uploadedFor = [];
+  final List<String> uploadedLoads = [];
   int lastPhotoCount = 0;
   @override
-  Future<void> uploadPhotos(String deviceUuid, List photos) async {
+  Future<void> uploadPhotos(
+      String deviceUuid, String loadId, List photos) async {
     uploadedFor.add(deviceUuid);
+    uploadedLoads.add(loadId);
     lastPhotoCount = photos.length;
   }
 
@@ -156,6 +159,7 @@ void main() {
       await SyncEngine(store, remote, db).sync();
 
       expect(remote.uploadedFor, ['uuid-1']);
+      expect(remote.uploadedLoads, ['C1']); // load_id = id du chargement
       expect(remote.lastPhotoCount, 1);
       final charg = await (db.select(db.chargements)
             ..where((t) => t.id.equals('C1')))

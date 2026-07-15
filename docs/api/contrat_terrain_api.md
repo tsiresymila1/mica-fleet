@@ -1,70 +1,72 @@
-# API Contract — Mica App ↔ Odoo `terrain_api` Module
+# Contrat API — Application Mica ↔ Module Odoo `terrain_api`
 
-Reference for the Odoo team (Technarea) and the mobile team. Describes the
-endpoints called by the Android app, the data sent, and the expected responses.
+Document de référence pour l'équipe Odoo (Technarea) et l'équipe mobile. Décrit
+les endpoints appelés par l'app Android, les données envoyées et les réponses
+attendues.
 
-- **Base URL**: `https://<odoo>/` (set in the app via `MICA_ODOO_URL`)
-- **Format**: JSON (except photo upload = `multipart/form-data`)
-- **Auth**: `Authorization: Bearer <token>` on every endpoint **except** `/login`
-- **Uniform response**: always a `status` field (`ok` / `created` / `error`).
-  The app reads `status`, **not only the HTTP code**.
-- **Idempotency**: each load carries a **stable `device_uuid`** (UUID v4 generated
-  once). The same `device_uuid` sent again must **never create a duplicate**.
-- **All JSON keys are in English.**
+- **Base URL** : `https://<odoo>/` (configurée dans l'app via `MICA_ODOO_URL`)
+- **Format** : JSON (sauf upload photos = `multipart/form-data`)
+- **Auth** : `Authorization: Bearer <token>` sur tous les endpoints **sauf** `/login`
+- **Réponse uniforme** : toujours un champ `status` (`ok` / `created` / `error`).
+  L'app lit `status`, **pas uniquement le code HTTP**.
+- **Idempotence** : chaque chargement porte un **`device_uuid` stable** (UUID v4
+  généré une fois). Un même `device_uuid` renvoyé plusieurs fois ne doit **jamais
+  créer de doublon**.
+- **Toutes les clés JSON sont en anglais.**
 
 ---
 
 ## 1. `POST /api/terrain/login`
 
-Authenticates the agent and returns the token + the reference data (mines, depots).
-Called without a token (it provides one).
+Authentifie l'agent et renvoie le token + le référentiel (mines, dépôts). Appelé
+sans token (c'est lui qui le fournit).
 
-### Request
+### Requête
 ```json
 { "login": "F001", "password": "••••••" }
 ```
 
-### Expected response (200)
+### Réponse attendue (200)
 ```json
 {
   "status": "ok",
   "data": {
     "token": "a1b2c3...",
-    "agent": { "login": "F001", "name": "Supplier X" },
+    "agent": { "login": "F001", "name": "Fournisseur X" },
     "mines": [
       {
-        "id": "M001", "name": "Andilana Quarry",
+        "id": "M001", "name": "Carrière Andilana",
         "lat": -18.91000, "lon": 47.52000, "radius_m": 20,
         "district": "Ambohidratrimo", "commune": "Andilana",
         "region": "Analamanga", "active": true
       }
     ],
     "depots": [
-      { "id": "D001", "name": "Antananarivo Depot",
+      { "id": "D001", "name": "Dépôt Antananarivo",
         "lat": -18.87900, "lon": 47.50800, "radius_m": 20, "active": true }
     ]
   }
 }
 ```
 
-### Error (401)
+### Erreur (401)
 ```json
-{ "status": "error", "message": "Invalid credentials" }
+{ "status": "error", "message": "Identifiant ou mot de passe incorrect" }
 ```
 
-> The app stores the `token` (encrypted, Android Keystore) and **replaces** the
-> local mines/depots reference data. Later logins work offline (cached session +
-> reference data).
+> L'app stocke le `token` (chiffré, Android Keystore) et **remplace** le
+> référentiel mines/dépôts local. Les connexions suivantes fonctionnent hors
+> ligne (session + référentiel en cache).
 
 ---
 
 ## 2. `POST /api/terrain/submit`
 
-Sends **one complete load** (mines + transloads + arrival). One submit per load —
-not one per step. **Photos are not in the JSON** (see §3): only their **keys +
-hash** appear here.
+Envoie **un chargement complet** (mines + transbordements + arrivée). Un seul
+submit par chargement — pas un par étape. Les **photos ne sont pas dans le JSON**
+(voir §3) : seules leurs **clés + hash** y figurent.
 
-### Envelope
+### Enveloppe
 ```json
 {
   "device_uuid": "550e8400-e29b-41d4-a716-446655440000",
@@ -72,11 +74,11 @@ hash** appear here.
   "collected_at": "2026-06-22 08:00:00",
   "collect_type": "chargement",
   "gps_lat": -18.91000, "gps_lon": 47.52000, "gps_accuracy": 5.0,
-  "payload": { /* see below */ }
+  "payload": { /* voir ci-dessous */ }
 }
 ```
 
-### `payload` (complete load)
+### `payload` (chargement complet)
 ```json
 {
   "id": "MICA-2026-0007",
@@ -88,7 +90,7 @@ hash** appear here.
     {
       "mine_id": "M001",
       "reference": "REF-1",
-      "color": "White",
+      "color": "Blanc",
       "estimated_quantity": 120,
       "plate": "1234 TBR",
       "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
@@ -113,12 +115,12 @@ hash** appear here.
     "depot_id": "D001",
     "driver": "Rakoto",
     "license_number": "P-123",
-    "lot_number": "White: LOT-1",
+    "lot_number": "Blanc: LOT-1",
     "gps": [-18.87900, 47.50800],
     "gps_status": "valide",
     "plate_arrival": "5678 ABC",
     "plate_consistent": true,
-    "lots": { "White": "LOT-1" },
+    "lots": { "Blanc": "LOT-1" },
     "traceability_score": 100,
     "photo_arrival": { "key": "arrival" },
     "photo_license": { "key": "license" }
@@ -134,44 +136,53 @@ hash** appear here.
 }
 ```
 
-### Expected responses
+### Réponses attendues
 ```json
-// Created (201)
+// Création (201)
 { "status": "created", "data": { "id": 42, "state": "draft" } }
-// Same device_uuid replayed (200)
+// Rejeu même device_uuid (200)
 { "status": "ok", "message": "already_synced", "data": { "id": 42 } }
-// Validation error (400) / business error (422)
-{ "status": "error", "message": "Missing required field: device_uuid" }
+// Erreur validation (400) / métier (422)
+{ "status": "error", "message": "Champ requis manquant : device_uuid" }
 ```
 
-> The app stores `data.id` as `odoo_id`. Both `created` (201) **and**
-> `already_synced` (200) = **success**.
+> L'app enregistre `data.id` comme `odoo_id`. `created` (201) **et**
+> `already_synced` (200) = **succès**.
 
 ---
 
-## 3. `POST /api/terrain/upload` — all photos in one batch
+## 3. `POST /api/terrain/upload` — toutes les photos en un batch
 
-Sent **after** a successful submit. **All photos of the load in a single**
-`multipart/form-data` request. Each photo is identified by its `key` (the same
-one declared in the payload).
+Envoyé **après** un submit réussi. **Toutes les photos du chargement en une seule
+requête** `multipart/form-data`. Chaque photo est identifiée par sa `key` (celle
+déclarée dans le payload).
 
-### Request (multipart/form-data)
+Le chargement est identifié par **DEUX champs** :
+- **`load_id`** = l'id du chargement (`MICA-…`, = `payload.id`) → savoir **à quel
+  payload** ces fichiers appartiennent.
+- **`device_uuid`** = clé d'idempotence stable.
+
+**Un seul upload = un chargement complet.**
+
+### Requête (multipart/form-data)
 ```
+load_id           : MICA-2026-0007
 device_uuid       : 550e8400-e29b-41d4-a716-446655440000
 photos[0][key]    : mine_M001
 photos[0][hash]   : 9f2c...e7
-photos[0][file]   : <JPEG binary>
+photos[0][file]   : <binaire JPEG>
 photos[1][key]    : transload_1_unload
-photos[1][file]   : <JPEG binary>
+photos[1][file]   : <binaire JPEG>
 photos[2][key]    : arrival
-photos[2][file]   : <JPEG binary>
+photos[2][file]   : <binaire JPEG>
 ```
 
-### Expected response (200)
+### Réponse attendue (200)
 ```json
 {
   "status": "ok",
   "data": {
+    "load_id": "MICA-2026-0007",
     "uploaded": [
       { "photo_key": "mine_M001",          "attachment_id": 812 },
       { "photo_key": "transload_1_unload", "attachment_id": 813 },
@@ -181,62 +192,62 @@ photos[2][file]   : <JPEG binary>
 }
 ```
 
-- The server attaches each file to the record (via `device_uuid`) under the field
-  matching `photo_key`.
-- **Photo idempotency**: if the `hash` is already known for that key, ignore it
-  (do not recreate). Allows replaying the batch without duplicates.
-- The app deletes the local file after confirmation (the `hash` remains as proof).
+- Le serveur rattache chaque fichier au chargement (via `load_id` / `device_uuid`)
+  sous le champ correspondant à `photo_key`.
+- **Idempotence photo** : si le `hash` est déjà connu pour cette clé, ignorer
+  (ne pas recréer). Permet de rejouer le batch sans doublon.
+- L'app supprime le fichier local après confirmation (le `hash` reste comme preuve).
 
-### `photo_key` scheme
+### Schéma des `photo_key`
 | Photo | `photo_key` |
 |---|---|
 | Mine `<id>` | `mine_<mineId>` |
-| Transload block `<n>` unload | `transload_<n>_unload` |
-| Transload block `<n>` reload | `transload_<n>_reload` |
-| Depot arrival | `arrival` |
-| Driver license | `license` |
+| Transbordement bloc `<n>` décharge | `transload_<n>_unload` |
+| Transbordement bloc `<n>` recharge | `transload_<n>_reload` |
+| Arrivée dépôt | `arrival` |
+| Permis chauffeur | `license` |
 
 ---
 
 ## 4. `GET /api/terrain/status/<id>`
 
-Checks the state of a record on the Odoo side (optional, for diagnostics).
+Vérifie l'état d'un record côté Odoo (optionnel, pour diagnostic).
 
-### Response
+### Réponse
 ```json
 { "status": "ok", "data": { "id": 42, "state": "done", "device_uuid": "550e..." } }
 ```
-404 if the id does not exist.
+404 si l'id n'existe pas.
 
 ---
 
-## 5. HTTP codes
+## 5. Codes HTTP
 
-| Code | Case |
+| Code | Cas |
 |---|---|
-| 200 | success / `already_synced` |
-| 201 | record created |
-| 400 | missing / invalid parameter |
-| 401 | missing or invalid token |
-| 403 | insufficient rights |
-| 404 | record not found |
-| 422 | business rule violated |
-| 500 | server error |
+| 200 | succès / `already_synced` |
+| 201 | record créé |
+| 400 | paramètre manquant / invalide |
+| 401 | token absent ou invalide |
+| 403 | droits insuffisants |
+| 404 | record inexistant |
+| 422 | règle métier violée |
+| 500 | erreur serveur |
 
 ---
 
-## 6. To confirm with Technarea
+## 6. À confirmer par Technarea
 
-1. **`/login`**: exact path and fields? Response contains `token` + `agent` +
-   `mines` + `depots`? Token lifetime / refresh?
-2. **`/submit`**: sent **once** when the load is complete (no upsert needed).
-   Confirm this matches the module.
-3. **`/upload`**: does it accept the **batch** (`photos[i][file]`) in one request,
-   or one file per request? Correlation by `device_uuid` or `odoo_id`?
-4. Do the mines/depots come from **`/login`** (and not `/config`)?
-5. Linking transloads/arrival to the load: by `payload.id` (`MICA-…`) or by the
-   Odoo record created at submit?
+1. **`/login`** : chemin et champs exacts ? La réponse contient bien
+   `token` + `agent` + `mines` + `depots` ? Durée de vie / refresh du token ?
+2. **`/submit`** : envoyé **une seule fois** quand le chargement est complet
+   (pas d'upsert requis). Confirmer que ça correspond au module.
+3. **`/upload`** : accepte-t-il le **batch** (`photos[i][file]`) en une requête ?
+   Rattachement par `load_id` (`MICA-…`) **et/ou** `device_uuid` — le quel faites-vous foi ?
+4. Le référentiel **mines/dépôts** vient-il bien de `/login` (et non `/config`) ?
+5. Rattachement transbordements/arrivée au chargement : par `payload.id`
+   (`MICA-…`) ou par le record Odoo créé au submit ?
 
-> Note: a few enum-like string **values** are still French inside the payload
-> (`status: "valide"`, `gps_status: "valide"`, `collect_type: "chargement"`). Tell
-> us if you want those normalized to English too.
+> Note : quelques **valeurs** enum restent en français dans le payload
+> (`status: "valide"`, `gps_status: "valide"`, `collect_type: "chargement"`).
+> Dites-nous si vous voulez les normaliser en anglais aussi.

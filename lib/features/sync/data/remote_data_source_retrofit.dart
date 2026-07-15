@@ -26,10 +26,12 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   RetrofitRemoteDataSource(this.api, this.dio);
 
   @override
-  Future<void> uploadPhotos(String deviceUuid, List<PhotoPart> photos) async {
+  Future<void> uploadPhotos(
+      String deviceUuid, String loadId, List<PhotoPart> photos) async {
     if (photos.isEmpty) return;
     final form = FormData();
     form.fields.add(MapEntry('device_uuid', deviceUuid));
+    form.fields.add(MapEntry('load_id', loadId)); // = payload.id (MICA-…)
     for (var i = 0; i < photos.length; i++) {
       final p = photos[i];
       form.fields.add(MapEntry('photos[$i][key]', p.key));

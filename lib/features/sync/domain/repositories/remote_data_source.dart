@@ -23,8 +23,11 @@ abstract class RemoteDataSource {
   Future<int?> pushOperation(SyncOperation op);
 
   /// Upload de TOUTES les photos d'un chargement en un seul batch multipart.
+  /// [loadId] = id du chargement (MICA-…, = payload.id) pour rattacher les
+  /// fichiers au bon submit ; [deviceUuid] = clé d'idempotence stable.
   /// Idempotent par hash. Lève en cas d'échec réseau.
-  Future<void> uploadPhotos(String deviceUuid, List<PhotoPart> photos);
+  Future<void> uploadPhotos(
+      String deviceUuid, String loadId, List<PhotoPart> photos);
 
   /// Pull du référentiel mines.
   Future<List<RemoteMine>> fetchMines();

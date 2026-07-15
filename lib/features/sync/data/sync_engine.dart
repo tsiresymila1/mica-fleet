@@ -71,7 +71,8 @@ class SyncEngine {
           .getSingleOrNull();
       if (charg == null || charg.photosUploaded) continue;
       final photos = await _collectPhotos(charg.id);
-      await remote.uploadPhotos(charg.deviceUuid ?? charg.id, photos);
+      await remote.uploadPhotos(
+          charg.deviceUuid ?? charg.id, charg.id, photos);
       // Succès : marque uploadé + purge les fichiers (le hash reste comme preuve).
       await (db.update(db.chargements)..where((t) => t.id.equals(charg.id)))
           .write(const ChargementsCompanion(photosUploaded: Value(true)));
