@@ -5,16 +5,23 @@
 #   - commit, (re)crée le tag vX.Y.Z (supprime l'ancien local + distant)
 #   - push la branche et le tag → déclenche le workflow GitHub (build APK + release)
 #
-# Usage : ./scripts/release.sh <version>   (ex: ./scripts/release.sh 1.2.0)
+# Usage : ./scripts/release.sh <version> [remote]
+#   ex: ./scripts/release.sh 1.2.0            → push vers origin (défaut)
+#       ./scripts/release.sh 1.2.0 radoran    → push vers le remote radoran
 set -euo pipefail
 
 VERSION="${1:-}"
+REMOTE="${2:-origin}"
 if [ -z "$VERSION" ]; then
-  echo "Usage: ./scripts/release.sh <version>   (ex: 1.2.0)" >&2
+  echo "Usage: ./scripts/release.sh <version> [remote]   (ex: 1.2.0 radoran)" >&2
   exit 1
 fi
 if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   echo "Version invalide : $VERSION (attendu X.Y.Z)" >&2
+  exit 1
+fi
+if ! git remote get-url "$REMOTE" >/dev/null 2>&1; then
+  echo "Remote inconnu : $REMOTE (remotes: $(git remote | tr '\n' ' '))" >&2
   exit 1
 fi
 
@@ -61,11 +68,11 @@ git commit -m "chore(release): $TAG" || echo "Rien de nouveau à committer."
 
 # 4) Tag : supprime l'ancien (local + distant) puis recrée
 git tag -d "$TAG" 2>/dev/null || true
-git push origin ":refs/tags/$TAG" 2>/dev/null || true
+git push "$REMOTE" ":refs/tags/$TAG" 2>/dev/null || true
 git tag -a "$TAG" -m "$TAG"
 
-# 5) Push branche + tag
-git push origin "$BRANCH"
-git push origin "$TAG"
+# 5) Push branche + tag vers le remote choisi
+git push "$REMOTE" "$BRANCH"
+git push "$REMOTE" "$TAG"
 
-echo "✅ Release $TAG poussée (version $VERSION+$BUILD). Le workflow GitHub build les APK."
+echo "✅ Release $TAG poussée vers '$REMOTE' (version $VERSION+$BUILD). Le workflow GitHub build les APK."
