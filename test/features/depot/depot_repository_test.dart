@@ -57,7 +57,7 @@ void main() {
     // Envoi unique : à l'arrivée, une seule op 'lot' (snapshot complet du lot).
     final pending = await sync.pending();
     expect(pending.single.entityType, 'lot');
-    expect(pending.single.payload['lot_id'], 'MICA-2026-0001-L1');
+    expect(pending.single.payload['id'], 'MICA-2026-0001-L1');
     expect(pending.single.payload['session_id'], 'MICA-2026-0001');
     expect(pending.single.payload['arrival'], isNot(null));
   });

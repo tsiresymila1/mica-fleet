@@ -39,8 +39,9 @@ class LotSnapshotBuilder {
         .get();
 
     final payload = <String, dynamic>{
-      'lot_id': lot.id,
-      'session_id': lot.sessionId,
+      // `id` = identifiant du payload = identifiant du LOT (1 payload = 1 lot).
+      'id': lot.id,
+      'session_id': lot.sessionId, // lots partis ensemble
       'supplier_id': session?.fournisseurId,
       'lot_reference': session?.lotReference,
       'status': lot.statut,
@@ -48,7 +49,7 @@ class LotSnapshotBuilder {
 
       // Origine : UNE mine, quantité figée au départ (lot indivisible).
       'mine': {
-        'mine_id': lot.mineId,
+        'mine_id': _id(lot.mineId),
         'reference': lot.reference,
         'color': lot.couleur,
         'estimated_quantity': lot.quantiteEstimee,
@@ -78,14 +79,17 @@ class LotSnapshotBuilder {
       'arrival': arr == null
           ? null
           : {
-              'depot_id': arr.depotId,
+              'depot_id': _id(arr.depotId),
               'driver': arr.chauffeur,
               'license_number': arr.numPermis,
               'lot_number': arr.numLot,
+              // Odoo indexe aussi le numéro par couleur de mica.
+              'lots': {lot.couleur ?? 'lot': arr.numLot},
               'gps': [arr.gpsLat, arr.gpsLon],
               'gps_status': arr.statutGps,
               'plate_arrival': arr.plaqueArrivee,
               'plate_consistent': arr.plaqueCoherente,
+              'traceability_score': arr.scoreTracabilite,
               'photo_arrival': {'key': 'arrival'},
               'photo_license': {'key': 'license'},
             },
@@ -103,6 +107,11 @@ class LotSnapshotBuilder {
       payload: payload,
     );
   }
+
+  /// Les ids du référentiel Odoo sont numériques ; on les stocke en texte.
+  /// On renvoie l'entier quand c'est possible, sinon la chaîne telle quelle
+  /// (jeux de données de démo type « M001 »).
+  static dynamic _id(String v) => int.tryParse(v) ?? v;
 
   static String _d(DateTime d) =>
       d.toUtc().toIso8601String().replaceFirst('T', ' ').split('.').first;
