@@ -9,7 +9,6 @@ import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/lot.dart';
 import 'add_mine_screen.dart';
-import 'suivi_chargement_screen.dart';
 
 class ChargementScreen extends ConsumerStatefulWidget {
   const ChargementScreen({super.key});

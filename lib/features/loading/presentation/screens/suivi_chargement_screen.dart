@@ -46,51 +46,29 @@ class SuiviChargementScreen extends ConsumerWidget {
             data: (list) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('${list.length} lot(s) en route',
-                    style: Theme.of(context).textTheme.titleMedium),
+                StepHeader(
+                    numero: 2,
+                    titre: '${list.length} lot(s) en route',
+                    sousTitre: 'Ouvre un lot pour suivre SON camion'),
                 const SizedBox(height: 8),
-                ...list.map((l) => ActionTile(
-                      icon: Icons.inventory_2,
-                      color: AppColors.gold,
-                      titre: l.id,
-                      sousTitre: [
-                        l.mineId,
-                        if (l.couleur != null) l.couleur!,
-                      ].join(' · '),
-                      onTap: () => context.push('/detail/${l.id}'),
+                ...list.map((l) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ActionTile(
+                        icon: Icons.inventory_2,
+                        color: AppColors.gold,
+                        titre: l.id,
+                        sousTitre: [
+                          l.mineId,
+                          if (l.couleur != null) l.couleur!,
+                        ].join(' · '),
+                        onTap: () async {
+                          await context.push('/detail/${l.id}');
+                          ref.invalidate(lotsEnCoursProvider(sessionId));
+                        },
+                      ),
                     )),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: 12),
-            child: StepHeader(numero: 2, titre: 'Pendant le transport'),
-          ),
-          ActionTile(
-            icon: Icons.local_shipping,
-            color: AppColors.gold,
-            titre: 'Changer de camion',
-            sousTitre: 'Choisis les lots qui changent',
-            onTap: () async {
-              await context.push('/transbordement/$sessionId');
-              ref.invalidate(lotsEnCoursProvider(sessionId));
-            },
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.only(left: 4, top: 12, bottom: 12),
-            child: StepHeader(numero: 3, titre: 'À l\'arrivée'),
-          ),
-          ActionTile(
-            icon: Icons.warehouse,
-            color: AppColors.primary,
-            titre: 'Arrivée au dépôt',
-            sousTitre: 'Valide les lots arrivés (1 n° de lot par lot)',
-            onTap: () async {
-              await context.push('/arrivee/$sessionId');
-              ref.invalidate(lotsEnCoursProvider(sessionId));
-            },
           ),
         ],
       ),

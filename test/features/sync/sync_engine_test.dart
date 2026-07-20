@@ -134,23 +134,22 @@ void main() {
       expect(row.attempts, 5);
     });
 
-    test('après submit chargement : upload photos batch + purge fichier', () async {
+    test('après submit lot : upload photos batch + purge fichier', () async {
       final tmp = File('${Directory.systemTemp.path}/mica_test_photo.jpg')
         ..writeAsBytesSync([1, 2, 3]);
       await db.into(db.chargements).insert(ChargementsCompanion.insert(
-          id: 'C1',
-          fournisseurId: 'F001',
-          dateCreation: DateTime(2026),
-          deviceUuid: const Value('uuid-1')));
-      await db.into(db.mineChargements).insert(MineChargementsCompanion.insert(
-          chargementId: 'C1',
+          id: 'C1', fournisseurId: 'F001', dateCreation: DateTime(2026)));
+      await db.into(db.lots).insert(LotsCompanion.insert(
+          id: 'C1-L1',
+          sessionId: 'C1',
           mineId: 'M001',
           photoPath: Value(tmp.path),
-          photoHash: const Value('h')));
+          photoHash: const Value('h'),
+          deviceUuid: const Value('uuid-1')));
       await store.enqueue(SyncOperation(
           opId: 'op1',
-          entityType: 'chargement',
-          entityId: 'C1',
+          entityType: 'lot',
+          entityId: 'C1-L1',
           opType: SyncOpType.create,
           payload: const {},
           createdAt: DateTime(2026, 1, 1)));
@@ -159,12 +158,12 @@ void main() {
       await SyncEngine(store, remote, db).sync();
 
       expect(remote.uploadedFor, ['uuid-1']);
-      expect(remote.uploadedLoads, ['C1']); // load_id = id du chargement
+      expect(remote.uploadedLoads, ['C1-L1']); // load_id = id du LOT
       expect(remote.lastPhotoCount, 1);
-      final charg = await (db.select(db.chargements)
-            ..where((t) => t.id.equals('C1')))
-          .getSingle();
-      expect(charg.photosUploaded, isTrue);
+      final lot =
+          await (db.select(db.lots)..where((t) => t.id.equals('C1-L1')))
+              .getSingle();
+      expect(lot.photosUploaded, isTrue);
       expect(tmp.existsSync(), isFalse); // fichier purgé
     });
 

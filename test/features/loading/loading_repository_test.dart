@@ -15,24 +15,25 @@ void main() {
         id: 'MICA-2026-0001',
         fournisseurId: 'F001',
         dateCreation: DateTime(2026)));
-    await db.into(db.mineChargements).insert(
-        MineChargementsCompanion.insert(
-            chargementId: 'MICA-2026-0001', mineId: 'M001'));
+    await db.into(db.lots).insert(LotsCompanion.insert(
+        id: 'MICA-2026-0001-L1',
+        sessionId: 'MICA-2026-0001',
+        mineId: 'M001'));
   });
   tearDown(() => db.close());
 
-  test('supprime un chargement non arrivé + ses mines', () async {
+  test('supprime une session non arrivée + ses lots', () async {
     final r = await repo.deleteChargement('MICA-2026-0001');
     expect(r.isRight(), isTrue);
     expect(await db.select(db.chargements).get(), isEmpty);
-    expect(await db.select(db.mineChargements).get(), isEmpty);
+    expect(await db.select(db.lots).get(), isEmpty);
   });
 
-  test('refuse la suppression si déjà arrivé au dépôt', () async {
+  test('refuse la suppression si un lot est arrivé au dépôt', () async {
     await db.into(db.depots).insert(
         DepotsCompanion.insert(id: 'D1', nom: 'D', lat: -18.9, lon: 47.5));
     await db.into(db.arriveesDepot).insert(ArriveesDepotCompanion.insert(
-        chargementId: 'MICA-2026-0001',
+        lotId: 'MICA-2026-0001-L1',
         depotId: 'D1',
         chauffeur: 'J',
         numPermis: 'P',

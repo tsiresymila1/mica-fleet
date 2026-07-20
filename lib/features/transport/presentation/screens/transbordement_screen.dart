@@ -9,11 +9,11 @@ import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/transbordement.dart';
 import '../providers/transport_provider.dart';
 
-/// Changement de camion : on choisit QUELS LOTS montent sur le camion suivant.
-/// Chaque lot sélectionné reçoit un maillon dans sa propre chaîne.
+/// Changement de camion pour UN lot. Chaque lot a sa propre chaîne de camions :
+/// deux lots partis ensemble peuvent repartir sur des camions différents.
 class TransbordementScreen extends ConsumerStatefulWidget {
-  final String sessionId;
-  const TransbordementScreen({super.key, required this.sessionId});
+  final String lotId;
+  const TransbordementScreen({super.key, required this.lotId});
   @override
   ConsumerState<TransbordementScreen> createState() =>
       _TransbordementScreenState();
@@ -24,7 +24,6 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   final _apresCtrl = TextEditingController();
   CapturedPhoto? _decharge;
   CapturedPhoto? _recharge;
-  final Set<String> _selection = {};
   bool _saving = false;
 
   @override
@@ -63,38 +62,26 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
           kind: AppMsgKind.warning);
       return;
     }
-    if (_selection.isEmpty) {
-      await showAppMessage(context, 'Choisis au moins un lot à transborder',
-          kind: AppMsgKind.warning);
-      return;
-    }
     setState(() => _saving = true);
     try {
       final repo = ref.read(transportRepoProvider);
-      final valider = ref.read(validateTransbordementProvider);
-      for (final lotId in _selection) {
-        final chaine = await repo.chaineFor(lotId);
-        final maillon = Transbordement(
-          ordre: chaine.length + 1,
-          plaqueAvant: _avantCtrl.text.trim().isEmpty
-              ? null
-              : _avantCtrl.text.trim(),
-          plaqueApres: _apresCtrl.text.trim().isEmpty
-              ? null
-              : _apresCtrl.text.trim(),
-          gpsDechargeLat: _decharge!.lat,
-          gpsDechargeLon: _decharge!.lon,
-          gpsRechargeLat: _recharge!.lat,
-          gpsRechargeLon: _recharge!.lon,
-        );
-        final nouvelle =
-            valider([...chaine, maillon], kRayonTransbordementMetres);
-        await repo.persistChaine(lotId, nouvelle);
-      }
-      ref.invalidate(lotsEnCoursProvider(widget.sessionId));
+      final chaine = await repo.chaineFor(widget.lotId);
+      final maillon = Transbordement(
+        ordre: chaine.length + 1,
+        plaqueAvant:
+            _avantCtrl.text.trim().isEmpty ? null : _avantCtrl.text.trim(),
+        plaqueApres:
+            _apresCtrl.text.trim().isEmpty ? null : _apresCtrl.text.trim(),
+        gpsDechargeLat: _decharge!.lat,
+        gpsDechargeLon: _decharge!.lon,
+        gpsRechargeLat: _recharge!.lat,
+        gpsRechargeLon: _recharge!.lon,
+      );
+      final nouvelle = ref.read(validateTransbordementProvider)(
+          [...chaine, maillon], kRayonTransbordementMetres);
+      await repo.persistChaine(widget.lotId, nouvelle);
       if (!mounted) return;
-      await showAppMessage(
-          context, '${_selection.length} lot(s) transbordé(s)',
+      await showAppMessage(context, 'Changement de camion enregistré',
           kind: AppMsgKind.success);
       if (mounted) Navigator.of(context).pop();
     } finally {
@@ -104,16 +91,15 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final lots = ref.watch(lotsEnCoursProvider(widget.sessionId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Changement de camion')),
+      appBar: AppBar(title: Text('Camion — ${widget.lotId}')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
           StepHeader(
               numero: 1,
-              titre: 'Le camion',
-              sousTitre: 'Photos + plaques avant / après'),
+              titre: 'Le déchargement',
+              sousTitre: 'Camion qui portait ce lot'),
           const SizedBox(height: 12),
           ActionTile(
             icon: _decharge == null ? Icons.camera_alt : Icons.check_circle,
@@ -136,7 +122,12 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
               decoration: const InputDecoration(
                   labelText: 'Plaque camion avant',
                   prefixIcon: Icon(Icons.directions_car))),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          StepHeader(
+              numero: 2,
+              titre: 'Le rechargement',
+              sousTitre: 'Nouveau camion pour ce lot'),
+          const SizedBox(height: 12),
           ActionTile(
             icon: _recharge == null ? Icons.camera_alt : Icons.check_circle,
             color: _recharge == null ? AppColors.primary : AppColors.ok,
@@ -158,36 +149,6 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
               decoration: const InputDecoration(
                   labelText: 'Plaque camion après',
                   prefixIcon: Icon(Icons.directions_car))),
-          const SizedBox(height: 24),
-          StepHeader(
-              numero: 2,
-              titre: 'Les lots',
-              sousTitre: 'Coche ceux qui montent sur le nouveau camion'),
-          const SizedBox(height: 8),
-          lots.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => const Text('Impossible de charger les lots'),
-            data: (list) => list.isEmpty
-                ? const _Muted('Aucun lot en route')
-                : Column(
-                    children: list
-                        .map((l) => Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: CheckboxListTile(
-                                value: _selection.contains(l.id),
-                                onChanged: (v) => setState(() => v == true
-                                    ? _selection.add(l.id)
-                                    : _selection.remove(l.id)),
-                                title: Text(l.id),
-                                subtitle: Text([
-                                  l.mineId,
-                                  if (l.couleur != null) l.couleur!,
-                                ].join(' · ')),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -199,14 +160,4 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       ),
     );
   }
-}
-
-class _Muted extends StatelessWidget {
-  final String texte;
-  const _Muted(this.texte);
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(texte, style: Theme.of(context).textTheme.bodyMedium),
-      );
 }

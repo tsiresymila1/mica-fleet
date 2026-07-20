@@ -37,19 +37,19 @@ final routerProvider = Provider<GoRouter>((ref) {
           path: '/detail/:lotId',
           builder: (_, s) =>
               ChargementDetailScreen(lotId: s.pathParameters['lotId']!)),
-      // Suivi / transbordement / arrivée = au niveau SESSION (plusieurs lots).
+      // Récap juste après création : liste les lots créés (niveau SESSION).
       GoRoute(
           path: '/suivi/:sessionId',
           builder: (_, s) =>
               SuiviChargementScreen(sessionId: s.pathParameters['sessionId']!)),
+      // Transport et arrivée = au niveau LOT : chaque lot suit son propre camion.
       GoRoute(
-          path: '/transbordement/:sessionId',
+          path: '/transbordement/:lotId',
           builder: (_, s) =>
-              TransbordementScreen(sessionId: s.pathParameters['sessionId']!)),
+              TransbordementScreen(lotId: s.pathParameters['lotId']!)),
       GoRoute(
-          path: '/arrivee/:sessionId',
-          builder: (_, s) =>
-              ArriveeScreen(sessionId: s.pathParameters['sessionId']!)),
+          path: '/arrivee/:lotId',
+          builder: (_, s) => ArriveeScreen(lotId: s.pathParameters['lotId']!)),
       GoRoute(
           path: '/dev-scenarios',
           builder: (_, _) => const DevScenariosScreen()),

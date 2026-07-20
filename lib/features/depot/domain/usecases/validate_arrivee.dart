@@ -9,7 +9,7 @@ class ValidateArrivee {
   ValidateArrivee(this.detect);
 
   Either<Failure, ArriveeDepot> call({
-    required String chargementId,
+    required String lotId,
     required List<Depot> depots,
     required double lat,
     required double lon,
@@ -17,7 +17,7 @@ class ValidateArrivee {
     required String numPermis,
     required String numLot,
     String? plaqueArrivee,
-    String? plaqueAttendue, // dernière plaque connue (chaîne ou chargement)
+    String? plaqueAttendue, // dernière plaque connue de CE lot
     String? photoArriveePath,
     String? photoPermisPath,
   }) {
@@ -33,7 +33,7 @@ class ValidateArrivee {
           const Failure.validation('Aucun dépôt reconnu dans la zone GPS'));
     }
     return right(ArriveeDepot(
-      chargementId: chargementId,
+      lotId: lotId,
       depotId: depot.id,
       chauffeur: chauffeur,
       numPermis: numPermis,

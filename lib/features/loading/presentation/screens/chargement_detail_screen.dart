@@ -150,11 +150,25 @@ class ChargementDetailScreen extends ConsumerWidget {
         data: (d) => d.arrivee == null
             ? SafeArea(
                 minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                child: BigButton(
-                  icon: Icons.local_shipping,
-                  label: 'Continuer le transport',
-                  color: AppColors.gold,
-                  onPressed: () => context.push('/suivi/${d.sessionId}'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    BigButton(
+                      icon: Icons.local_shipping,
+                      label: 'Changer de camion',
+                      color: AppColors.gold,
+                      onPressed: () async {
+                        await context.push('/transbordement/$lotId');
+                        ref.invalidate(lotDetailProvider(lotId));
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    BigButton(
+                      icon: Icons.warehouse,
+                      label: 'Arrivée au dépôt',
+                      onPressed: () => context.push('/arrivee/$lotId'),
+                    ),
+                  ],
                 ),
               )
             : null,

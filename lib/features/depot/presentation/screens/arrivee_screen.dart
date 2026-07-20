@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../shared/capture_photo_screen.dart';
@@ -12,14 +13,14 @@ import '../../../scoring/presentation/scoring_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
 import '../../../trip/presentation/sim_session.dart';
 import '../../../trip/presentation/trip_provider.dart';
-import '../../domain/entities/arrivee_depot.dart';
 import '../providers/depot_provider.dart';
 
-/// Arrivée au dépôt : on valide les lots présents dans le camion.
-/// Chaque lot reçoit son numéro de lot et SON score (1 lot = 1 traçabilité).
+/// Arrivée au dépôt d'UN lot : son chauffeur, son numéro de lot, son score.
+/// Rien n'est partagé entre lots — ils peuvent arriver sur des camions
+/// différents, à des moments différents.
 class ArriveeScreen extends ConsumerStatefulWidget {
-  final String sessionId;
-  const ArriveeScreen({super.key, required this.sessionId});
+  final String lotId;
+  const ArriveeScreen({super.key, required this.lotId});
   @override
   ConsumerState<ArriveeScreen> createState() => _ArriveeScreenState();
 }
@@ -28,8 +29,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _chauffeurCtrl = TextEditingController();
   final _permisCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
-  final Map<String, TextEditingController> _numLot = {};
-  final Set<String> _selection = {};
+  final _numLotCtrl = TextEditingController();
   CapturedPhoto? _photo;
   CapturedPhoto? _permisPhoto;
   bool _saving = false;
@@ -48,9 +48,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     _chauffeurCtrl.dispose();
     _permisCtrl.dispose();
     _plaqueCtrl.dispose();
-    for (final c in _numLot.values) {
-      c.dispose();
-    }
+    _numLotCtrl.dispose();
     super.dispose();
   }
 
@@ -71,9 +69,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     }
   }
 
-  String norm(String s) =>
-      s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-
   Future<void> _save() async {
     final photo = _photo;
     if (photo == null) {
@@ -81,105 +76,79 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           kind: AppMsgKind.warning);
       return;
     }
-    if (_selection.isEmpty) {
-      await showAppMessage(context, 'Choisis les lots arrivés',
-          kind: AppMsgKind.warning);
-      return;
-    }
-    if (_chauffeurCtrl.text.trim().isEmpty ||
-        _permisCtrl.text.trim().isEmpty) {
-      await showAppMessage(context, 'Chauffeur et permis obligatoires',
-          kind: AppMsgKind.warning);
-      return;
-    }
-    for (final id in _selection) {
-      if ((_numLot[id]?.text ?? '').trim().isEmpty) {
-        await showAppMessage(context, 'Numéro de lot manquant pour $id',
-            kind: AppMsgKind.warning);
-        return;
-      }
-    }
 
     setState(() => _saving = true);
     try {
       final depotRepo = ref.read(depotRepoProvider);
-      final depots = await depotRepo.activeDepots();
-      final depot = ref.read(detectDepotProvider)(depots, photo.lat, photo.lon);
-      if (depot == null) {
+      final resume = await depotRepo.lotResume(widget.lotId);
+      final chaine =
+          await ref.read(transportRepoProvider).chaineFor(widget.lotId);
+
+      final res = ref.read(validateArriveeProvider)(
+        lotId: widget.lotId,
+        depots: await depotRepo.activeDepots(),
+        lat: photo.lat,
+        lon: photo.lon,
+        chauffeur: _chauffeurCtrl.text.trim(),
+        numPermis: _permisCtrl.text.trim(),
+        numLot: _numLotCtrl.text.trim(),
+        plaqueArrivee:
+            _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
+        // Plaque attendue = fin de la chaîne du lot, sinon sa plaque de départ.
+        plaqueAttendue:
+            chaine.isNotEmpty ? chaine.last.plaqueApres : resume?.plaqueDepart,
+        photoArriveePath: photo.path,
+        photoPermisPath: _permisPhoto?.path,
+      );
+
+      final arrivee = res.getRight().toNullable();
+      if (arrivee == null) {
+        final f = res.getLeft().toNullable();
         if (mounted) {
-          await showAppMessage(
-              context, 'Aucun dépôt reconnu dans la zone GPS',
+          await showAppMessage(context,
+              f is ValidationFailure ? f.message : 'Données invalides',
               kind: AppMsgKind.error);
         }
         return;
       }
-      final transportRepo = ref.read(transportRepoProvider);
-      final engine = ref.read(scoringEngineProvider);
-      final plaqueArrivee =
-          _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim();
-      final scores = <String, int>{};
 
-      for (final lotId in _selection) {
-        final resume = await depotRepo.lotResume(lotId);
-        final chaine = await transportRepo.chaineFor(lotId);
-        // Plaque attendue = fin de chaîne, sinon plaque de départ du lot.
-        final attendue = chaine.isNotEmpty
-            ? chaine.last.plaqueApres
-            : resume?.plaqueDepart;
-        final coherente = plaqueArrivee == null || attendue == null
-            ? true
-            : norm(plaqueArrivee) == norm(attendue);
+      final depots = await depotRepo.activeDepots();
+      final depot = depots.firstWhere((d) => d.id == arrivee.depotId);
+      final dist = haversineMeters(photo.lat, photo.lon, depot.lat, depot.lon);
+      final ratio = resume?.cree == null
+          ? 1.0
+          : DateTime.now().difference(resume!.cree!).inSeconds /
+              const Duration(hours: 72).inSeconds;
+      final score = ref.read(scoringEngineProvider).evaluate(ScoringInputs(
+            gpsMineDansRayon: true,
+            photoMineValide: true,
+            fournisseurActif: true,
+            mineAutorisee: true,
+            donneesCompletes: true,
+            nombreMines: 1, // un lot = UNE mine
+            depotReconnu: true,
+            gpsNonFalsifie: true,
+            distanceGpsMetres: dist,
+            ratioDelai: ratio <= 0 ? 1.0 : ratio,
+            transportCoherent:
+                arrivee.plaqueCoherente && chaine.every((m) => m.conforme),
+            ecartQuantitePct: 0,
+            tauxConformite90j: 1.0,
+          ));
 
-        final dist =
-            haversineMeters(photo.lat, photo.lon, depot.lat, depot.lon);
-        final ratio = resume?.cree == null
-            ? 1.0
-            : DateTime.now().difference(resume!.cree!).inSeconds /
-                const Duration(hours: 72).inSeconds;
-        final score = engine.evaluate(ScoringInputs(
-          gpsMineDansRayon: true,
-          photoMineValide: true,
-          fournisseurActif: true,
-          mineAutorisee: true,
-          donneesCompletes: true,
-          nombreMines: 1, // un lot = UNE mine
-          depotReconnu: true,
-          gpsNonFalsifie: true,
-          distanceGpsMetres: dist,
-          ratioDelai: ratio <= 0 ? 1.0 : ratio,
-          transportCoherent: coherente && chaine.every((m) => m.conforme),
-          ecartQuantitePct: 0,
-          tauxConformite90j: 1.0,
-        ));
-        scores[lotId] = score.score;
+      await depotRepo
+          .persistArrivee(arrivee.copyWith(scoreTracabilite: score.score));
 
-        await depotRepo.persistArrivee(ArriveeDepot(
-          lotId: lotId,
-          depotId: depot.id,
-          chauffeur: _chauffeurCtrl.text.trim(),
-          numPermis: _permisCtrl.text.trim(),
-          numLot: _numLot[lotId]!.text.trim(),
-          gpsLat: photo.lat,
-          gpsLon: photo.lon,
-          statutGps: 'valide',
-          plaqueArrivee: plaqueArrivee,
-          plaqueCoherente: coherente,
-          scoreTracabilite: score.score,
-          photoArriveePath: photo.path,
-          photoPermisPath: _permisPhoto?.path,
-        ));
+      // Plus aucun lot de la session en route → on arrête le suivi GPS.
+      if (resume != null) {
+        final restants = await depotRepo.lotsEnCours(resume.sessionId);
+        if (restants.isEmpty) await ref.read(tripTrackerProvider).stop();
       }
 
-      // Plus de lot en route → on arrête le suivi GPS.
-      final restants = await depotRepo.lotsEnCours(widget.sessionId);
-      if (restants.isEmpty) await ref.read(tripTrackerProvider).stop();
-
       if (!mounted) return;
-      final resume = scores.entries
-          .map((e) => '${e.key} : ${e.value}/100')
-          .join('\n');
-      await showAppMessage(context, 'Arrivée validée\n\n$resume',
-          kind: AppMsgKind.success, titre: 'Scores');
+      await showAppMessage(
+          context, '${widget.lotId}\n\nScore : ${score.score}/100',
+          kind: AppMsgKind.success, titre: 'Lot arrivé');
       if (mounted) context.go('/home');
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -188,9 +157,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final lots = ref.watch(lotsEnCoursProvider(widget.sessionId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Arrivée au dépôt')),
+      appBar: AppBar(title: Text('Arrivée — ${widget.lotId}')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
@@ -223,7 +191,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           TextField(
               controller: _permisCtrl,
               decoration: const InputDecoration(
-                  labelText: 'Numéro de permis', prefixIcon: Icon(Icons.badge))),
+                  labelText: 'Numéro de permis',
+                  prefixIcon: Icon(Icons.badge))),
           const SizedBox(height: 12),
           ActionTile(
             icon: _permisPhoto == null ? Icons.add_a_photo : Icons.check_circle,
@@ -238,46 +207,14 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           const SizedBox(height: 24),
           StepHeader(
               numero: 3,
-              titre: 'Les lots arrivés',
-              sousTitre: 'Un numéro de lot par lot'),
-          const SizedBox(height: 8),
-          lots.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => const Text('Impossible de charger les lots'),
-            data: (list) => Column(
-              children: list.map((l) {
-                _numLot.putIfAbsent(l.id, () => TextEditingController());
-                final coche = _selection.contains(l.id);
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: Column(children: [
-                    CheckboxListTile(
-                      value: coche,
-                      onChanged: (v) => setState(() => v == true
-                          ? _selection.add(l.id)
-                          : _selection.remove(l.id)),
-                      title: Text(l.id),
-                      subtitle: Text([
-                        l.mineId,
-                        if (l.couleur != null) l.couleur!,
-                      ].join(' · ')),
-                    ),
-                    if (coche)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: TextField(
-                          controller: _numLot[l.id],
-                          decoration: const InputDecoration(
-                              labelText: 'Numéro de lot',
-                              prefixIcon: Icon(Icons.inventory_2),
-                              isDense: true),
-                        ),
-                      ),
-                  ]),
-                );
-              }).toList(),
-            ),
-          ),
+              titre: 'Le numéro de lot',
+              sousTitre: 'Donné par le dépôt'),
+          const SizedBox(height: 12),
+          TextField(
+              controller: _numLotCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Numéro de lot',
+                  prefixIcon: Icon(Icons.inventory_2))),
         ],
       ),
       bottomNavigationBar: SafeArea(
