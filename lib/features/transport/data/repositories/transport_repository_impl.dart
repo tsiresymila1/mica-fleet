@@ -15,18 +15,19 @@ class TransportRepositoryImpl implements TransportRepository {
   final JournalService journal;
   TransportRepositoryImpl(this.db, this.syncStore, this.journal);
 
+  /// Remplace la chaîne de transbordements d'UN lot (le lot est indivisible :
+  /// il suit son propre enchaînement de camions).
   @override
   Future<Either<Failure, Unit>> persistChaine(
-      String chargementId, List<Transbordement> chaine) async {
+      String lotId, List<Transbordement> chaine) async {
     try {
       await db.transaction(() async {
-        await (db.delete(db.transbordements)
-              ..where((t) => t.chargementId.equals(chargementId)))
+        await (db.delete(db.transbordements)..where((t) => t.lotId.equals(lotId)))
             .go();
         for (final m in chaine) {
           await db.into(db.transbordements).insert(
                 TransbordementsCompanion.insert(
-                  chargementId: chargementId,
+                  lotId: lotId,
                   ordre: m.ordre,
                   plaqueAvant: Value(m.plaqueAvant),
                   plaqueApres: Value(m.plaqueApres),
@@ -41,21 +42,21 @@ class TransportRepositoryImpl implements TransportRepository {
         }
       });
       final payload = <String, dynamic>{
-        'chargement_id': chargementId,
-        'maillons': chaine
+        'lot_id': lotId,
+        'transloads': chaine
             .map((m) => {
-                  'ordre': m.ordre,
-                  'plaque_avant': m.plaqueAvant,
-                  'plaque_apres': m.plaqueApres,
-                  'gps_decharge': [m.gpsDechargeLat, m.gpsDechargeLon],
-                  'gps_recharge': [m.gpsRechargeLat, m.gpsRechargeLon],
+                  'order': m.ordre,
+                  'plate_before': m.plaqueAvant,
+                  'plate_after': m.plaqueApres,
+                  'gps_unload': [m.gpsDechargeLat, m.gpsDechargeLon],
+                  'gps_reload': [m.gpsRechargeLat, m.gpsRechargeLon],
                   'distance_m': _distance(m),
-                  'conforme': m.conforme,
+                  'compliant': m.conforme,
                 })
             .toList(),
       };
-      // Sync unique : envoyée à l'arrivée. Ici on journalise seulement.
-      await journal.append('transbordement', chargementId, jsonEncode(payload));
+      // Sync unique : envoyée à l'arrivée du lot. Ici on journalise seulement.
+      await journal.append('transbordement', lotId, jsonEncode(payload));
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));
@@ -63,9 +64,9 @@ class TransportRepositoryImpl implements TransportRepository {
   }
 
   @override
-  Future<List<Transbordement>> chaineFor(String chargementId) async {
+  Future<List<Transbordement>> chaineFor(String lotId) async {
     final rows = await (db.select(db.transbordements)
-          ..where((t) => t.chargementId.equals(chargementId))
+          ..where((t) => t.lotId.equals(lotId))
           ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
         .get();
     return rows

@@ -7,7 +7,7 @@ import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
-import '../../domain/entities/mine_chargement.dart';
+import '../../domain/entities/lot.dart';
 import 'add_mine_screen.dart';
 
 class ChargementScreen extends ConsumerStatefulWidget {
@@ -28,11 +28,11 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
     });
   }
 
-  Future<void> _addMine() async {
-    final mine = await Navigator.of(context).push<MineChargement>(
-        MaterialPageRoute(builder: (_) => const AddMineScreen()));
-    if (mine == null) return;
-    final res = ref.read(chargementControllerProvider.notifier).addMine(mine);
+  Future<void> _addLot() async {
+    final lot = await Navigator.of(context)
+        .push<Lot>(MaterialPageRoute(builder: (_) => const AddMineScreen()));
+    if (lot == null) return;
+    final res = ref.read(chargementControllerProvider.notifier).addLot(lot);
     res.match(
       (f) {
         if (mounted) {
@@ -54,7 +54,8 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
           context, f is ValidationFailure ? f.message : 'Échec validation',
           kind: AppMsgKind.error),
       (c) async {
-        await showAppMessage(context, 'Chargement ${c.id} enregistré',
+        await showAppMessage(
+            context, '${c.lots.length} lot(s) enregistré(s) — ${c.id}',
             kind: AppMsgKind.success);
         if (mounted) context.pushReplacement('/suivi/${c.id}');
       },
@@ -64,8 +65,8 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   @override
   Widget build(BuildContext context) {
     final chargement = ref.watch(chargementControllerProvider);
-    final mines = chargement?.mines ?? const <MineChargement>[];
-    final peutAjouter = chargement?.peutAjouterMine ?? false;
+    final lots = chargement?.lots ?? const <Lot>[];
+    final peutAjouter = chargement?.peutAjouterLot ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -86,11 +87,10 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                   child: StepHeader(
                     numero: 1,
-                    titre: 'Mes mines',
-                    sousTitre: 'Ajoute de 1 à 3 mines avec photo',
+                    titre: 'Mes lots',
+                    sousTitre: '1 mine = 1 lot (quantité figée au départ)',
                   ),
                 ),
-                // Compteur de progression visuel (pastilles)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(children: [
@@ -100,7 +100,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                           margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
                           height: 8,
                           decoration: BoxDecoration(
-                            color: i < mines.length
+                            color: i < lots.length
                                 ? AppColors.primary
                                 : AppColors.line,
                             borderRadius: BorderRadius.circular(999),
@@ -110,7 +110,6 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                   ]),
                 ),
                 const SizedBox(height: 12),
-                // Référence de lot (optionnel) : regroupe plusieurs camions.
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: TextField(
@@ -126,30 +125,29 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                 ),
                 const SizedBox(height: 12),
                 Expanded(
-                  child: mines.isEmpty
-                      ? _EmptyMines()
+                  child: lots.isEmpty
+                      ? _EmptyLots()
                       : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 120),
-                          itemCount: mines.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                          itemCount: lots.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (_, i) {
-                            final m = mines[i];
+                            final l = lots[i];
                             return ActionTile(
-                              icon: Icons.landscape,
+                              icon: Icons.inventory_2,
                               color: AppColors.primary,
-                              titre: 'Mine ${i + 1}',
+                              titre: 'Lot ${i + 1} · ${l.mineId}',
                               sousTitre: [
-                                if (m.couleur != null) m.couleur,
-                                if (m.plaqueOcr != null) m.plaqueOcr,
-                                if (m.quantiteEstimee != null)
-                                  '${m.quantiteEstimee} kg',
+                                if (l.couleur != null) l.couleur,
+                                if (l.plaqueDepart != null) l.plaqueDepart,
+                                if (l.quantiteEstimee != null)
+                                  '${l.quantiteEstimee} kg',
                               ].whereType<String>().join('  •  '),
                               trailing: StatusPill(
-                                kind: m.photo != null
+                                kind: l.photo != null
                                     ? PillKind.ok
                                     : PillKind.warn,
-                                label: m.photo != null ? 'Photo' : 'Manque',
+                                label: l.photo != null ? 'Photo' : 'Manque',
                               ),
                             );
                           },
@@ -164,7 +162,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
               child: Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: peutAjouter ? _addMine : null,
+                    onPressed: peutAjouter ? _addLot : null,
                     icon: const Icon(Icons.add_a_photo, size: 24),
                     label: const Text('Ajouter'),
                   ),
@@ -174,7 +172,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                   child: BigButton(
                     icon: Icons.check,
                     label: 'Valider',
-                    onPressed: mines.isEmpty ? null : _validate,
+                    onPressed: lots.isEmpty ? null : _validate,
                   ),
                 ),
               ]),
@@ -183,7 +181,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
   }
 }
 
-class _EmptyMines extends StatelessWidget {
+class _EmptyLots extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(
         child: Column(
@@ -201,7 +199,7 @@ class _EmptyMines extends StatelessWidget {
             const SizedBox(height: 16),
             Text('Appuie sur « Ajouter »',
                 style: Theme.of(context).textTheme.titleMedium),
-            Text('pour photographier la première mine',
+            Text('pour créer le premier lot',
                 style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),

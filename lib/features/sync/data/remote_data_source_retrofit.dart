@@ -5,19 +5,16 @@ import '../domain/repositories/remote_data_source.dart';
 
 part 'remote_data_source_retrofit.g.dart';
 
-/// Contrat du module Odoo `terrain_api` (Technarea).
+/// API Radoran (collection Postman Technarea).
 @RestApi()
 abstract class OdooApi {
   factory OdooApi(Dio dio, {String baseUrl}) = _OdooApi;
 
-  @POST('/api/geospatial/submit')
+  @POST('/api/tracking/submit')
   Future<dynamic> submit(@Body() Map<String, dynamic> body);
 
-  @GET('/api/geospatial/config')
-  Future<dynamic> config();
-
-  @GET('/api/geospatial/status/{id}')
-  Future<dynamic> status(@Path('id') int id);
+  @GET('/api/mine')
+  Future<dynamic> mines();
 }
 
 class RetrofitRemoteDataSource implements RemoteDataSource {
@@ -31,7 +28,7 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     if (photos.isEmpty) return;
     final form = FormData();
     form.fields.add(MapEntry('device_uuid', deviceUuid));
-    form.fields.add(MapEntry('load_id', loadId)); // = payload.id (MICA-…)
+    form.fields.add(MapEntry('load_id', loadId)); // = payload.id (id du LOT)
     for (var i = 0; i < photos.length; i++) {
       final p = photos[i];
       form.fields.add(MapEntry('photos[$i][key]', p.key));
@@ -41,7 +38,7 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       form.files.add(MapEntry(
           'photos[$i][file]', await MultipartFile.fromFile(p.path)));
     }
-    final resp = await dio.post('/api/geospatial/upload', data: form);
+    final resp = await dio.post('/api/tracking/upload', data: form);
     final data = resp.data;
     if (data is Map && data['status'] == 'error') {
       throw Exception(data['message'] ?? 'Échec upload photos');
@@ -54,7 +51,8 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       'device_uuid': op.opId, // idempotence (UNIQUE côté Odoo)
       'agent_login': op.agentLogin,
       'collected_at': _odooDate(op.createdAt),
-      'collect_type': op.entityType,
+      // Odoo attend 'chargement' : côté serveur un enregistrement = un lot.
+      'collect_type': 'chargement',
       'gps_lat': op.gpsLat,
       'gps_lon': op.gpsLon,
       'gps_accuracy': op.gpsAccuracy,
@@ -77,14 +75,13 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   @override
   Future<List<RemoteMine>> fetchMines() async {
-    // Le module terrain_api générique renvoie agents + types dans /config.
-    // Le référentiel mines/dépôts mica est à confirmer avec Technarea
-    // (endpoint dédié ou extension de /config → data.mines).
-    final resp = await api.config();
+    final resp = await api.mines();
     List? mines;
-    if (resp is Map) {
+    if (resp is List) {
+      mines = resp;
+    } else if (resp is Map) {
       final data = resp['data'];
-      if (data is Map) mines = data['mines'] as List?;
+      mines = data is List ? data : (data is Map ? data['mines'] as List? : null);
     }
     if (mines == null) return [];
     return mines.map((e) {

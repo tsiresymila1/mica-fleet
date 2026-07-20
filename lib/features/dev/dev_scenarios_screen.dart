@@ -26,7 +26,7 @@ class DevScenariosScreen extends ConsumerWidget {
       try {
         final msg = await action();
         ref.invalidate(minesProvider);
-        ref.invalidate(chargementsListProvider);
+        ref.invalidate(lotsListProvider);
         if (context.mounted) {
           await showAppMessage(context, msg, kind: AppMsgKind.success);
         }

@@ -1,65 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../transport/presentation/providers/transport_provider.dart';
 
-/// Hub d'un chargement validé : accès transbordements et arrivée au dépôt.
-class SuiviChargementScreen extends StatelessWidget {
-  final String chargementId;
-  const SuiviChargementScreen({super.key, required this.chargementId});
+/// Hub d'une session validée : ses lots + accès transbordement / arrivée.
+class SuiviChargementScreen extends ConsumerWidget {
+  final String sessionId;
+  const SuiviChargementScreen({super.key, required this.sessionId});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Mon transport')),
-        body: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: AppColors.ok.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                const Icon(Icons.check_circle, color: AppColors.ok, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Chargement enregistré',
-                          style: Theme.of(context).textTheme.titleMedium),
-                      Text(chargementId,
-                          style: Theme.of(context).textTheme.bodyMedium),
-                    ],
-                  ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lots = ref.watch(lotsEnCoursProvider(sessionId));
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mon transport')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.ok.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.check_circle, color: AppColors.ok, size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chargement enregistré',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    Text(sessionId,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                  ],
                 ),
-              ]),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          lots.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => const SizedBox.shrink(),
+            data: (list) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                StepHeader(
+                    numero: 2,
+                    titre: '${list.length} lot(s) en route',
+                    sousTitre: 'Ouvre un lot pour suivre SON camion'),
+                const SizedBox(height: 8),
+                ...list.map((l) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ActionTile(
+                        icon: Icons.inventory_2,
+                        color: AppColors.gold,
+                        titre: l.id,
+                        sousTitre: [
+                          l.mineId,
+                          if (l.couleur != null) l.couleur!,
+                        ].join(' · '),
+                        onTap: () async {
+                          await context.push('/detail/${l.id}');
+                          ref.invalidate(lotsEnCoursProvider(sessionId));
+                        },
+                      ),
+                    )),
+              ],
             ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: StepHeader(numero: 2, titre: 'Pendant le transport'),
-            ),
-            ActionTile(
-              icon: Icons.local_shipping,
-              color: AppColors.gold,
-              titre: 'Changer de camion',
-              sousTitre: 'Si tu transvases la marchandise',
-              onTap: () => context.push('/transbordement/$chargementId'),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, top: 12, bottom: 12),
-              child: StepHeader(numero: 3, titre: 'À l\'arrivée'),
-            ),
-            ActionTile(
-              icon: Icons.warehouse,
-              color: AppColors.primary,
-              titre: 'Arrivée au dépôt',
-              sousTitre: 'Chauffeur, permis, lot et photo',
-              onTap: () => context.push('/arrivee/$chargementId'),
-            ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 }

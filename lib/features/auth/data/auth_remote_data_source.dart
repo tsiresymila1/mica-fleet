@@ -33,12 +33,21 @@ abstract class AuthRemoteDataSource {
   Future<LoginResult> login(String login, String password);
 }
 
+/// API Radoran (collection Postman Technarea).
 @RestApi()
 abstract class AuthApi {
   factory AuthApi(Dio dio, {String baseUrl}) = _AuthApi;
 
-  @POST('/api/geospatial/login')
+  @POST('/api/login')
   Future<dynamic> login(@Body() Map<String, dynamic> body);
+
+  /// Mines autorisées pour l'agent connecté.
+  @GET('/api/mine')
+  Future<dynamic> mines(@Header('Authorization') String bearer);
+
+  /// Dépôts (storage) autorisés pour l'agent connecté.
+  @GET('/api/storage')
+  Future<dynamic> storages(@Header('Authorization') String bearer);
 }
 
 class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
@@ -53,13 +62,28 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
     }
     final data = resp['data'] as Map;
     final agent = (data['agent'] as Map?) ?? const {};
+    final token = data['token'] as String;
+
+    // Le référentiel est servi par deux endpoints séparés, authentifiés par le
+    // token qu'on vient d'obtenir (il n'est pas encore dans le TokenStore).
+    final bearer = 'Bearer $token';
     return LoginResult(
-      token: data['token'] as String,
+      token: token,
       agentId: (agent['login'] ?? login).toString(),
       agentNom: (agent['name'] ?? login).toString(),
-      mines: _mines(data['mines'] as List?),
-      depots: _depots(data['depots'] as List?),
+      mines: _mines(_list(await api.mines(bearer), 'mines')),
+      depots: _depots(_list(await api.storages(bearer), 'storages')),
     );
+  }
+
+  /// Tolère `{data: [...]}`, `{data: {<cle>: [...]}}` ou une liste nue.
+  static List? _list(dynamic resp, String cle) {
+    if (resp is List) return resp;
+    if (resp is! Map) return null;
+    final data = resp['data'];
+    if (data is List) return data;
+    if (data is Map) return data[cle] as List?;
+    return null;
   }
 
   List<RemoteMine> _mines(List? raw) {

@@ -1,8 +1,8 @@
-# Contrat API — Application Mica ↔ Module Odoo `terrain_api`
+# Contrat API — Application Mica ↔ API Radoran (Odoo)
 
 Document de référence pour l'équipe Odoo (Technarea) et l'équipe mobile. Décrit
 les endpoints appelés par l'app Android, les données envoyées et les réponses
-attendues.
+attendues. Aligné sur la collection Postman **RADORAN API**.
 
 - **Base URL** : `https://<odoo>/` (configurée dans l'app via `MICA_ODOO_URL`)
 - **Format** : JSON (sauf upload photos = `multipart/form-data`)
@@ -16,14 +16,14 @@ attendues.
 
 ---
 
-## 1. `POST /api/geospatial/login`
+## 1. `POST /api/login`
 
-Authentifie l'agent et renvoie le token + le référentiel (mines, dépôts). Appelé
-sans token (c'est lui qui le fournit).
+Authentifie l'agent et renvoie le token. Appelé sans token (c'est lui qui le
+fournit).
 
 ### Requête
 ```json
-{ "login": "F001", "password": "••••••" }
+{ "login": "eddy", "password": "••••••" }
 ```
 
 ### Réponse attendue (200)
@@ -31,20 +31,8 @@ sans token (c'est lui qui le fournit).
 {
   "status": "ok",
   "data": {
-    "token": "a1b2c3...",
-    "agent": { "login": "F001", "name": "Fournisseur X" },
-    "mines": [
-      {
-        "id": "M001", "name": "Carrière Andilana",
-        "lat": -18.91000, "lon": 47.52000, "radius_m": 20,
-        "district": "Ambohidratrimo", "commune": "Andilana",
-        "region": "Analamanga", "active": true
-      }
-    ],
-    "depots": [
-      { "id": "D001", "name": "Dépôt Antananarivo",
-        "lat": -18.87900, "lon": 47.50800, "radius_m": 20, "active": true }
-    ]
+    "token": "72cad47ff9ba4a6dacf61dc3631abddd",
+    "agent": { "id": 1, "login": "eddy", "name": "Fournisseur X" }
   }
 }
 ```
@@ -54,23 +42,60 @@ sans token (c'est lui qui le fournit).
 { "status": "error", "message": "Identifiant ou mot de passe incorrect" }
 ```
 
-> L'app stocke le `token` (chiffré, Android Keystore) et **remplace** le
-> référentiel mines/dépôts local. Les connexions suivantes fonctionnent hors
-> ligne (session + référentiel en cache).
+> L'app stocke le `token` (chiffré, Android Keystore) puis appelle
+> immédiatement `/api/mine` et `/api/storage` pour **remplacer** le référentiel
+> local. Les connexions suivantes fonctionnent hors ligne (session +
+> référentiel en cache).
 
 ---
 
-## 2. `POST /api/geospatial/submit`
+## 1bis. `GET /api/mine` et `GET /api/storage`
 
-Envoie **un chargement complet** (mines + transbordements + arrivée). Un seul
-submit par chargement — pas un par étape. Les **photos ne sont pas dans le JSON**
-(voir §3) : seules leurs **clés + hash** y figurent.
+Référentiel de l'agent connecté (`Authorization: Bearer <token>`), rechargé à
+chaque login et à chaque synchronisation.
+
+### Réponse attendue (200)
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 1, "name": "Carrière Andilana",
+      "lat": -18.91000, "lon": 47.52000, "radius_m": 20,
+      "district": "Ambohidratrimo", "commune": "Andilana",
+      "region": "Analamanga", "active": true
+    }
+  ]
+}
+```
+
+`/api/storage` renvoie la même forme pour les dépôts (`id`, `name`, `lat`,
+`lon`, `radius_m`, `active`).
+
+- **`radius_m`** est indispensable : l'app refuse une photo prise hors du rayon
+  de la mine ou du dépôt. Sans lui, elle applique 20 m par défaut.
+- **`active: false`** masque l'entrée sans casser les chargements passés.
+
+---
+
+## 2. `POST /api/tracking/submit`
+
+Envoie **UN LOT complet**. Un lot = le **chargement d'UNE mine**, indivisible :
+c'est l'**unité de traçabilité, de numéro de lot et de score**.
+
+> **1 payload = 1 lot.** Si un camion part avec 3 mines, l'app envoie **3 submits**
+> (3 lots), chacun avec son `device_uuid`, son numéro de lot et son score. Les
+> lots partis ensemble partagent le même `session_id` (et éventuellement le même
+> `lot_reference`).
+
+Les **photos ne sont pas dans le JSON** (voir §3) : seules leurs **clés + hash**
+y figurent.
 
 ### Enveloppe
 ```json
 {
   "device_uuid": "550e8400-e29b-41d4-a716-446655440000",
-  "agent_login": "F001",
+  "agent_login": "eddy",
   "collected_at": "2026-06-22 08:00:00",
   "collect_type": "chargement",
   "gps_lat": -18.91000, "gps_lon": 47.52000, "gps_accuracy": 5.0,
@@ -78,37 +103,26 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 }
 ```
 
-### `payload` (chargement complet)
+### `payload` (UN lot complet)
 ```json
 {
-  "id": "MICA-2026-0007",
-  "supplier_id": "F001",
+  "id": "MICA-2026-0007-L1",
+  "session_id": "MICA-2026-0007",
+  "supplier_id": "eddy",
   "lot_reference": "LOT-A-2026-06-22",
-  "status": "valide",
+  "status": "arrive",
   "created_at": "2026-06-22 08:00:00",
 
-  "mines": [
-    {
-      "mine_id": "M001",
-      "reference": "REF-1",
-      "color": "Blanc",
-      "estimated_quantity": 120,
-      "plate": "1234 TBR",
-      "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
-      "captured_at": "2026-06-22 08:00:00",
-      "photo": { "key": "mine_M001", "hash": "9f2c...e7" }
-    },
-    {
-      "mine_id": "M002",
-      "reference": "REF-2",
-      "color": "Doré",
-      "estimated_quantity": 80,
-      "plate": "1234 TBR",
-      "lat": -18.92500, "lon": 47.53500, "gps_accuracy": 6.0,
-      "captured_at": "2026-06-22 08:15:00",
-      "photo": { "key": "mine_M002", "hash": "3b71...aa" }
-    }
-  ],
+  "mine": {
+    "mine_id": 1,
+    "reference": "REF-1",
+    "color": "Blanc",
+    "estimated_quantity": 120,
+    "plate": "1234 TBR",
+    "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
+    "captured_at": "2026-06-22 08:00:00",
+    "photo": { "key": "mine", "hash": "9f2c...e7" }
+  },
 
   "transloads": [
     {
@@ -132,15 +146,15 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
   ],
 
   "arrival": {
-    "depot_id": "D001",
+    "depot_id": 2,
     "driver": "Rakoto",
     "license_number": "P-123",
-    "lot_number": "Blanc: LOT-1",
+    "lot_number": "LOT-2026-0042",
+    "lots": { "Blanc": "LOT-2026-0042" },
     "gps": [-18.87900, 47.50800],
     "gps_status": "valide",
     "plate_arrival": "9012 DEF",
     "plate_consistent": true,
-    "lots": { "Blanc": "LOT-1" },
     "traceability_score": 100,
     "photo_arrival": { "key": "arrival" },
     "photo_license": { "key": "license" }
@@ -156,21 +170,26 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 }
 ```
 
-> **`lot_reference`** (optionnel, peut être `null`) : code partagé permettant à
-> Odoo de **regrouper plusieurs chargements-camions** sous un même lot commercial
-> (cas des camions en parallèle / split / fusion). Le terrain reste **1 chargement
-> = 1 camion** ; le regroupement se fait côté Odoo via ce champ.
->
-> **`mines` et `transloads` sont indépendants.**
-> - `mines` = les sources (1 à 3 carrières) chargées sur le **camion de départ**.
->   Plusieurs mines = plusieurs carrières sur le **même camion** (même `plate`).
-> - `transloads` = les **changements de camion** pendant le trajet (A→B→C). Ils
->   concernent **toute la cargaison** (toutes les mines ensemble), pas une mine
->   en particulier. Il n'y a **pas de mapping 1:1** mine ↔ transbordement.
->
-> Chaîne des plaques : `mines[].plate` = camion A ; `transloads[0]` = A→B ;
-> `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. La cohérence
-> se vérifie sur cette chaîne (`plate_after[i] == plate_before[i+1]`).
+> **Règles métier reflétées par ce format**
+> - **`mine` est un objet, pas une liste** : un lot vient d'**UNE seule mine**.
+>   Un camion chargé à 3 mines produit **3 lots** → **3 submits**.
+> - Un lot n'est **jamais divisé** : `estimated_quantity` est **figée au départ**.
+> - `transloads` = les camions successifs ayant porté **CE lot**. Lors d'un même
+>   transbordement physique, d'autres lots peuvent partir sur un **autre camion** —
+>   chaque lot a donc **sa propre chaîne**.
+> - Chaîne des plaques : `mine.plate` = camion de départ ; `transloads[0]` = A→B ;
+>   `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. Cohérence :
+>   `plate_after[i] == plate_before[i+1]`.
+> - **`lot_number`** (à l'arrivée) = numéro de lot officiel. **1 lot = 1 lot_number**.
+>   `lots` reprend le même numéro indexé par couleur de mica (un seul couple,
+>   puisqu'un lot n'a qu'une couleur).
+> - **`traceability_score`** est calculé **par lot**. Il est répété dans
+>   `arrival` et à la racine du payload (même valeur).
+> - **`mine_id`** et **`depot_id`** sont les **ids Odoo numériques** renvoyés
+>   par `/api/mine` et `/api/storage`.
+> - **`session_id`** = les lots partis ensemble (regroupement terrain).
+> - **`lot_reference`** (optionnel, `null` possible) = regroupement **commercial**
+>   côté Odoo (plusieurs lots/camions d'une même opération).
 
 ### Réponses attendues
 ```json
@@ -187,24 +206,27 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 
 ---
 
-## 3. `POST /api/geospatial/upload` — toutes les photos en un batch
+## 3. `POST /api/tracking/upload` — toutes les photos en un batch
 
-Envoyé **après** un submit réussi. **Toutes les photos du chargement en une seule
+> ⚠️ **Endpoint non encore présent dans la collection Postman.** Forme proposée
+> par l'équipe mobile, déjà implémentée côté app — **à confirmer par Technarea**.
+
+Envoyé **après** un submit réussi. **Toutes les photos DU LOT en une seule
 requête** `multipart/form-data`. Chaque photo est identifiée par sa `key` (celle
 déclarée dans le payload).
 
-Le chargement est identifié par **DEUX champs** :
-- **`load_id`** = l'id du chargement (`MICA-…`, = `payload.id`) → savoir **à quel
-  payload** ces fichiers appartiennent.
-- **`device_uuid`** = clé d'idempotence stable.
+Le lot est identifié par **DEUX champs** :
+- **`load_id`** = l'id du **lot** (`MICA-…-L1`, = `payload.id`) → savoir **à
+  quel payload** ces fichiers appartiennent.
+- **`device_uuid`** = clé d'idempotence stable (celle du même lot).
 
-**Un seul upload = un chargement complet.**
+**Un seul upload = un lot complet.** (3 lots → 3 submits + 3 uploads.)
 
 ### Requête (multipart/form-data)
 ```
-load_id           : MICA-2026-0007
+load_id           : MICA-2026-0007-L1
 device_uuid       : 550e8400-e29b-41d4-a716-446655440000
-photos[0][key]    : mine_M001
+photos[0][key]    : mine
 photos[0][hash]   : 9f2c...e7
 photos[0][file]   : <binaire JPEG>
 photos[1][key]    : transload_1_unload
@@ -218,9 +240,9 @@ photos[2][file]   : <binaire JPEG>
 {
   "status": "ok",
   "data": {
-    "load_id": "MICA-2026-0007",
+    "load_id": "MICA-2026-0007-L1",
     "uploaded": [
-      { "photo_key": "mine_M001",          "attachment_id": 812 },
+      { "photo_key": "mine",               "attachment_id": 812 },
       { "photo_key": "transload_1_unload", "attachment_id": 813 },
       { "photo_key": "arrival",            "attachment_id": 814 }
     ]
@@ -228,16 +250,18 @@ photos[2][file]   : <binaire JPEG>
 }
 ```
 
-- Le serveur rattache chaque fichier au chargement (via `load_id` / `device_uuid`)
+- Le serveur rattache chaque fichier au **lot** (via `load_id` / `device_uuid`)
   sous le champ correspondant à `photo_key`.
 - **Idempotence photo** : si le `hash` est déjà connu pour cette clé, ignorer
   (ne pas recréer). Permet de rejouer le batch sans doublon.
 - L'app supprime le fichier local après confirmation (le `hash` reste comme preuve).
 
 ### Schéma des `photo_key`
+Les clés sont **scopées au lot** (1 upload = 1 lot), donc simples :
+
 | Photo | `photo_key` |
 |---|---|
-| Mine `<id>` | `mine_<mineId>` |
+| Mine d'origine du lot | `mine` |
 | Transbordement bloc `<n>` décharge | `transload_<n>_unload` |
 | Transbordement bloc `<n>` recharge | `transload_<n>_reload` |
 | Arrivée dépôt | `arrival` |
@@ -245,15 +269,17 @@ photos[2][file]   : <binaire JPEG>
 
 ---
 
-## 4. `GET /api/geospatial/status/<id>`
+## 4. `POST /api/logout`
 
-Vérifie l'état d'un record côté Odoo (optionnel, pour diagnostic).
+Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 
-### Réponse
 ```json
-{ "status": "ok", "data": { "id": 42, "state": "done", "device_uuid": "550e..." } }
+{ "id": 1 }
 ```
-404 si l'id n'existe pas.
+
+> ⚠️ La collection Postman envoie un `id` numérique. **`/api/login` doit donc
+> renvoyer cet id** (`data.agent.id`) — sinon l'app ne peut pas construire la
+> requête. À confirmer.
 
 ---
 
@@ -274,15 +300,22 @@ Vérifie l'état d'un record côté Odoo (optionnel, pour diagnostic).
 
 ## 6. À confirmer par Technarea
 
-1. **`/login`** : chemin et champs exacts ? La réponse contient bien
-   `token` + `agent` + `mines` + `depots` ? Durée de vie / refresh du token ?
-2. **`/submit`** : envoyé **une seule fois** quand le chargement est complet
-   (pas d'upsert requis). Confirmer que ça correspond au module.
-3. **`/upload`** : accepte-t-il le **batch** (`photos[i][file]`) en une requête ?
-   Rattachement par `load_id` (`MICA-…`) **et/ou** `device_uuid` — le quel faites-vous foi ?
-4. Le référentiel **mines/dépôts** vient-il bien de `/login` (et non `/config`) ?
-5. Rattachement transbordements/arrivée au chargement : par `payload.id`
-   (`MICA-…`) ou par le record Odoo créé au submit ?
+1. **`/api/tracking/upload`** — **bloquant** : absent de la collection Postman.
+   Accepte-t-il le batch `photos[i][key|hash|file]` en une requête, rattaché par
+   `load_id` + `device_uuid` ? Sans lui, **aucune photo ne remonte**.
+2. **`/api/mine` et `/api/storage`** : forme exacte de la réponse ? L'app attend
+   `data: [...]` avec `id`, `name`, `lat`, `lon`, `radius_m`, `active`.
+   **`radius_m` est indispensable** (contrôle GPS anti-fraude).
+3. **`/api/logout`** : l'`id` numérique attendu doit être renvoyé par `/api/login`
+   (`data.agent.id`). Confirmé ?
+4. **`collect_type`** : l'app envoie `"chargement"` comme dans votre exemple,
+   alors qu'un payload = **un lot**. Faut-il une valeur distincte ?
+5. **`photo.key` de la mine** : l'app envoie `"mine"` (clé unique dans le lot).
+   Votre exemple montre `"mine_M001"`. La clé n'ayant de sens qu'entre submit et
+   upload, on garde `"mine"` sauf objection.
+6. **Durée de vie du token** et comportement au 401 (refresh ou re-login ?).
+7. **`session_id`** et **`lot_reference`** : champs ajoutés par l'app pour
+   regrouper les lots partis ensemble. Les stockez-vous ?
 
 > Note : quelques **valeurs** enum restent en français dans le payload
 > (`status: "valide"`, `gps_status: "valide"`, `collect_type: "chargement"`).

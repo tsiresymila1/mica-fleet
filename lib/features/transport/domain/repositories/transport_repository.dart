@@ -3,9 +3,9 @@ import '../../../../core/error/failure.dart';
 import '../entities/transbordement.dart';
 
 abstract class TransportRepository {
-  /// Remplace la chaîne de transbordements d'un chargement et journalise la sync.
+  /// Remplace la chaîne de transbordements d'UN lot (unité indivisible).
   Future<Either<Failure, Unit>> persistChaine(
-      String chargementId, List<Transbordement> chaine);
+      String lotId, List<Transbordement> chaine);
 
-  Future<List<Transbordement>> chaineFor(String chargementId);
+  Future<List<Transbordement>> chaineFor(String lotId);
 }
