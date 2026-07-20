@@ -1,3 +1,24 @@
+## v1.1.0 - 2026-07-20
+
+- feat(api): aligner sur la collection Postman RADORAN
+- refactor(lot): chaque lot suit son propre camion — zéro partage entre lots
+- docs(api): 1 payload = 1 LOT (mine objet, submit+upload par lot)
+- wip(lot): UI refactorée pour le modèle LOT
+- wip(lot): refactor — LOT = unité de traçabilité (données/domaine/sync)
+- feat(loading): référence de lot optionnelle (regroupement Odoo multi-camions)
+- docs(api): 2 éléments par tableau (mines, transloads) + note mines vs transloads
+- chore(api): endpoints /api/terrain/* → /api/geospatial/*
+- feat(sync): upload photos rattaché au load_id (payload id) + doc en français
+- refactor(api): clés JSON en anglais + doc mise à jour
+- feat(sync): upload photos en batch après submit + purge locale (stage 3)
+- feat(sync): envoi unique par chargement — snapshot complet à l'arrivée (stage 2)
+- docs(api): contrat endpoints terrain_api (login, submit, upload batch, status)
+- feat(auth): login distant (identifiant + mot de passe → token + référentiel)
+- feat(sync): conformité au contrat Odoo terrain_api (Technarea)
+- docs: documentation + diagramme ER de la base (schema v7, mermaid)
+- feat(sync): WorkManager background + odoo_id + cutoff 5 tentatives + batch 10
+- chore(release): choix du remote (origin par défaut, ex. radoran)
+
 ## v1.0.1 - 2026-07-08
 
 - fix(trip): sim — plaques transbordement chaînées (camion qui tourne)
