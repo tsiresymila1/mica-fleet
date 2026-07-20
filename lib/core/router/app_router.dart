@@ -9,12 +9,7 @@ import '../../features/loading/presentation/screens/chargement_detail_screen.dar
 import '../../features/loading/presentation/screens/suivi_chargement_screen.dart';
 import '../../features/transport/presentation/screens/transbordement_screen.dart';
 import '../../features/depot/presentation/screens/arrivee_screen.dart';
-import '../../features/scoring/domain/entities/score_result.dart';
-import '../../features/scoring/presentation/score_result_screen.dart';
 import '../../features/dev/dev_scenarios_screen.dart';
-
-/// Données passées à l'écran de score via `extra`.
-typedef ScoreArgs = ({ScoreResult resultat, String chargementId});
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Rafraîchit le routeur quand l'état d'auth change (login/logout).
@@ -37,29 +32,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
       GoRoute(
           path: '/chargement', builder: (_, _) => const ChargementScreen()),
+      // Détail = UN LOT (unité de traçabilité).
       GoRoute(
-          path: '/detail/:id',
+          path: '/detail/:lotId',
           builder: (_, s) =>
-              ChargementDetailScreen(chargementId: s.pathParameters['id']!)),
+              ChargementDetailScreen(lotId: s.pathParameters['lotId']!)),
+      // Suivi / transbordement / arrivée = au niveau SESSION (plusieurs lots).
       GoRoute(
-          path: '/suivi/:id',
+          path: '/suivi/:sessionId',
           builder: (_, s) =>
-              SuiviChargementScreen(chargementId: s.pathParameters['id']!)),
+              SuiviChargementScreen(sessionId: s.pathParameters['sessionId']!)),
       GoRoute(
-          path: '/transbordement/:id',
+          path: '/transbordement/:sessionId',
           builder: (_, s) =>
-              TransbordementScreen(chargementId: s.pathParameters['id']!)),
+              TransbordementScreen(sessionId: s.pathParameters['sessionId']!)),
       GoRoute(
-          path: '/arrivee/:id',
+          path: '/arrivee/:sessionId',
           builder: (_, s) =>
-              ArriveeScreen(chargementId: s.pathParameters['id']!)),
-      GoRoute(
-          path: '/score',
-          builder: (_, s) {
-            final args = s.extra as ScoreArgs;
-            return ScoreResultScreen(
-                resultat: args.resultat, chargementId: args.chargementId);
-          }),
+              ArriveeScreen(sessionId: s.pathParameters['sessionId']!)),
       GoRoute(
           path: '/dev-scenarios',
           builder: (_, _) => const DevScenariosScreen()),

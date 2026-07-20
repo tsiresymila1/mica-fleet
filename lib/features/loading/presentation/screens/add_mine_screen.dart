@@ -9,7 +9,7 @@ import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
 import '../../../trip/presentation/sim_session.dart';
-import '../../domain/entities/mine_chargement.dart';
+import '../../domain/entities/lot.dart';
 
 /// Saisie d'une mine : photo in-app (GPS+hash), OCR plaque, mine + données produit.
 class AddMineScreen extends ConsumerStatefulWidget {
@@ -117,13 +117,16 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           kind: AppMsgKind.warning);
       return;
     }
-    Navigator.of(context).pop(MineChargement(
+    // L'id définitif du lot est attribué par AddLotToChargement (<session>-L<n>).
+    Navigator.of(context).pop(Lot(
+      id: '',
       mineId: _mine!.id,
       reference: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
       couleur:
           _couleurCtrl.text.trim().isEmpty ? null : _couleurCtrl.text.trim(),
       quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
-      plaqueOcr: _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
+      plaqueDepart:
+          _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
       photo: _photo,
     ));
   }

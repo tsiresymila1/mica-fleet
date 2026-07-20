@@ -1,27 +1,25 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/geo.dart';
 import '../../../../shared/capture_photo_screen.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
-import '../../../scoring/domain/entities/score_result.dart';
 import '../../../scoring/domain/entities/scoring_inputs.dart';
 import '../../../scoring/presentation/scoring_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
-import '../../../trip/presentation/trip_provider.dart';
 import '../../../trip/presentation/sim_session.dart';
+import '../../../trip/presentation/trip_provider.dart';
+import '../../domain/entities/arrivee_depot.dart';
 import '../providers/depot_provider.dart';
 
-/// Validation de l'arrivée au dépôt : photo GPS, plaque (OCR), permis (photo),
-/// chauffeur/permis/lot, détection dépôt, cohérence immatriculation, score.
+/// Arrivée au dépôt : on valide les lots présents dans le camion.
+/// Chaque lot reçoit son numéro de lot et SON score (1 lot = 1 traçabilité).
 class ArriveeScreen extends ConsumerStatefulWidget {
-  final String chargementId;
-  const ArriveeScreen({super.key, required this.chargementId});
+  final String sessionId;
+  const ArriveeScreen({super.key, required this.sessionId});
   @override
   ConsumerState<ArriveeScreen> createState() => _ArriveeScreenState();
 }
@@ -29,10 +27,9 @@ class ArriveeScreen extends ConsumerStatefulWidget {
 class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _chauffeurCtrl = TextEditingController();
   final _permisCtrl = TextEditingController();
-  final _lotCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
-  final Map<String, TextEditingController> _lotParCouleur = {};
-  List<String> _couleurs = [];
+  final Map<String, TextEditingController> _numLot = {};
+  final Set<String> _selection = {};
   CapturedPhoto? _photo;
   CapturedPhoto? _permisPhoto;
   bool _saving = false;
@@ -40,34 +37,18 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   @override
   void initState() {
     super.initState();
-    // Simulation guidée : pré-remplit les infos non liées à la plaque.
-    // (La plaque est renseignée après la photo, comme l'OCR.)
     if (ref.read(simSessionProvider) != null) {
       _chauffeurCtrl.text = 'Chauffeur Sim';
       _permisCtrl.text = 'SIM-PERMIS';
-      _lotCtrl.text = 'SIM-LOT';
     }
-    Future.microtask(() async {
-      final resume = await ref
-          .read(depotRepoProvider)
-          .chargementResume(widget.chargementId);
-      if (!mounted) return;
-      setState(() {
-        _couleurs = resume.couleurs;
-        for (final c in _couleurs) {
-          _lotParCouleur[c] = TextEditingController();
-        }
-      });
-    });
   }
 
   @override
   void dispose() {
     _chauffeurCtrl.dispose();
     _permisCtrl.dispose();
-    _lotCtrl.dispose();
     _plaqueCtrl.dispose();
-    for (final c in _lotParCouleur.values) {
+    for (final c in _numLot.values) {
       c.dispose();
     }
     super.dispose();
@@ -82,7 +63,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     if (p == null) return;
     setState(() => _photo = p);
     if (_plaqueCtrl.text.trim().isEmpty) {
-      // Simulation : plaque du camion B (arrivé), sinon OCR.
       final sim = ref.read(simSessionProvider);
       final plaque = sim != null
           ? ref.read(simSessionProvider.notifier).plate
@@ -91,223 +71,222 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     }
   }
 
-  /// Dernière plaque connue : fin de chaîne de transbordement, sinon plaque du chargement.
-  Future<String?> _plaqueAttendue() async {
-    final chaine =
-        await ref.read(transportRepoProvider).chaineFor(widget.chargementId);
-    if (chaine.isNotEmpty) return chaine.last.plaqueApres;
-    final resume =
-        await ref.read(depotRepoProvider).chargementResume(widget.chargementId);
-    return resume.plaque;
-  }
-
-  Future<ScoreResult> _computeScore(
-      {required double lat,
-      required double lon,
-      required bool plaqueCoherente}) async {
-    final resume =
-        await ref.read(depotRepoProvider).chargementResume(widget.chargementId);
-    final depots = await ref.read(depotRepoProvider).activeDepots();
-    final depot = ref.read(detectDepotProvider)(depots, lat, lon);
-    final chaine =
-        await ref.read(transportRepoProvider).chaineFor(widget.chargementId);
-    final chaineOk = chaine.every((m) => m.conforme);
-
-    final dist =
-        depot == null ? 999.0 : haversineMeters(lat, lon, depot.lat, depot.lon);
-    final ratio = resume.cree == null
-        ? 1.0
-        : DateTime.now().difference(resume.cree!).inSeconds /
-            const Duration(hours: 72).inSeconds;
-
-    final inputs = ScoringInputs(
-      gpsMineDansRayon: true,
-      photoMineValide: true,
-      fournisseurActif: true,
-      mineAutorisee: true,
-      donneesCompletes: true,
-      nombreMines: resume.nbMines == 0 ? 1 : resume.nbMines,
-      depotReconnu: depot != null,
-      gpsNonFalsifie: true,
-      distanceGpsMetres: dist,
-      ratioDelai: ratio <= 0 ? 1.0 : ratio,
-      transportCoherent: plaqueCoherente && chaineOk,
-      ecartQuantitePct: 0, // contre-pesage non saisi → supposé conforme
-      tauxConformite90j: 1.0, // historique non disponible offline → neutre
-    );
-    return ref.read(scoringEngineProvider).evaluate(inputs);
-  }
+  String norm(String s) =>
+      s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
 
   Future<void> _save() async {
     final photo = _photo;
     if (photo == null) {
-      await showAppMessage(context, 'Prends d\'abord la photo',
+      await showAppMessage(context, 'Prends d\'abord la photo d\'arrivée',
           kind: AppMsgKind.warning);
       return;
     }
-    // Lots : un par couleur si le chargement a des couleurs, sinon champ unique.
-    String numLot;
-    String? lotsJson;
-    if (_couleurs.isEmpty) {
-      numLot = _lotCtrl.text;
-    } else {
-      final map = {
-        for (final c in _couleurs) c: _lotParCouleur[c]!.text.trim()
-      };
-      if (map.values.any((v) => v.isEmpty)) {
-        await showAppMessage(context, 'Renseigne un numéro de lot par couleur',
+    if (_selection.isEmpty) {
+      await showAppMessage(context, 'Choisis les lots arrivés',
+          kind: AppMsgKind.warning);
+      return;
+    }
+    if (_chauffeurCtrl.text.trim().isEmpty ||
+        _permisCtrl.text.trim().isEmpty) {
+      await showAppMessage(context, 'Chauffeur et permis obligatoires',
+          kind: AppMsgKind.warning);
+      return;
+    }
+    for (final id in _selection) {
+      if ((_numLot[id]?.text ?? '').trim().isEmpty) {
+        await showAppMessage(context, 'Numéro de lot manquant pour $id',
             kind: AppMsgKind.warning);
         return;
       }
-      numLot = map.entries.map((e) => '${e.key}: ${e.value}').join(', ');
-      lotsJson = jsonEncode(map);
     }
+
     setState(() => _saving = true);
     try {
-      final depots = await ref.read(depotRepoProvider).activeDepots();
-      final attendue = await _plaqueAttendue();
-      final validation = ref.read(validateArriveeProvider)(
-        chargementId: widget.chargementId,
-        depots: depots,
-        lat: photo.lat,
-        lon: photo.lon,
-        chauffeur: _chauffeurCtrl.text,
-        numPermis: _permisCtrl.text,
-        numLot: numLot,
-        plaqueArrivee:
-            _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
-        plaqueAttendue: attendue,
-        photoArriveePath: photo.path,
-        photoPermisPath: _permisPhoto?.path,
-      );
-      await validation.match(
-        (f) async {
-          if (mounted) {
-            await showAppMessage(
-                context, f is ValidationFailure ? f.message : 'Échec',
-                kind: AppMsgKind.error);
-          }
-        },
-        (arrivee) async {
-          final score = await _computeScore(
-              lat: photo.lat,
-              lon: photo.lon,
-              plaqueCoherente: arrivee.plaqueCoherente);
-          final res = await ref.read(depotRepoProvider).persistArrivee(
-              arrivee.copyWith(
-                  scoreTracabilite: score.score, lotsJson: lotsJson));
-          if (!mounted) return;
-          await res.match(
-            (f) async => showAppMessage(context, 'Échec enregistrement',
-                kind: AppMsgKind.error),
-            (_) async {
-              await ref.read(tripTrackerProvider).stop(); // fin du suivi
-              ref.read(simSessionProvider.notifier).stop(); // fin simulation
-              if (!mounted) return;
-              if (!arrivee.plaqueCoherente) {
-                await showAppMessage(
-                    context, 'Attention : plaque différente du départ',
-                    kind: AppMsgKind.warning);
-              }
-              if (mounted) {
-                context.pushReplacement('/score',
-                    extra: (
-                      resultat: score,
-                      chargementId: widget.chargementId
-                    ));
-              }
-            },
-          );
-        },
-      );
+      final depotRepo = ref.read(depotRepoProvider);
+      final depots = await depotRepo.activeDepots();
+      final depot = ref.read(detectDepotProvider)(depots, photo.lat, photo.lon);
+      if (depot == null) {
+        if (mounted) {
+          await showAppMessage(
+              context, 'Aucun dépôt reconnu dans la zone GPS',
+              kind: AppMsgKind.error);
+        }
+        return;
+      }
+      final transportRepo = ref.read(transportRepoProvider);
+      final engine = ref.read(scoringEngineProvider);
+      final plaqueArrivee =
+          _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim();
+      final scores = <String, int>{};
+
+      for (final lotId in _selection) {
+        final resume = await depotRepo.lotResume(lotId);
+        final chaine = await transportRepo.chaineFor(lotId);
+        // Plaque attendue = fin de chaîne, sinon plaque de départ du lot.
+        final attendue = chaine.isNotEmpty
+            ? chaine.last.plaqueApres
+            : resume?.plaqueDepart;
+        final coherente = plaqueArrivee == null || attendue == null
+            ? true
+            : norm(plaqueArrivee) == norm(attendue);
+
+        final dist =
+            haversineMeters(photo.lat, photo.lon, depot.lat, depot.lon);
+        final ratio = resume?.cree == null
+            ? 1.0
+            : DateTime.now().difference(resume!.cree!).inSeconds /
+                const Duration(hours: 72).inSeconds;
+        final score = engine.evaluate(ScoringInputs(
+          gpsMineDansRayon: true,
+          photoMineValide: true,
+          fournisseurActif: true,
+          mineAutorisee: true,
+          donneesCompletes: true,
+          nombreMines: 1, // un lot = UNE mine
+          depotReconnu: true,
+          gpsNonFalsifie: true,
+          distanceGpsMetres: dist,
+          ratioDelai: ratio <= 0 ? 1.0 : ratio,
+          transportCoherent: coherente && chaine.every((m) => m.conforme),
+          ecartQuantitePct: 0,
+          tauxConformite90j: 1.0,
+        ));
+        scores[lotId] = score.score;
+
+        await depotRepo.persistArrivee(ArriveeDepot(
+          lotId: lotId,
+          depotId: depot.id,
+          chauffeur: _chauffeurCtrl.text.trim(),
+          numPermis: _permisCtrl.text.trim(),
+          numLot: _numLot[lotId]!.text.trim(),
+          gpsLat: photo.lat,
+          gpsLon: photo.lon,
+          statutGps: 'valide',
+          plaqueArrivee: plaqueArrivee,
+          plaqueCoherente: coherente,
+          scoreTracabilite: score.score,
+          photoArriveePath: photo.path,
+          photoPermisPath: _permisPhoto?.path,
+        ));
+      }
+
+      // Plus de lot en route → on arrête le suivi GPS.
+      final restants = await depotRepo.lotsEnCours(widget.sessionId);
+      if (restants.isEmpty) await ref.read(tripTrackerProvider).stop();
+
+      if (!mounted) return;
+      final resume = scores.entries
+          .map((e) => '${e.key} : ${e.value}/100')
+          .join('\n');
+      await showAppMessage(context, 'Arrivée validée\n\n$resume',
+          kind: AppMsgKind.success, titre: 'Scores');
+      if (mounted) context.go('/home');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: const Text('Arrivée au dépôt')),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-          children: [
-            StepHeader(
-                numero: 1,
-                titre: 'La photo',
-                sousTitre: 'Camion déchargé au dépôt'),
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: _photo == null ? Icons.camera_alt : Icons.verified,
-              color: _photo == null ? AppColors.primary : AppColors.ok,
-              titre: _photo == null ? 'Prendre la photo' : 'Photo prise',
-              sousTitre: _photo == null
-                  ? 'Avec position GPS'
-                  : 'GPS ${_photo!.lat.toStringAsFixed(4)}, '
-                      '${_photo!.lon.toStringAsFixed(4)}',
-              onTap: _captureArrivee,
-              trailing: _photo == null
-                  ? null
-                  : const StatusPill(kind: PillKind.ok, label: 'OK'),
+  Widget build(BuildContext context) {
+    final lots = ref.watch(lotsEnCoursProvider(widget.sessionId));
+    return Scaffold(
+      appBar: AppBar(title: const Text('Arrivée au dépôt')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+        children: [
+          StepHeader(numero: 1, titre: 'La photo', sousTitre: 'Camion au dépôt'),
+          const SizedBox(height: 12),
+          ActionTile(
+            icon: _photo == null ? Icons.camera_alt : Icons.verified,
+            color: _photo == null ? AppColors.primary : AppColors.ok,
+            titre: _photo == null ? 'Prendre la photo' : 'Photo prise',
+            sousTitre: _photo == null
+                ? 'Avec position GPS'
+                : 'GPS ${_photo!.lat.toStringAsFixed(4)}, ${_photo!.lon.toStringAsFixed(4)}',
+            onTap: _captureArrivee,
+          ),
+          const SizedBox(height: 8),
+          TextField(
+              controller: _plaqueCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Plaque du camion (arrivée)',
+                  prefixIcon: Icon(Icons.directions_car))),
+          const SizedBox(height: 24),
+          StepHeader(numero: 2, titre: 'Le chauffeur'),
+          const SizedBox(height: 12),
+          TextField(
+              controller: _chauffeurCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Nom du chauffeur',
+                  prefixIcon: Icon(Icons.person))),
+          const SizedBox(height: 12),
+          TextField(
+              controller: _permisCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Numéro de permis', prefixIcon: Icon(Icons.badge))),
+          const SizedBox(height: 12),
+          ActionTile(
+            icon: _permisPhoto == null ? Icons.add_a_photo : Icons.check_circle,
+            color: _permisPhoto == null ? AppColors.inkSoft : AppColors.ok,
+            titre: 'Photo du permis',
+            sousTitre: 'Optionnel',
+            onTap: () async {
+              final p = await _capture('Photo permis');
+              if (p != null) setState(() => _permisPhoto = p);
+            },
+          ),
+          const SizedBox(height: 24),
+          StepHeader(
+              numero: 3,
+              titre: 'Les lots arrivés',
+              sousTitre: 'Un numéro de lot par lot'),
+          const SizedBox(height: 8),
+          lots.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (e, _) => const Text('Impossible de charger les lots'),
+            data: (list) => Column(
+              children: list.map((l) {
+                _numLot.putIfAbsent(l.id, () => TextEditingController());
+                final coche = _selection.contains(l.id);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Column(children: [
+                    CheckboxListTile(
+                      value: coche,
+                      onChanged: (v) => setState(() => v == true
+                          ? _selection.add(l.id)
+                          : _selection.remove(l.id)),
+                      title: Text(l.id),
+                      subtitle: Text([
+                        l.mineId,
+                        if (l.couleur != null) l.couleur!,
+                      ].join(' · ')),
+                    ),
+                    if (coche)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: TextField(
+                          controller: _numLot[l.id],
+                          decoration: const InputDecoration(
+                              labelText: 'Numéro de lot',
+                              prefixIcon: Icon(Icons.inventory_2),
+                              isDense: true),
+                        ),
+                      ),
+                  ]),
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _plaqueCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Plaque du camion (arrivée)',
-                    prefixIcon: Icon(Icons.directions_car))),
-            const SizedBox(height: 24),
-            StepHeader(numero: 2, titre: 'Le chauffeur'),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _chauffeurCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Nom du chauffeur',
-                    prefixIcon: Icon(Icons.person))),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _permisCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Numéro de permis',
-                    prefixIcon: Icon(Icons.badge))),
-            const SizedBox(height: 12),
-            ActionTile(
-              icon: _permisPhoto == null
-                  ? Icons.add_a_photo
-                  : Icons.check_circle,
-              color: _permisPhoto == null ? AppColors.inkSoft : AppColors.ok,
-              titre: 'Photo du permis',
-              sousTitre: 'Optionnel',
-              onTap: () async {
-                final p = await _capture('Photo permis');
-                if (p != null) setState(() => _permisPhoto = p);
-              },
-            ),
-            const SizedBox(height: 24),
-            StepHeader(numero: 3, titre: 'Les lots'),
-            const SizedBox(height: 12),
-            if (_couleurs.isEmpty)
-              TextField(
-                  controller: _lotCtrl,
-                  decoration: const InputDecoration(
-                      labelText: 'Numéro de lot',
-                      prefixIcon: Icon(Icons.inventory_2)))
-            else
-              for (final c in _couleurs) ...[
-                TextField(
-                    controller: _lotParCouleur[c],
-                    decoration: InputDecoration(
-                        labelText: 'Lot — $c',
-                        prefixIcon: const Icon(Icons.inventory_2))),
-                const SizedBox(height: 12),
-              ],
-          ],
-        ),
-        bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: BigButton(
-              icon: Icons.check,
-              label: _saving ? 'Validation…' : 'Valider l\'arrivée',
-              onPressed: _saving ? null : _save),
-        ),
-      );
+          ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+        child: BigButton(
+            icon: Icons.check,
+            label: _saving ? 'Validation…' : 'Valider l\'arrivée',
+            onPressed: _saving ? null : _save),
+      ),
+    );
+  }
 }

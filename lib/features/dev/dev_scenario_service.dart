@@ -41,23 +41,30 @@ class DevScenarioService {
     await db.into(db.depots).insertOnConflictUpdate(DepotsCompanion.insert(
         id: 'DEMO', nom: 'Dépôt Démo', lat: -18.879, lon: 47.508));
 
+    // Une session par scénario, avec UN lot (1 mine = 1 lot = 1 traçabilité).
     Future<void> mk(int seq, int? score, bool arrive, String couleur) async {
-      final id = buildLoadingId(2026, 900 + seq);
+      final sessionId = buildLoadingId(2026, 900 + seq);
+      final lotId = '$sessionId-L1';
       await db.into(db.chargements).insertOnConflictUpdate(
           ChargementsCompanion.insert(
-              id: id,
+              id: sessionId,
               fournisseurId: fournisseurId,
               dateCreation: DateTime(2026, 6, 20 + seq, 8),
               statut: const Value('valide')));
-      await db.into(db.mineChargements).insert(MineChargementsCompanion.insert(
-          chargementId: id,
+      await db.into(db.lots).insertOnConflictUpdate(LotsCompanion.insert(
+          id: lotId,
+          sessionId: sessionId,
           mineId: 'M001',
           couleur: Value(couleur),
-          quantiteEstimee: const Value(120)));
+          quantiteEstimee: const Value(120),
+          plaqueDepart: Value('12${seq}4 TBR'),
+          statut: Value(arrive ? 'arrive' : 'en_cours'),
+          score: Value(score),
+          deviceUuid: Value('demo-uuid-$seq')));
       if (arrive) {
         await db.into(db.arriveesDepot).insertOnConflictUpdate(
             ArriveesDepotCompanion.insert(
-                chargementId: id,
+                lotId: lotId,
                 depotId: 'DEMO',
                 chauffeur: 'Rakoto',
                 numPermis: 'P-$seq',
@@ -90,7 +97,7 @@ class DevScenarioService {
     await db.transaction(() async {
       await db.delete(db.arriveesDepot).go();
       await db.delete(db.transbordements).go();
-      await db.delete(db.mineChargements).go();
+      await db.delete(db.lots).go();
       await db.delete(db.syncQueue).go();
       await db.delete(db.chargements).go();
     });
