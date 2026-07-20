@@ -33,48 +33,48 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 fournisseurId: c.fournisseurId,
                 dateCreation: c.dateCreation,
                 statut: Value(c.statut),
-                deviceUuid: Value(_uuid.v4()), // stable, pour la sync unique
                 lotReference: Value(c.lotReference),
               ),
             );
-        for (final m in c.mines) {
-          await db.into(db.mineChargements).insert(
-                MineChargementsCompanion.insert(
-                  chargementId: c.id,
-                  mineId: m.mineId,
-                  reference: Value(m.reference),
-                  couleur: Value(m.couleur),
-                  quantiteEstimee: Value(m.quantiteEstimee),
-                  plaqueOcr: Value(m.plaqueOcr),
-                  gpsLat: Value(m.photo?.lat),
-                  gpsLon: Value(m.photo?.lon),
-                  gpsPrecision: Value(m.photo?.precision),
-                  photoPath: Value(m.photo?.path),
-                  photoHash: Value(m.photo?.sha256),
-                  dateHeure: Value(m.photo?.takenAt),
+        for (final l in c.lots) {
+          await db.into(db.lots).insertOnConflictUpdate(
+                LotsCompanion.insert(
+                  id: l.id,
+                  sessionId: c.id,
+                  mineId: l.mineId,
+                  reference: Value(l.reference),
+                  couleur: Value(l.couleur),
+                  quantiteEstimee: Value(l.quantiteEstimee),
+                  plaqueDepart: Value(l.plaqueDepart),
+                  gpsLat: Value(l.photo?.lat),
+                  gpsLon: Value(l.photo?.lon),
+                  gpsPrecision: Value(l.photo?.precision),
+                  photoPath: Value(l.photo?.path),
+                  photoHash: Value(l.photo?.sha256),
+                  dateHeure: Value(l.photo?.takenAt),
+                  statut: const Value('en_cours'),
+                  // Idempotence sync : un device_uuid stable PAR LOT.
+                  deviceUuid: Value(l.deviceUuid ?? _uuid.v4()),
                 ),
               );
         }
       });
       final payload = <String, dynamic>{
         'id': c.id,
-        'fournisseur_id': c.fournisseurId,
-        'statut': c.statut,
-        'mines': c.mines
-            .map((m) => {
-                  'mine_id': m.mineId,
-                  'reference': m.reference,
-                  'couleur': m.couleur,
-                  'quantite_estimee': m.quantiteEstimee,
-                  'plaque': m.plaqueOcr,
-                  'lat': m.photo?.lat,
-                  'lon': m.photo?.lon,
-                  'hash': m.photo?.sha256,
+        'supplier_id': c.fournisseurId,
+        'lot_reference': c.lotReference,
+        'lots': c.lots
+            .map((l) => {
+                  'lot_id': l.id,
+                  'mine_id': l.mineId,
+                  'color': l.couleur,
+                  'estimated_quantity': l.quantiteEstimee,
+                  'plate': l.plaqueDepart,
+                  'hash': l.photo?.sha256,
                 })
             .toList(),
       };
-      // Sync unique : pas d'envoi à cette étape. Le submit complet part à
-      // l'arrivée au dépôt (voir DepotRepositoryImpl). On journalise seulement.
+      // Sync unique PAR LOT : l'envoi part à l'arrivée de chaque lot.
       await journal.append('chargement', c.id, jsonEncode(payload));
       return right(c);
     } catch (e) {
@@ -85,19 +85,32 @@ class LoadingRepositoryImpl implements LoadingRepository {
   @override
   Future<Either<Failure, Unit>> deleteChargement(String chargementId) async {
     try {
-      // Refuse si déjà arrivé au dépôt (finalisé).
-      final arrivee = await (db.select(db.arriveesDepot)
-            ..where((t) => t.chargementId.equals(chargementId)))
-          .getSingleOrNull();
-      if (arrivee != null) {
-        return left(const Failure.validation(
-            'Chargement déjà arrivé au dépôt — suppression impossible'));
+      final lots = await (db.select(db.lots)
+            ..where((t) => t.sessionId.equals(chargementId)))
+          .get();
+      final lotIds = lots.map((l) => l.id).toList();
+      // Refuse si un lot est déjà arrivé au dépôt (finalisé).
+      for (final id in lotIds) {
+        final arr = await (db.select(db.arriveesDepot)
+              ..where((t) => t.lotId.equals(id)))
+            .getSingleOrNull();
+        if (arr != null) {
+          return left(const Failure.validation(
+              'Un lot est déjà arrivé au dépôt — suppression impossible'));
+        }
       }
       await db.transaction(() async {
-        await (db.delete(db.mineChargements)
-              ..where((t) => t.chargementId.equals(chargementId)))
+        for (final id in lotIds) {
+          await (db.delete(db.transbordements)
+                ..where((t) => t.lotId.equals(id)))
+              .go();
+          await (db.delete(db.syncQueue)..where((t) => t.entityId.equals(id)))
+              .go();
+        }
+        await (db.delete(db.lots)
+              ..where((t) => t.sessionId.equals(chargementId)))
             .go();
-        await (db.delete(db.transbordements)
+        await (db.delete(db.trajetPoints)
               ..where((t) => t.chargementId.equals(chargementId)))
             .go();
         await (db.delete(db.syncQueue)
@@ -107,8 +120,8 @@ class LoadingRepositoryImpl implements LoadingRepository {
               ..where((t) => t.id.equals(chargementId)))
             .go();
       });
-      await journal.append('chargement_supprime', chargementId,
-          '{"id":"$chargementId"}');
+      await journal.append(
+          'chargement_supprime', chargementId, '{"id":"$chargementId"}');
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));

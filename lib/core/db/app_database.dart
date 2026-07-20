@@ -31,35 +31,42 @@ class Mines extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Session de collecte : les lots partis ensemble (regroupement pratique).
+/// L'unité de traçabilité est le LOT, pas la session.
 @DataClassName('ChargementRow')
 class Chargements extends Table {
   TextColumn get id => text()(); // MICA-YYYY-XXXX
   TextColumn get fournisseurId => text()();
   DateTimeColumn get dateCreation => dateTime()();
   TextColumn get statut => text().withDefault(const Constant('brouillon'))();
-  TextColumn get deviceUuid => text().nullable()(); // idempotence sync (stable)
   TextColumn get lotReference => text().nullable()(); // regroupement Odoo (opt.)
-  BoolColumn get photosUploaded =>
-      boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
 }
 
-@DataClassName('MineChargementRow')
-class MineChargements extends Table {
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get chargementId => text().references(Chargements, #id)();
+/// LOT = chargement d'UNE mine. Indivisible, unité de traçabilité et de score.
+@DataClassName('LotRow')
+class Lots extends Table {
+  TextColumn get id => text()(); // ex. MICA-2026-0007-L1
+  TextColumn get sessionId => text().references(Chargements, #id)();
   TextColumn get mineId => text().references(Mines, #id)();
   TextColumn get reference => text().nullable()();
   TextColumn get couleur => text().nullable()();
-  RealColumn get quantiteEstimee => real().nullable()();
-  TextColumn get plaqueOcr => text().nullable()();
+  RealColumn get quantiteEstimee => real().nullable()(); // figée au départ
+  TextColumn get plaqueDepart => text().nullable()();
   RealColumn get gpsLat => real().nullable()();
   RealColumn get gpsLon => real().nullable()();
   RealColumn get gpsPrecision => real().nullable()();
   TextColumn get photoPath => text().nullable()();
   TextColumn get photoHash => text().nullable()();
   DateTimeColumn get dateHeure => dateTime().nullable()();
+  TextColumn get statut => text().withDefault(const Constant('en_cours'))();
+  TextColumn get deviceUuid => text().nullable()(); // idempotence sync (par lot)
+  IntColumn get score => integer().nullable()();
+  BoolColumn get photosUploaded =>
+      boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {id};
 }
 
 @DataClassName('SyncQueueRow')
@@ -96,10 +103,11 @@ class Depots extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Transbordement PAR LOT : quel camion porte ce lot à chaque étape.
 @DataClassName('TransbordementRow')
 class Transbordements extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get chargementId => text().references(Chargements, #id)();
+  TextColumn get lotId => text().references(Lots, #id)();
   IntColumn get ordre => integer()(); // séquence dans la chaîne (1..N)
   TextColumn get plaqueAvant => text().nullable()();
   TextColumn get plaqueApres => text().nullable()();
@@ -113,9 +121,10 @@ class Transbordements extends Table {
   TextColumn get photoRechargePath => text().nullable()();
 }
 
+/// Arrivée PAR LOT (un lot arrive en un seul camion).
 @DataClassName('ArriveeDepotRow')
 class ArriveesDepot extends Table {
-  TextColumn get chargementId => text().references(Chargements, #id)();
+  TextColumn get lotId => text().references(Lots, #id)();
   TextColumn get depotId => text().references(Depots, #id)();
   TextColumn get chauffeur => text()();
   TextColumn get numPermis => text()();
@@ -127,10 +136,9 @@ class ArriveesDepot extends Table {
   TextColumn get plaqueArrivee => text().nullable()();
   BoolColumn get plaqueCoherente => boolean().withDefault(const Constant(true))();
   IntColumn get scoreTracabilite => integer().nullable()();
-  TextColumn get lotsJson => text().nullable()(); // {couleur: n° lot}
   TextColumn get statutGps => text()(); // valide / hors_zone
   @override
-  Set<Column> get primaryKey => {chargementId};
+  Set<Column> get primaryKey => {lotId};
 }
 
 @DataClassName('JournalEntryRow')
@@ -160,7 +168,7 @@ class TrajetPoints extends Table {
   Fournisseurs,
   Mines,
   Chargements,
-  MineChargements,
+  Lots,
   SyncQueue,
   Depots,
   Transbordements,
@@ -171,7 +179,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
   // Avant la prod réelle, remplacer par des migrations pas-à-pas qui

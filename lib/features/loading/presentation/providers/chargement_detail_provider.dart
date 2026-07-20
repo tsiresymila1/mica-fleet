@@ -2,14 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 
-class MineLine {
-  final String mineId;
-  final String? couleur, plaque, photoPath;
-  final double? quantite, lat, lon;
-  const MineLine(this.mineId, this.couleur, this.plaque, this.quantite,
-      this.lat, this.lon, this.photoPath);
-}
-
 class TransLine {
   final int ordre;
   final String? plaqueAvant, plaqueApres, photoDecharge, photoRecharge;
@@ -20,66 +12,83 @@ class TransLine {
 
 class ArriveeLine {
   final String depotId, chauffeur, numPermis, numLot;
-  final String? plaqueArrivee, lotsJson, photoArrivee, photoPermis;
+  final String? plaqueArrivee, photoArrivee, photoPermis;
   final bool plaqueCoherente;
   final int? score;
   const ArriveeLine(this.depotId, this.chauffeur, this.numPermis, this.numLot,
-      this.plaqueArrivee, this.lotsJson, this.plaqueCoherente, this.score,
-      this.photoArrivee, this.photoPermis);
+      this.plaqueArrivee, this.plaqueCoherente, this.score, this.photoArrivee,
+      this.photoPermis);
 }
 
-class ChargementDetail {
+/// Détail d'UN LOT : origine (une mine), ses transbordements, son arrivée.
+class LotDetail {
   final String id;
+  final String sessionId;
+  final String mineId;
+  final String? reference, couleur, plaqueDepart, photoPath;
+  final double? quantite, lat, lon;
   final DateTime date;
   final String statut;
-  final List<MineLine> mines;
+  final int? score;
   final List<TransLine> transbordements;
   final ArriveeLine? arrivee;
-  const ChargementDetail(this.id, this.date, this.statut, this.mines,
-      this.transbordements, this.arrivee);
+  const LotDetail({
+    required this.id,
+    required this.sessionId,
+    required this.mineId,
+    required this.reference,
+    required this.couleur,
+    required this.plaqueDepart,
+    required this.photoPath,
+    required this.quantite,
+    required this.lat,
+    required this.lon,
+    required this.date,
+    required this.statut,
+    required this.score,
+    required this.transbordements,
+    required this.arrivee,
+  });
 }
 
-final chargementDetailProvider = FutureProvider.autoDispose
-    .family<ChargementDetail, String>((ref, chargementId) async {
+final lotDetailProvider =
+    FutureProvider.autoDispose.family<LotDetail, String>((ref, lotId) async {
   final db = ref.watch(dbProvider);
-  final c = await (db.select(db.chargements)
-        ..where((t) => t.id.equals(chargementId)))
+  final l = await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
       .getSingle();
-  final mines = await (db.select(db.mineChargements)
-        ..where((t) => t.chargementId.equals(chargementId)))
-      .get();
+  final session = await (db.select(db.chargements)
+        ..where((t) => t.id.equals(l.sessionId)))
+      .getSingleOrNull();
   final trans = await (db.select(db.transbordements)
-        ..where((t) => t.chargementId.equals(chargementId))
+        ..where((t) => t.lotId.equals(lotId))
         ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
       .get();
   final arr = await (db.select(db.arriveesDepot)
-        ..where((t) => t.chargementId.equals(chargementId)))
+        ..where((t) => t.lotId.equals(lotId)))
       .getSingleOrNull();
 
-  return ChargementDetail(
-    c.id,
-    c.dateCreation,
-    c.statut,
-    mines
-        .map((m) => MineLine(m.mineId, m.couleur, m.plaqueOcr, m.quantiteEstimee,
-            m.gpsLat, m.gpsLon, m.photoPath))
+  return LotDetail(
+    id: l.id,
+    sessionId: l.sessionId,
+    mineId: l.mineId,
+    reference: l.reference,
+    couleur: l.couleur,
+    plaqueDepart: l.plaqueDepart,
+    photoPath: l.photoPath,
+    quantite: l.quantiteEstimee,
+    lat: l.gpsLat,
+    lon: l.gpsLon,
+    date: session?.dateCreation ?? DateTime.fromMillisecondsSinceEpoch(0),
+    statut: l.statut,
+    score: l.score ?? arr?.scoreTracabilite,
+    transbordements: trans
+        .map((t) => TransLine(t.ordre, t.plaqueAvant, t.plaqueApres, t.conforme,
+            t.photoDechargePath, t.photoRechargePath))
         .toList(),
-    trans
-        .map((t) => TransLine(t.ordre, t.plaqueAvant, t.plaqueApres,
-            t.conforme, t.photoDechargePath, t.photoRechargePath))
-        .toList(),
-    arr == null
+    arrivee: arr == null
         ? null
-        : ArriveeLine(
-            arr.depotId,
-            arr.chauffeur,
-            arr.numPermis,
-            arr.numLot,
-            arr.plaqueArrivee,
-            arr.lotsJson,
-            arr.plaqueCoherente,
-            arr.scoreTracabilite,
-            arr.photoArriveePath,
-            arr.photoPermisPath),
+        : ArriveeLine(arr.depotId, arr.chauffeur, arr.numPermis, arr.numLot,
+            arr.plaqueArrivee, arr.plaqueCoherente, arr.scoreTracabilite,
+            arr.photoArriveePath, arr.photoPermisPath),
   );
 });

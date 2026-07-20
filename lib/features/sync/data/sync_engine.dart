@@ -58,24 +58,21 @@ class SyncEngine {
     }
   }
 
-  /// Après le submit d'un chargement (op synced), envoie ses photos en un batch,
+  /// Après le submit d'un LOT (op synced), envoie ses photos en un batch,
   /// puis marque et purge les fichiers locaux. Réessayé tant que non uploadé.
   Future<void> _uploadPendingPhotos() async {
     final syncedOps = await (db.select(db.syncQueue)
-          ..where((t) =>
-              t.status.equals('synced') & t.entityType.equals('chargement')))
+          ..where((t) => t.status.equals('synced') & t.entityType.equals('lot')))
         .get();
     for (final op in syncedOps) {
-      final charg = await (db.select(db.chargements)
-            ..where((t) => t.id.equals(op.entityId)))
+      final lot = await (db.select(db.lots)..where((t) => t.id.equals(op.entityId)))
           .getSingleOrNull();
-      if (charg == null || charg.photosUploaded) continue;
-      final photos = await _collectPhotos(charg.id);
-      await remote.uploadPhotos(
-          charg.deviceUuid ?? charg.id, charg.id, photos);
+      if (lot == null || lot.photosUploaded) continue;
+      final photos = await _collectPhotos(lot.id);
+      await remote.uploadPhotos(lot.deviceUuid ?? lot.id, lot.id, photos);
       // Succès : marque uploadé + purge les fichiers (le hash reste comme preuve).
-      await (db.update(db.chargements)..where((t) => t.id.equals(charg.id)))
-          .write(const ChargementsCompanion(photosUploaded: Value(true)));
+      await (db.update(db.lots)..where((t) => t.id.equals(lot.id)))
+          .write(const LotsCompanion(photosUploaded: Value(true)));
       for (final p in photos) {
         try {
           await File(p.path).delete();
@@ -84,18 +81,17 @@ class SyncEngine {
     }
   }
 
-  Future<List<PhotoPart>> _collectPhotos(String chargementId) async {
+  /// Photos d'UN lot : sa photo de mine, celles de ses transbordements, et
+  /// celles de son arrivée. Clés scopées au lot (1 submit = 1 lot).
+  Future<List<PhotoPart>> _collectPhotos(String lotId) async {
     final parts = <PhotoPart>[];
-    final mines = await (db.select(db.mineChargements)
-          ..where((t) => t.chargementId.equals(chargementId)))
-        .get();
-    for (final m in mines) {
-      if (m.photoPath != null) {
-        parts.add(PhotoPart('mine_${m.mineId}', m.photoPath!, m.photoHash));
-      }
+    final lot = await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
+        .getSingleOrNull();
+    if (lot?.photoPath != null) {
+      parts.add(PhotoPart('mine', lot!.photoPath!, lot.photoHash));
     }
     final trans = await (db.select(db.transbordements)
-          ..where((t) => t.chargementId.equals(chargementId)))
+          ..where((t) => t.lotId.equals(lotId)))
         .get();
     for (final t in trans) {
       if (t.photoDechargePath != null) {
@@ -108,7 +104,7 @@ class SyncEngine {
       }
     }
     final arr = await (db.select(db.arriveesDepot)
-          ..where((t) => t.chargementId.equals(chargementId)))
+          ..where((t) => t.lotId.equals(lotId)))
         .getSingleOrNull();
     if (arr != null) {
       if (arr.photoArriveePath != null) {

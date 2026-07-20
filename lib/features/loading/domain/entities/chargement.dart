@@ -1,7 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'mine_chargement.dart';
+import 'lot.dart';
 part 'chargement.freezed.dart';
 
+/// Session de collecte : les lots partis ensemble (1 à 3 mines).
+/// L'unité tracée reste le LOT.
 @freezed
 abstract class Chargement with _$Chargement {
   const Chargement._();
@@ -10,9 +12,9 @@ abstract class Chargement with _$Chargement {
     required String fournisseurId,
     required DateTime dateCreation,
     @Default('brouillon') String statut,
-    @Default(<MineChargement>[]) List<MineChargement> mines,
+    @Default(<Lot>[]) List<Lot> lots,
     String? lotReference, // regroupement Odoo (optionnel)
   }) = _Chargement;
 
-  bool get peutAjouterMine => mines.length < 3;
+  bool get peutAjouterLot => lots.length < 3;
 }

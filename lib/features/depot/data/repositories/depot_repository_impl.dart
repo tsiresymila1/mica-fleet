@@ -17,7 +17,7 @@ class DepotRepositoryImpl implements DepotRepository {
   final JournalService journal;
   DepotRepositoryImpl(this.db, this.syncStore, this.journal);
 
-  ChargementSnapshotBuilder get _snapshot => ChargementSnapshotBuilder(db);
+  LotSnapshotBuilder get _snapshot => LotSnapshotBuilder(db);
 
   @override
   Future<List<Depot>> activeDepots() async {
@@ -38,33 +38,41 @@ class DepotRepositoryImpl implements DepotRepository {
   @override
   Future<Either<Failure, Unit>> persistArrivee(ArriveeDepot a) async {
     try {
-      await db.into(db.arriveesDepot).insertOnConflictUpdate(
-            ArriveesDepotCompanion.insert(
-              chargementId: a.chargementId,
-              depotId: a.depotId,
-              chauffeur: a.chauffeur,
-              numPermis: a.numPermis,
-              numLot: a.numLot,
-              gpsLat: a.gpsLat,
-              gpsLon: a.gpsLon,
-              statutGps: a.statutGps,
-              photoPermisPath: Value(a.photoPermisPath),
-              photoArriveePath: Value(a.photoArriveePath),
-              plaqueArrivee: Value(a.plaqueArrivee),
-              plaqueCoherente: Value(a.plaqueCoherente),
-              scoreTracabilite: Value(a.scoreTracabilite),
-              lotsJson: Value(a.lotsJson),
-            ),
-          );
-      // Envoi UNIQUE : le chargement est complet → on construit le snapshot
-      // global (mines + transbordements + arrivée + trajet) et on l'enfile
-      // en une seule opération de sync.
-      final snap = await _snapshot.build(a.chargementId);
+      await db.transaction(() async {
+        await db.into(db.arriveesDepot).insertOnConflictUpdate(
+              ArriveesDepotCompanion.insert(
+                lotId: a.lotId,
+                depotId: a.depotId,
+                chauffeur: a.chauffeur,
+                numPermis: a.numPermis,
+                numLot: a.numLot,
+                gpsLat: a.gpsLat,
+                gpsLon: a.gpsLon,
+                statutGps: a.statutGps,
+                photoPermisPath: Value(a.photoPermisPath),
+                photoArriveePath: Value(a.photoArriveePath),
+                plaqueArrivee: Value(a.plaqueArrivee),
+                plaqueCoherente: Value(a.plaqueCoherente),
+                scoreTracabilite: Value(a.scoreTracabilite),
+              ),
+            );
+        // Le lot est arrivé : statut + score figés sur le lot.
+        await (db.update(db.lots)..where((t) => t.id.equals(a.lotId))).write(
+          LotsCompanion(
+            statut: const Value('arrive'),
+            score: Value(a.scoreTracabilite),
+          ),
+        );
+      });
+
+      // Envoi UNIQUE par LOT : snapshot complet du lot (mine + transbordements
+      // + arrivée + trajet) en une seule opération de sync.
+      final snap = await _snapshot.build(a.lotId);
       if (snap != null) {
         await syncStore.enqueue(SyncOperation(
-          opId: snap.deviceUuid, // stable → idempotence
-          entityType: 'chargement',
-          entityId: a.chargementId,
+          opId: snap.deviceUuid, // stable par lot → idempotence
+          entityType: 'lot',
+          entityId: a.lotId,
           opType: SyncOpType.create,
           payload: snap.payload,
           createdAt: DateTime.now(),
@@ -73,8 +81,7 @@ class DepotRepositoryImpl implements DepotRepository {
           gpsLon: snap.gpsLon,
           gpsAccuracy: snap.gpsAccuracy,
         ));
-        await journal.append(
-            'arrivee_depot', a.chargementId, jsonEncode(snap.payload));
+        await journal.append('arrivee_depot', a.lotId, jsonEncode(snap.payload));
       }
       return right(unit);
     } catch (e) {
@@ -83,24 +90,31 @@ class DepotRepositoryImpl implements DepotRepository {
   }
 
   @override
-  Future<ChargementResume> chargementResume(String chargementId) async {
-    final mines = await (db.select(db.mineChargements)
-          ..where((t) => t.chargementId.equals(chargementId)))
-        .get();
-    final charg = await (db.select(db.chargements)
-          ..where((t) => t.id.equals(chargementId)))
+  Future<LotResume?> lotResume(String lotId) async {
+    final l = await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
         .getSingleOrNull();
-    final couleurs = mines
-        .map((m) => m.couleur)
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toSet()
-        .toList();
+    if (l == null) return null;
+    final s = await (db.select(db.chargements)
+          ..where((t) => t.id.equals(l.sessionId)))
+        .getSingleOrNull();
     return (
-      nbMines: mines.length,
-      cree: charg?.dateCreation,
-      plaque: mines.isNotEmpty ? mines.first.plaqueOcr : null,
-      couleurs: couleurs,
+      sessionId: l.sessionId,
+      mineId: l.mineId,
+      cree: s?.dateCreation,
+      plaqueDepart: l.plaqueDepart,
+      couleur: l.couleur,
     );
+  }
+
+  @override
+  Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
+      String sessionId) async {
+    final rows = await (db.select(db.lots)
+          ..where((t) =>
+              t.sessionId.equals(sessionId) & t.statut.equals('en_cours')))
+        .get();
+    return rows
+        .map((l) => (id: l.id, mineId: l.mineId, couleur: l.couleur))
+        .toList();
   }
 }
