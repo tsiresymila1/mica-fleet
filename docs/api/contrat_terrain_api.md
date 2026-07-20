@@ -62,9 +62,16 @@ sans token (c'est lui qui le fournit).
 
 ## 2. `POST /api/geospatial/submit`
 
-Envoie **un chargement complet** (mines + transbordements + arrivée). Un seul
-submit par chargement — pas un par étape. Les **photos ne sont pas dans le JSON**
-(voir §3) : seules leurs **clés + hash** y figurent.
+Envoie **UN LOT complet**. Un lot = le **chargement d'UNE mine**, indivisible :
+c'est l'**unité de traçabilité, de numéro de lot et de score**.
+
+> **1 payload = 1 lot.** Si un camion part avec 3 mines, l'app envoie **3 submits**
+> (3 lots), chacun avec son `device_uuid`, son numéro de lot et son score. Les
+> lots partis ensemble partagent le même `session_id` (et éventuellement le même
+> `lot_reference`).
+
+Les **photos ne sont pas dans le JSON** (voir §3) : seules leurs **clés + hash**
+y figurent.
 
 ### Enveloppe
 ```json
@@ -72,43 +79,32 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
   "device_uuid": "550e8400-e29b-41d4-a716-446655440000",
   "agent_login": "F001",
   "collected_at": "2026-06-22 08:00:00",
-  "collect_type": "chargement",
+  "collect_type": "lot",
   "gps_lat": -18.91000, "gps_lon": 47.52000, "gps_accuracy": 5.0,
   "payload": { /* voir ci-dessous */ }
 }
 ```
 
-### `payload` (chargement complet)
+### `payload` (UN lot complet)
 ```json
 {
-  "id": "MICA-2026-0007",
+  "lot_id": "MICA-2026-0007-L1",
+  "session_id": "MICA-2026-0007",
   "supplier_id": "F001",
   "lot_reference": "LOT-A-2026-06-22",
-  "status": "valide",
+  "status": "arrive",
   "created_at": "2026-06-22 08:00:00",
 
-  "mines": [
-    {
-      "mine_id": "M001",
-      "reference": "REF-1",
-      "color": "Blanc",
-      "estimated_quantity": 120,
-      "plate": "1234 TBR",
-      "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
-      "captured_at": "2026-06-22 08:00:00",
-      "photo": { "key": "mine_M001", "hash": "9f2c...e7" }
-    },
-    {
-      "mine_id": "M002",
-      "reference": "REF-2",
-      "color": "Doré",
-      "estimated_quantity": 80,
-      "plate": "1234 TBR",
-      "lat": -18.92500, "lon": 47.53500, "gps_accuracy": 6.0,
-      "captured_at": "2026-06-22 08:15:00",
-      "photo": { "key": "mine_M002", "hash": "3b71...aa" }
-    }
-  ],
+  "mine": {
+    "mine_id": "M001",
+    "reference": "REF-1",
+    "color": "Blanc",
+    "estimated_quantity": 120,
+    "plate": "1234 TBR",
+    "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
+    "captured_at": "2026-06-22 08:00:00",
+    "photo": { "key": "mine", "hash": "9f2c...e7" }
+  },
 
   "transloads": [
     {
@@ -135,13 +131,11 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
     "depot_id": "D001",
     "driver": "Rakoto",
     "license_number": "P-123",
-    "lot_number": "Blanc: LOT-1",
+    "lot_number": "LOT-2026-0042",
     "gps": [-18.87900, 47.50800],
     "gps_status": "valide",
     "plate_arrival": "9012 DEF",
     "plate_consistent": true,
-    "lots": { "Blanc": "LOT-1" },
-    "traceability_score": 100,
     "photo_arrival": { "key": "arrival" },
     "photo_license": { "key": "license" }
   },
@@ -156,21 +150,21 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 }
 ```
 
-> **`lot_reference`** (optionnel, peut être `null`) : code partagé permettant à
-> Odoo de **regrouper plusieurs chargements-camions** sous un même lot commercial
-> (cas des camions en parallèle / split / fusion). Le terrain reste **1 chargement
-> = 1 camion** ; le regroupement se fait côté Odoo via ce champ.
->
-> **`mines` et `transloads` sont indépendants.**
-> - `mines` = les sources (1 à 3 carrières) chargées sur le **camion de départ**.
->   Plusieurs mines = plusieurs carrières sur le **même camion** (même `plate`).
-> - `transloads` = les **changements de camion** pendant le trajet (A→B→C). Ils
->   concernent **toute la cargaison** (toutes les mines ensemble), pas une mine
->   en particulier. Il n'y a **pas de mapping 1:1** mine ↔ transbordement.
->
-> Chaîne des plaques : `mines[].plate` = camion A ; `transloads[0]` = A→B ;
-> `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. La cohérence
-> se vérifie sur cette chaîne (`plate_after[i] == plate_before[i+1]`).
+> **Règles métier reflétées par ce format**
+> - **`mine` est un objet, pas une liste** : un lot vient d'**UNE seule mine**.
+>   Un camion chargé à 3 mines produit **3 lots** → **3 submits**.
+> - Un lot n'est **jamais divisé** : `estimated_quantity` est **figée au départ**.
+> - `transloads` = les camions successifs ayant porté **CE lot**. Lors d'un même
+>   transbordement physique, d'autres lots peuvent partir sur un **autre camion** —
+>   chaque lot a donc **sa propre chaîne**.
+> - Chaîne des plaques : `mine.plate` = camion de départ ; `transloads[0]` = A→B ;
+>   `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. Cohérence :
+>   `plate_after[i] == plate_before[i+1]`.
+> - **`lot_number`** (à l'arrivée) = numéro de lot officiel. **1 lot = 1 lot_number**.
+> - **`traceability_score`** est calculé **par lot**.
+> - **`session_id`** = les lots partis ensemble (regroupement terrain).
+> - **`lot_reference`** (optionnel, `null` possible) = regroupement **commercial**
+>   côté Odoo (plusieurs lots/camions d'une même opération).
 
 ### Réponses attendues
 ```json
@@ -189,22 +183,22 @@ submit par chargement — pas un par étape. Les **photos ne sont pas dans le JS
 
 ## 3. `POST /api/geospatial/upload` — toutes les photos en un batch
 
-Envoyé **après** un submit réussi. **Toutes les photos du chargement en une seule
+Envoyé **après** un submit réussi. **Toutes les photos DU LOT en une seule
 requête** `multipart/form-data`. Chaque photo est identifiée par sa `key` (celle
 déclarée dans le payload).
 
-Le chargement est identifié par **DEUX champs** :
-- **`load_id`** = l'id du chargement (`MICA-…`, = `payload.id`) → savoir **à quel
-  payload** ces fichiers appartiennent.
-- **`device_uuid`** = clé d'idempotence stable.
+Le lot est identifié par **DEUX champs** :
+- **`load_id`** = l'id du **lot** (`MICA-…-L1`, = `payload.lot_id`) → savoir **à
+  quel payload** ces fichiers appartiennent.
+- **`device_uuid`** = clé d'idempotence stable (celle du même lot).
 
-**Un seul upload = un chargement complet.**
+**Un seul upload = un lot complet.** (3 lots → 3 submits + 3 uploads.)
 
 ### Requête (multipart/form-data)
 ```
-load_id           : MICA-2026-0007
+load_id           : MICA-2026-0007-L1
 device_uuid       : 550e8400-e29b-41d4-a716-446655440000
-photos[0][key]    : mine_M001
+photos[0][key]    : mine
 photos[0][hash]   : 9f2c...e7
 photos[0][file]   : <binaire JPEG>
 photos[1][key]    : transload_1_unload
@@ -218,9 +212,9 @@ photos[2][file]   : <binaire JPEG>
 {
   "status": "ok",
   "data": {
-    "load_id": "MICA-2026-0007",
+    "load_id": "MICA-2026-0007-L1",
     "uploaded": [
-      { "photo_key": "mine_M001",          "attachment_id": 812 },
+      { "photo_key": "mine",               "attachment_id": 812 },
       { "photo_key": "transload_1_unload", "attachment_id": 813 },
       { "photo_key": "arrival",            "attachment_id": 814 }
     ]
@@ -228,16 +222,18 @@ photos[2][file]   : <binaire JPEG>
 }
 ```
 
-- Le serveur rattache chaque fichier au chargement (via `load_id` / `device_uuid`)
+- Le serveur rattache chaque fichier au **lot** (via `load_id` / `device_uuid`)
   sous le champ correspondant à `photo_key`.
 - **Idempotence photo** : si le `hash` est déjà connu pour cette clé, ignorer
   (ne pas recréer). Permet de rejouer le batch sans doublon.
 - L'app supprime le fichier local après confirmation (le `hash` reste comme preuve).
 
 ### Schéma des `photo_key`
+Les clés sont **scopées au lot** (1 upload = 1 lot), donc simples :
+
 | Photo | `photo_key` |
 |---|---|
-| Mine `<id>` | `mine_<mineId>` |
+| Mine d'origine du lot | `mine` |
 | Transbordement bloc `<n>` décharge | `transload_<n>_unload` |
 | Transbordement bloc `<n>` recharge | `transload_<n>_reload` |
 | Arrivée dépôt | `arrival` |
