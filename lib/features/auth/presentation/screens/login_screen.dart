@@ -16,7 +16,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _ctrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
-  String? _error;
   bool _loading = false;
 
   @override
@@ -27,23 +26,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _submit() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    FocusScope.of(context).unfocus(); // libère l'écran pendant l'attente
+    setState(() => _loading = true);
     final r = await ref
         .read(authControllerProvider.notifier)
         .login(_ctrl.text, _pwdCtrl.text);
-    r.match(
-      (f) => setState(() {
-        _error = f is ValidationFailure
-            ? f.message
-            : 'Identifiant ou mot de passe incorrect';
-        _loading = false;
-      }),
-      (fournisseur) {
-        if (mounted) context.go('/home');
+    if (!mounted) return;
+    await r.match(
+      (f) async {
+        setState(() => _loading = false);
+        await showAppMessage(
+          context,
+          f is ValidationFailure
+              ? f.message
+              : 'Identifiant ou mot de passe incorrect',
+          kind: AppMsgKind.error,
+          titre: 'Connexion impossible',
+        );
       },
+      (fournisseur) async => context.go('/home'),
     );
   }
 
@@ -111,10 +112,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     prefixIcon: Icon(Icons.lock_outline),
                   ),
                 ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  StatusPill(kind: PillKind.danger, label: _error!),
-                ],
                 const SizedBox(height: 20),
                 BigButton(
                   icon: Icons.login,
