@@ -4,4 +4,9 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Autorise le HTTP en clair pour tester contre un Odoo local
+         (http://192.168.x.x:8069). Debug uniquement : la build release
+         garde le blocage HTTPS d'Android. -->
+    <application android:usesCleartextTraffic="true" />
 </manifest>

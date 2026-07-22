@@ -6,17 +6,19 @@ import 'package:flutter/foundation.dart';
 ///   flutter run --dart-define=MICA_DEMO=true
 ///   flutter build apk --release \
 ///     --dart-define=MICA_DEMO=false \
-///     --dart-define=MICA_ODOO_URL=https://odoo.mondomaine.mg/api
+///     --dart-define=MICA_ODOO_URL=https://odoo.mondomaine.mg
 class AppConfig {
   /// Mode démo : faux backend de sync + seed local + menu Scénarios.
   /// Par défaut = mode debug (comportement actuel), surchargé par le flag.
   static const bool demo =
       bool.fromEnvironment('MICA_DEMO', defaultValue: kDebugMode);
 
-  /// URL de base de l'API Odoo (utilisée hors mode démo).
+  /// Racine du serveur Odoo, **sans** `/api` : les chemins des endpoints le
+  /// contiennent déjà (`/api/login`, `/api/tracking/submit`…).
+  /// Ex. `http://192.168.1.20:8069` ou `https://odoo.mondomaine.mg`.
   static const String odooBaseUrl = String.fromEnvironment(
     'MICA_ODOO_URL',
-    defaultValue: 'https://odoo.example/api',
+    defaultValue: 'https://odoo.example',
   );
 
   /// Bearer token Odoo par défaut (repli si rien n'est stocké de façon chiffrée).
