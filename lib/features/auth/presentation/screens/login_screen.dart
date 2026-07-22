@@ -17,6 +17,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _ctrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   bool _loading = false;
+  bool _pwdVisible = false;
 
   @override
   void dispose() {
@@ -103,13 +104,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 12),
                 TextField(
                   controller: _pwdCtrl,
-                  obscureText: true,
+                  obscureText: !_pwdVisible,
                   textInputAction: TextInputAction.go,
                   onSubmitted: (_) => _submit(),
                   style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Mot de passe',
-                    prefixIcon: Icon(Icons.lock_outline),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_pwdVisible
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                      tooltip: _pwdVisible ? 'Cacher' : 'Voir',
+                      onPressed: () =>
+                          setState(() => _pwdVisible = !_pwdVisible),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
