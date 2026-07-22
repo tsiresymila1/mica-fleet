@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// Thème « minéral » mobile — simple, moderne, lisible. Tailles compactes,
 /// Montserrat (titres) + ABeeZee (corps). Fort contraste pour le terrain.
@@ -15,6 +16,25 @@ class AppColors {
   static const danger = Color(0xFFC0492F);
   static const line = Color(0xFFE6E2D9);
 }
+
+/// Barres système sur fond clair (écrans sans AppBar) : icônes sombres, sinon
+/// elles restent blanches et deviennent invisibles.
+const kOverlaySurClair = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.dark, // Android
+  statusBarBrightness: Brightness.light, // iOS
+  systemNavigationBarColor: AppColors.paper,
+  systemNavigationBarIconBrightness: Brightness.dark,
+);
+
+/// Barres système sous l'AppBar verte : icônes claires.
+const kOverlaySurPrimaire = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.light,
+  statusBarBrightness: Brightness.dark,
+  systemNavigationBarColor: AppColors.paper,
+  systemNavigationBarIconBrightness: Brightness.dark,
+);
 
 class AppTheme {
   static ThemeData build() {
@@ -68,6 +88,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        systemOverlayStyle: kOverlaySurPrimaire,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: display(

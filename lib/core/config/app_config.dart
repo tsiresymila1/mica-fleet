@@ -18,7 +18,7 @@ class AppConfig {
   /// Ex. `http://192.168.1.20:8069` ou `https://odoo.mondomaine.mg`.
   static const String odooBaseUrl = String.fromEnvironment(
     'MICA_ODOO_URL',
-    defaultValue: 'https://odoo.example',
+    defaultValue: 'https://staging.radoran.net',
   );
 
   /// Bearer token Odoo par défaut (repli si rien n'est stocké de façon chiffrée).

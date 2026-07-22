@@ -30,11 +30,11 @@ Dio buildDio({
   if (kDebugMode) {
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (o, h) {
-        debugPrint('→ ${o.method} ${o.uri}');
+        debugPrint('→ ${o.method} ${o.uri} ${o.data}');
         h.next(o);
       },
       onResponse: (r, h) {
-        debugPrint('← ${r.statusCode} ${r.requestOptions.uri}');
+        debugPrint('← ${r.statusCode} ${r.requestOptions.uri} ${r.data}');
         h.next(r);
       },
       onError: (e, h) {

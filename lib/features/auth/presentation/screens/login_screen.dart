@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failure.dart';
@@ -35,7 +36,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .login(_ctrl.text, _pwdCtrl.text);
     r.match(
       (f) => setState(() {
-        _error = f is ValidationFailure ? f.message : 'Identifiant ou mot de passe incorrect';
+        _error = f is ValidationFailure
+            ? f.message
+            : 'Identifiant ou mot de passe incorrect';
         _loading = false;
       }),
       (fournisseur) {
@@ -47,78 +50,80 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Scaffold(
-      // appBar: AppBar(
-      //   title: Text('Mica', style: t.displaySmall!.copyWith(fontSize: 40)),
-      // ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
-              // Marque
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+    // Pas d'AppBar ici : sans ça les icônes système restent claires (héritées
+    // des écrans à AppBar verte) et disparaissent sur ce fond clair.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kOverlaySurClair,
+      child: Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: Column(
+              children: [
+                const Spacer(flex: 2),
+                // Marque
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.primaryDark],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  child: const Icon(
+                    Icons.terrain,
+                    color: AppColors.gold,
+                    size: 40,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.terrain,
-                  color: AppColors.gold,
-                  size: 40,
+                const SizedBox(height: 16),
+                Text('Mica', style: t.displaySmall),
+                const SizedBox(height: 4),
+                Text(
+                  'Suivi du chargement à la mine',
+                  style: t.bodyMedium,
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text('Mica', style: t.displaySmall),
-              const SizedBox(height: 4),
-              Text(
-                'Suivi du chargement à la mine',
-                style: t.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const Spacer(flex: 1),
-              // Saisie
-              TextField(
-                controller: _ctrl,
-                textInputAction: TextInputAction.go,
-                onSubmitted: (_) => _submit(),
-                style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
-                decoration: const InputDecoration(
-                  labelText: 'Mon identifiant',
-                  prefixIcon: Icon(Icons.badge_outlined),
+                const Spacer(flex: 1),
+                // Saisie
+                TextField(
+                  controller: _ctrl,
+                  textInputAction: TextInputAction.go,
+                  onSubmitted: (_) => _submit(),
+                  style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
+                  decoration: const InputDecoration(
+                    labelText: 'Mon identifiant',
+                    prefixIcon: Icon(Icons.badge_outlined),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _pwdCtrl,
-                obscureText: true,
-                textInputAction: TextInputAction.go,
-                onSubmitted: (_) => _submit(),
-                style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
-                decoration: const InputDecoration(
-                  labelText: 'Mot de passe',
-                  prefixIcon: Icon(Icons.lock_outline),
-                ),
-              ),
-              if (_error != null) ...[
                 const SizedBox(height: 12),
-                StatusPill(kind: PillKind.danger, label: _error!),
+                TextField(
+                  controller: _pwdCtrl,
+                  obscureText: true,
+                  textInputAction: TextInputAction.go,
+                  onSubmitted: (_) => _submit(),
+                  style: t.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
+                  decoration: const InputDecoration(
+                    labelText: 'Mot de passe',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  StatusPill(kind: PillKind.danger, label: _error!),
+                ],
+                const SizedBox(height: 20),
+                BigButton(
+                  icon: Icons.login,
+                  label: _loading ? 'Connexion…' : 'Entrer',
+                  onPressed: _loading ? null : _submit,
+                ),
+                const Spacer(flex: 2),
               ],
-              const SizedBox(height: 20),
-              BigButton(
-                icon: Icons.login,
-                label: _loading ? 'Connexion…' : 'Entrer',
-                onPressed: _loading ? null : _submit,
-              ),
-              const Spacer(flex: 2),
-            ],
+            ),
           ),
         ),
       ),
