@@ -1,5 +1,6 @@
 ## v1.1.0 - 2026-07-23
 
+- chore(release): v1.1.0
 - feat(detail): afficher les photos des transbordements et de l'arrivée
 - feat(loading): masquer le champ référence de lot au nouveau chargement
 - feat(sync): détail d'un envoi + masquer la référence à la mine
