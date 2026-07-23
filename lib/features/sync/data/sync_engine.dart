@@ -24,7 +24,9 @@ class SyncEngine {
     try {
       final ops = await store.pending(); // batch max 10
       for (final op in ops) {
-        await store.updateStatus(op.opId, SyncStatus.syncing);
+        // Réservation atomique : si un autre process (sync en arrière-plan) l'a
+        // déjà prise, on saute — pas de double envoi.
+        if (!await store.claim(op.opId)) continue;
         try {
           final odooId = await remote.pushOperation(op);
           await store.updateStatus(op.opId, SyncStatus.synced,

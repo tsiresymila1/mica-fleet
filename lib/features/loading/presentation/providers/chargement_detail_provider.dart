@@ -20,6 +20,15 @@ class ArriveeLine {
       this.photoArrivee, this.photoPermis);
 }
 
+/// État de synchronisation d'un lot vers Odoo, du point de vue de l'agent.
+enum SyncEtat {
+  local, // pas encore prêt à partir (lot en cours) ou aucune op
+  enAttente, // arrivé, en file d'envoi
+  echec, // 5 tentatives échouées → renvoi manuel
+  envoiPhotos, // données envoyées, photos encore à monter
+  synchronise, // tout est côté serveur
+}
+
 /// Détail d'UN LOT : origine (une mine), ses transbordements, son arrivée.
 class LotDetail {
   final String id;
@@ -32,6 +41,7 @@ class LotDetail {
   final int? score;
   final List<TransLine> transbordements;
   final ArriveeLine? arrivee;
+  final SyncEtat sync;
   const LotDetail({
     required this.id,
     required this.sessionId,
@@ -48,7 +58,14 @@ class LotDetail {
     required this.score,
     required this.transbordements,
     required this.arrivee,
+    required this.sync,
   });
+
+  /// Renvoi manuel possible : arrivé mais pas totalement synchronisé.
+  bool get renvoyable =>
+      sync == SyncEtat.enAttente ||
+      sync == SyncEtat.echec ||
+      sync == SyncEtat.envoiPhotos;
 }
 
 final lotDetailProvider =
@@ -66,6 +83,17 @@ final lotDetailProvider =
   final arr = await (db.select(db.arriveesDepot)
         ..where((t) => t.lotId.equals(lotId)))
       .getSingleOrNull();
+
+  // Op de sync de ce lot (créée à l'arrivée). En dériver l'état affiché.
+  final op = await (db.select(db.syncQueue)
+        ..where((t) => t.entityId.equals(lotId) & t.entityType.equals('lot')))
+      .getSingleOrNull();
+  final sync = switch (op?.status) {
+    null => SyncEtat.local,
+    'failed' => SyncEtat.echec,
+    'synced' => l.photosUploaded ? SyncEtat.synchronise : SyncEtat.envoiPhotos,
+    _ => SyncEtat.enAttente, // pending / syncing
+  };
 
   return LotDetail(
     id: l.id,
@@ -90,5 +118,6 @@ final lotDetailProvider =
         : ArriveeLine(arr.depotId, arr.chauffeur, arr.numPermis, arr.numLot,
             arr.statutGps, arr.plaqueArrivee, arr.plaqueCoherente,
             arr.scoreTracabilite, arr.photoArriveePath, arr.photoPermisPath),
+    sync: sync,
   );
 });

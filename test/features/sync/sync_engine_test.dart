@@ -71,6 +71,13 @@ void main() {
       await store.updateStatus('a', SyncStatus.synced);
       expect(await store.pending(), isEmpty);
     });
+
+    test('claim réussit une fois, échoue au second appel (anti double-envoi)',
+        () async {
+      await store.enqueue(_op('a', DateTime(2026, 1, 1)));
+      expect(await store.claim('a'), isTrue); // ce process réserve
+      expect(await store.claim('a'), isFalse); // déjà syncing → refusé
+    });
   });
 
   group('SyncEngine', () {

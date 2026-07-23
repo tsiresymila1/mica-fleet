@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../sync/presentation/sync_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
 import '../providers/chargement_detail_provider.dart';
 
@@ -59,6 +60,11 @@ class ChargementDetailScreen extends ConsumerWidget {
                   _kv('Session', d.sessionId),
                   _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
                   _kv('Statut', d.statut),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _syncPill(d.sync),
+                  ),
                 ]),
               ),
             ),
@@ -226,11 +232,61 @@ class ChargementDetailScreen extends ConsumerWidget {
                   ],
                 ),
               )
-            : null,
+            : (d.renvoyable
+                ? SafeArea(
+                    minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                    child: _SyncButton(lotId: lotId),
+                  )
+                : null),
         orElse: () => null,
       ),
     );
   }
+}
+
+/// Pastille de l'état de synchronisation du lot.
+Widget _syncPill(SyncEtat s) => switch (s) {
+      SyncEtat.synchronise =>
+        const StatusPill(kind: PillKind.ok, label: 'Synchronisé'),
+      SyncEtat.envoiPhotos =>
+        const StatusPill(kind: PillKind.neutral, label: 'Photos en cours'),
+      SyncEtat.enAttente =>
+        const StatusPill(kind: PillKind.warn, label: 'À envoyer'),
+      SyncEtat.echec =>
+        const StatusPill(kind: PillKind.danger, label: 'Échec — à renvoyer'),
+      SyncEtat.local =>
+        const StatusPill(kind: PillKind.neutral, label: 'Non envoyé'),
+    };
+
+/// Bouton d'envoi manuel. Désactive pendant l'envoi (anti double-tap) ; le
+/// double envoi réel est déjà empêché par le claim atomique + l'idempotence
+/// Odoo. Déclenche le même moteur de sync que l'arrière-plan.
+class _SyncButton extends ConsumerStatefulWidget {
+  final String lotId;
+  const _SyncButton({required this.lotId});
+  @override
+  ConsumerState<_SyncButton> createState() => _SyncButtonState();
+}
+
+class _SyncButtonState extends ConsumerState<_SyncButton> {
+  bool _envoi = false;
+
+  Future<void> _envoyer() async {
+    setState(() => _envoi = true);
+    try {
+      await ref.read(triggerSyncProvider).sync();
+      ref.invalidate(lotDetailProvider(widget.lotId));
+    } finally {
+      if (mounted) setState(() => _envoi = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => BigButton(
+        icon: _envoi ? Icons.hourglass_top : Icons.cloud_upload,
+        label: _envoi ? 'Envoi en cours…' : 'Envoyer maintenant',
+        onPressed: _envoi ? null : _envoyer,
+      );
 }
 
 /// Pastille du statut GPS d'arrivée (valide / hors zone / non vérifiable).

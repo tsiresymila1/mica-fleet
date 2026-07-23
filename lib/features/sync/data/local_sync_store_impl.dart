@@ -42,6 +42,16 @@ class DriftLocalSyncStore implements LocalSyncStore {
   }
 
   @override
+  Future<bool> claim(String opId) async {
+    // UPDATE ... WHERE status='pending' : atomique côté SQLite. Le nombre de
+    // lignes modifiées dit si on a gagné la course (1) ou non (0).
+    final n = await (db.update(db.syncQueue)
+          ..where((t) => t.opId.equals(opId) & t.status.equals('pending')))
+        .write(const SyncQueueCompanion(status: Value('syncing')));
+    return n > 0;
+  }
+
+  @override
   Future<void> resetInFlight() async {
     await (db.update(db.syncQueue)..where((t) => t.status.equals('syncing')))
         .write(const SyncQueueCompanion(status: Value('pending')));
