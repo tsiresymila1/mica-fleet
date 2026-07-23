@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/ui/map_dialog.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../depot/presentation/providers/depot_provider.dart';
@@ -52,6 +53,11 @@ class ProfileScreen extends ConsumerWidget {
                                     if (m.region != null) m.region!,
                                   ].join(' · '),
                                   trailing: _Coord(lat: m.lat, lon: m.lon),
+                                  onTap: () => showLocationMap(context,
+                                      titre: m.nom,
+                                      lat: m.lat,
+                                      lon: m.lon,
+                                      rayonMetres: m.rayonMetres),
                                 ),
                               ))
                           .toList(),
@@ -75,6 +81,11 @@ class ProfileScreen extends ConsumerWidget {
                                   color: AppColors.primary,
                                   titre: d.nom,
                                   trailing: _Coord(lat: d.lat, lon: d.lon),
+                                  onTap: () => showLocationMap(context,
+                                      titre: d.nom,
+                                      lat: d.lat,
+                                      lon: d.lon,
+                                      rayonMetres: d.rayonMetres),
                                 ),
                               ))
                           .toList(),
