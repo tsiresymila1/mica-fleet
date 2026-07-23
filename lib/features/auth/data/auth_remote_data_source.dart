@@ -75,7 +75,7 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       agentId: (agent['login'] ?? login).toString(),
       agentNom: (agent['name'] ?? login).toString(),
       mines: _mines(await _tryList(() => api.mines(bearer), 'mines')),
-      depots: _depots(await _tryList(() => api.storages(bearer), 'storages')),
+      depots: _depots(await _tryList(() => api.storages(bearer), 'depots')),
     );
   }
 
