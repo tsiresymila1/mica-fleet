@@ -77,28 +77,7 @@ class ChargementDetailScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(children: [
-                  GestureDetector(
-                    onTap: d.photoPath == null
-                        ? null
-                        : () => openPhoto(context, d.photoPath!),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 64,
-                        height: 64,
-                        child: d.photoPath != null &&
-                                File(d.photoPath!).existsSync()
-                            ? Hero(
-                                tag: d.photoPath!,
-                                child: Image.file(File(d.photoPath!),
-                                    fit: BoxFit.cover))
-                            : Container(
-                                color: AppColors.line,
-                                child: const Icon(Icons.image_not_supported,
-                                    color: AppColors.inkSoft)),
-                      ),
-                    ),
-                  ),
+                  _thumb(context, d.photoPath, size: 64),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -132,7 +111,8 @@ class ChargementDetailScreen extends ConsumerWidget {
             else
               ...d.transbordements.map((t) => Card(
                     margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
+                    child: Column(children: [
+                    ListTile(
                       leading: CircleAvatar(child: Text('${t.ordre}')),
                       title: Text(
                           '${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}'),
@@ -167,6 +147,16 @@ class ChargementDetailScreen extends ConsumerWidget {
                             ])
                           : null,
                     ),
+                    if (t.photoDecharge != null || t.photoRecharge != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Row(children: [
+                          _thumbLabel(context, 'Déchargement', t.photoDecharge),
+                          const SizedBox(width: 16),
+                          _thumbLabel(context, 'Rechargement', t.photoRecharge),
+                        ]),
+                      ),
+                    ]),
                   )),
             const SizedBox(height: 16),
             StepHeader(numero: 3, titre: 'Arrivée'),
@@ -202,6 +192,21 @@ class ChargementDetailScreen extends ConsumerWidget {
                           _gpsPill(d.arrivee!.statutGps),
                         ],
                       ),
+                      if (d.arrivee!.photoArrivee != null ||
+                          d.arrivee!.photoPermis != null) ...[
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          if (d.arrivee!.photoArrivee != null)
+                            _thumbLabel(
+                                context, 'Arrivée', d.arrivee!.photoArrivee),
+                          if (d.arrivee!.photoArrivee != null &&
+                              d.arrivee!.photoPermis != null)
+                            const SizedBox(width: 16),
+                          if (d.arrivee!.photoPermis != null)
+                            _thumbLabel(
+                                context, 'Permis', d.arrivee!.photoPermis),
+                        ]),
+                      ],
                     ],
                   ),
                 ),
@@ -371,6 +376,37 @@ Widget _gpsPill(String statut) => switch (statut) {
       _ => const StatusPill(
           kind: PillKind.neutral, label: 'GPS non vérifiable'),
     };
+
+/// Vignette photo cliquable (ouvre en plein écran), ou placeholder si absente.
+Widget _thumb(BuildContext context, String? path, {double size = 56}) {
+  final existe = path != null && File(path).existsSync();
+  return GestureDetector(
+    onTap: existe ? () => openPhoto(context, path) : null,
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: existe
+            ? Hero(tag: path, child: Image.file(File(path), fit: BoxFit.cover))
+            : Container(
+                color: AppColors.line,
+                child: const Icon(Icons.image_not_supported,
+                    color: AppColors.inkSoft)),
+      ),
+    ),
+  );
+}
+
+/// Vignette + légende sous elle (pour les photos de camion / arrivée).
+Widget _thumbLabel(BuildContext context, String label, String? path) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _thumb(context, path, size: 72),
+        const SizedBox(height: 4),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium),
+      ],
+    );
 
 Widget _kv(String k, String v) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
