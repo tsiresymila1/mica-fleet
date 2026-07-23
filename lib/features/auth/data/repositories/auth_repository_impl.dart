@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/db/app_database.dart';
@@ -28,16 +29,34 @@ class AuthRepositoryImpl implements AuthRepository {
       await _upsertReferentiel(r.mines, r.depots);
       await local.saveSession(r.agentId, r.agentNom);
       return right(Fournisseur(id: r.agentId, nom: r.agentNom));
-    } catch (e) {
-      // Hors ligne : replie sur une session déjà établie pour cet identifiant.
-      final row = await local.findById(identifiant.trim());
-      final token = await tokenStore.read();
-      if (row != null && row.actif && token != null) {
-        return right(Fournisseur(id: row.id, nom: row.nom, actif: row.actif));
+    } on DioException catch (e) {
+      // 401 = mauvais identifiants : inutile de replier sur le hors ligne.
+      if (e.response?.statusCode == 401) {
+        return left(const Failure.auth('Identifiant ou mot de passe incorrect'));
       }
+      // Autre erreur serveur/réseau : replie sur une session déjà établie.
+      final offline = await _sessionHorsLigne(identifiant.trim());
+      if (offline != null) return right(offline);
+      final code = e.response?.statusCode;
+      return left(Failure.network(code != null
+          ? 'Serveur injoignable (HTTP $code sur ${e.requestOptions.path})'
+          : 'Serveur injoignable — vérifie l\'adresse et le réseau'));
+    } catch (e) {
+      final offline = await _sessionHorsLigne(identifiant.trim());
+      if (offline != null) return right(offline);
       return left(const Failure.network(
           'Connexion impossible et aucune session hors ligne'));
     }
+  }
+
+  /// Session déjà établie pour cet identifiant (repli hors ligne), ou null.
+  Future<Fournisseur?> _sessionHorsLigne(String identifiant) async {
+    final row = await local.findById(identifiant);
+    final token = await tokenStore.read();
+    if (row != null && row.actif && token != null) {
+      return Fournisseur(id: row.id, nom: row.nom, actif: row.actif);
+    }
+    return null;
   }
 
   Future<void> _upsertReferentiel(

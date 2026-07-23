@@ -38,9 +38,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() => _loading = false);
         await showAppMessage(
           context,
-          f is ValidationFailure
-              ? f.message
-              : 'Identifiant ou mot de passe incorrect',
+          switch (f) {
+            ValidationFailure(:final message) => message,
+            AuthFailure(:final message) =>
+              message ?? 'Identifiant ou mot de passe incorrect',
+            NetworkFailure(:final message) =>
+              message ?? 'Serveur injoignable',
+            _ => 'Identifiant ou mot de passe incorrect',
+          },
           kind: AppMsgKind.error,
           titre: 'Connexion impossible',
         );

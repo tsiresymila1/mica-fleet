@@ -144,19 +144,19 @@ class _AccountDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final initiale = nom.trim().isEmpty ? '?' : nom.trim()[0].toUpperCase();
     return Drawer(
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.primary, AppColors.primaryDark],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+            ),
+            child: SafeArea(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -180,37 +180,37 @@ class _AccountDrawer extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.badge_outlined),
+            title: const Text('Mon compte'),
+            subtitle: const Text('Mes mines et dépôts'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/profil');
+            },
+          ),
+          if (AppConfig.demo)
             ListTile(
-              leading: const Icon(Icons.badge_outlined),
-              title: const Text('Mon compte'),
-              subtitle: const Text('Mes mines et dépôts'),
+              leading: const Icon(Icons.science_outlined),
+              title: const Text('Scénarios (test)'),
+              subtitle: const Text('Simuler sur cet appareil'),
               onTap: () {
                 Navigator.of(context).pop();
-                context.push('/profil');
+                context.push('/dev-scenarios');
               },
             ),
-            if (AppConfig.demo)
-              ListTile(
-                leading: const Icon(Icons.science_outlined),
-                title: const Text('Scénarios (test)'),
-                subtitle: const Text('Simuler sur cet appareil'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  context.push('/dev-scenarios');
-                },
-              ),
-            const Spacer(),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.danger),
-              title: const Text('Se déconnecter',
-                  style: TextStyle(color: AppColors.danger)),
-              onTap: onLogout,
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          const Spacer(),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.logout, color: AppColors.danger),
+            title: const Text('Se déconnecter',
+                style: TextStyle(color: AppColors.danger)),
+            onTap: onLogout,
+          ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }

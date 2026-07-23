@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:retrofit/retrofit.dart';
 import '../../sync/domain/repositories/remote_data_source.dart' show RemoteMine;
 
@@ -64,16 +65,28 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
     final agent = (data['agent'] as Map?) ?? const {};
     final token = data['token'] as String;
 
-    // Le référentiel est servi par deux endpoints séparés, authentifiés par le
-    // token qu'on vient d'obtenir (il n'est pas encore dans le TokenStore).
+    // Le login réussit dès qu'on a token + agent. Le référentiel (mines,
+    // dépôts) est servi par deux endpoints séparés : on les charge en
+    // best-effort — un 404/500 côté serveur ne doit PAS empêcher de se
+    // connecter (l'app garde le dernier référentiel connu).
     final bearer = 'Bearer $token';
     return LoginResult(
       token: token,
       agentId: (agent['login'] ?? login).toString(),
       agentNom: (agent['name'] ?? login).toString(),
-      mines: _mines(_list(await api.mines(bearer), 'mines')),
-      depots: _depots(_list(await api.storages(bearer), 'storages')),
+      mines: _mines(await _tryList(() => api.mines(bearer), 'mines')),
+      depots: _depots(await _tryList(() => api.storages(bearer), 'storages')),
     );
+  }
+
+  /// Appelle un endpoint de référentiel sans faire échouer le login s'il tombe.
+  Future<List?> _tryList(Future<dynamic> Function() call, String cle) async {
+    try {
+      return _list(await call(), cle);
+    } catch (e) {
+      debugPrint('Référentiel « $cle » indisponible au login : $e');
+      return null;
+    }
   }
 
   /// Tolère `{data: [...]}`, `{data: {<cle>: [...]}}` ou une liste nue.
