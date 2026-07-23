@@ -199,6 +199,15 @@ class _AccountDrawer extends StatelessWidget {
               context.push('/profil');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.cloud_sync_outlined),
+            title: const Text('Synchronisation'),
+            subtitle: const Text('Historique des envois'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/sync');
+            },
+          ),
           if (AppConfig.demo)
             ListTile(
               leading: const Icon(Icons.science_outlined),
