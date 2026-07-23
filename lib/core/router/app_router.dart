@@ -12,6 +12,7 @@ import '../../features/depot/presentation/screens/arrivee_screen.dart';
 import '../../features/dev/dev_scenarios_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/sync/presentation/screens/sync_history_screen.dart';
+import '../../features/sync/presentation/screens/sync_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Rafraîchit le routeur quand l'état d'auth change (login/logout).
@@ -35,6 +36,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/profil', builder: (_, _) => const ProfileScreen()),
       GoRoute(
           path: '/sync', builder: (_, _) => const SyncHistoryScreen()),
+      GoRoute(
+          path: '/sync-detail/:opId',
+          builder: (_, s) =>
+              SyncDetailScreen(opId: s.pathParameters['opId']!)),
       GoRoute(
           path: '/chargement', builder: (_, _) => const ChargementScreen()),
       // Détail = UN LOT (unité de traçabilité).

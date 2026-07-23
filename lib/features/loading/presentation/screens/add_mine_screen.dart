@@ -26,7 +26,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   Mine? _mine;
   CapturedPhoto? _photo;
   bool _capturing = false;
-  final _refCtrl = TextEditingController();
   final _couleurCtrl = TextEditingController();
   final _qteCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
@@ -66,7 +65,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   @override
   void dispose() {
     _cam?.dispose();
-    _refCtrl.dispose();
     _couleurCtrl.dispose();
     _qteCtrl.dispose();
     _plaqueCtrl.dispose();
@@ -121,7 +119,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     Navigator.of(context).pop(Lot(
       id: '',
       mineId: _mine!.id,
-      reference: _refCtrl.text.trim().isEmpty ? null : _refCtrl.text.trim(),
+      // Référence fournisseur masquée pour l'instant (voir demande produit).
       couleur:
           _couleurCtrl.text.trim().isEmpty ? null : _couleurCtrl.text.trim(),
       quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
@@ -212,12 +210,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                     decoration: const InputDecoration(
                         labelText: 'Couleur du mica',
                         prefixIcon: Icon(Icons.palette))),
-                const SizedBox(height: 12),
-                TextField(
-                    controller: _refCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Référence (si connue)',
-                        prefixIcon: Icon(Icons.tag))),
                 const SizedBox(height: 12),
                 TextField(
                     controller: _qteCtrl,

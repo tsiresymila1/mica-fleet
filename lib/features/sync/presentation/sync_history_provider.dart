@@ -14,6 +14,9 @@ class SyncHistoryItem {
   final DateTime? syncedAt;
   final DateTime? nextRetryAt;
   final int? odooId;
+  final String opType; // create / update / delete
+  final String? agentLogin;
+  final String payload; // JSON envoyé à Odoo
   const SyncHistoryItem({
     required this.opId,
     required this.entityType,
@@ -25,8 +28,27 @@ class SyncHistoryItem {
     required this.syncedAt,
     required this.nextRetryAt,
     required this.odooId,
+    required this.opType,
+    required this.agentLogin,
+    required this.payload,
   });
 }
+
+SyncHistoryItem _toItem(dynamic r) => SyncHistoryItem(
+      opId: r.opId,
+      entityType: r.entityType,
+      entityId: r.entityId,
+      status: r.status,
+      attempts: r.attempts,
+      lastError: r.lastError,
+      createdAt: r.createdAt,
+      syncedAt: r.syncedAt,
+      nextRetryAt: r.nextRetryAt,
+      odooId: r.odooId,
+      opType: r.opType,
+      agentLogin: r.agentLogin,
+      payload: r.payload,
+    );
 
 /// Historique de sync : opérations les plus récentes d'abord.
 final syncHistoryProvider =
@@ -35,18 +57,14 @@ final syncHistoryProvider =
   final rows = await (db.select(db.syncQueue)
         ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .get();
-  return rows
-      .map((r) => SyncHistoryItem(
-            opId: r.opId,
-            entityType: r.entityType,
-            entityId: r.entityId,
-            status: r.status,
-            attempts: r.attempts,
-            lastError: r.lastError,
-            createdAt: r.createdAt,
-            syncedAt: r.syncedAt,
-            nextRetryAt: r.nextRetryAt,
-            odooId: r.odooId,
-          ))
-      .toList();
+  return rows.map(_toItem).toList();
+});
+
+/// Détail d'une opération de sync par son opId.
+final syncOpProvider = FutureProvider.autoDispose
+    .family<SyncHistoryItem?, String>((ref, opId) async {
+  final db = ref.watch(dbProvider);
+  final r = await (db.select(db.syncQueue)..where((t) => t.opId.equals(opId)))
+      .getSingleOrNull();
+  return r == null ? null : _toItem(r);
 });
