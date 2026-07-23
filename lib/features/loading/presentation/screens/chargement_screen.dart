@@ -110,20 +110,6 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                   ]),
                 ),
                 const SizedBox(height: 12),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TextField(
-                    onChanged: (v) => ref
-                        .read(chargementControllerProvider.notifier)
-                        .setLotReference(v),
-                    decoration: const InputDecoration(
-                      labelText: 'Référence de lot (optionnel)',
-                      prefixIcon: Icon(Icons.folder_outlined),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Expanded(
                   child: lots.isEmpty
                       ? _EmptyLots()
