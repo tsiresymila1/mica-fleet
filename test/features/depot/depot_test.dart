@@ -18,6 +18,49 @@ void main() {
     expect(DetectDepot()(depots, -18.95, 47.55), isNull);
   });
 
+  test('nearest : dans la zone → valide', () {
+    final n = DetectDepot().nearest(depots, -18.90005, 47.5);
+    expect(n?.depot.id, 'D1');
+    expect(n?.statutGps, 'valide');
+  });
+
+  test('nearest : hors zone → hors_zone (ne bloque pas)', () {
+    final n = DetectDepot().nearest(depots, -18.95, 47.55);
+    expect(n, isNotNull);
+    expect(n!.statutGps, 'hors_zone');
+    expect(n.distanceMetres, greaterThan(20));
+  });
+
+  test('nearest : coords serveur nulles → non_verifiable', () {
+    final casse = [const Depot(id: 'DX', nom: 'X', lat: 0, lon: 0)];
+    final n = DetectDepot().nearest(casse, -18.9, 47.5);
+    expect(n?.statutGps, 'non_verifiable');
+  });
+
+  test('nearest : rayon 0 → non_verifiable', () {
+    final casse = [
+      const Depot(id: 'DY', nom: 'Y', lat: -18.9, lon: 47.5, rayonMetres: 0)
+    ];
+    final n = DetectDepot().nearest(casse, -18.9, 47.5);
+    expect(n?.statutGps, 'non_verifiable');
+  });
+
+  test('nearest : aucun dépôt → null', () {
+    expect(DetectDepot().nearest(const [], -18.9, 47.5), isNull);
+  });
+
+  test('validate hors zone → réussit en hors_zone (plus de blocage)', () {
+    final r = ValidateArrivee(DetectDepot())(
+        lotId: 'MICA-2026-0001-L1',
+        depots: depots,
+        lat: -18.95,
+        lon: 47.55,
+        chauffeur: 'Jean',
+        numPermis: 'P1',
+        numLot: 'L1');
+    expect(r.getRight().toNullable()!.statutGps, 'hors_zone');
+  });
+
   test('validate échoue si champs obligatoires vides', () {
     final r = ValidateArrivee(DetectDepot())(
         lotId: 'MICA-2026-0001-L1',

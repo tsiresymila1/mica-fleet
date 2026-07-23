@@ -11,6 +11,7 @@ ScoringInputs _base({
   bool transport = true,
   double ecart = 1,
   double hist = 1.0,
+  bool gpsVerifiable = true,
 }) =>
     ScoringInputs(
         gpsMineDansRayon: gpsMine,
@@ -22,6 +23,7 @@ ScoringInputs _base({
         depotReconnu: true,
         gpsNonFalsifie: !mock,
         distanceGpsMetres: dist,
+        gpsVerifiable: gpsVerifiable,
         ratioDelai: ratio,
         transportCoherent: transport,
         ecartQuantitePct: ecart,
@@ -49,6 +51,14 @@ void main() {
 
   test('4 mines → rejeté', () {
     expect(engine.evaluate(_base(mines: 4)).eligible, isFalse);
+  });
+
+  test('GPS non vérifiable (coords serveur absentes) → 10 pts neutres', () {
+    // Distance énorme (comme un dépôt à 0,0) mais non vérifiable : on ne
+    // pénalise pas — demi-crédit au lieu de 0. 10 + 25 + 20 + 20 + 15 = 90.
+    final r = engine.evaluate(_base(dist: 999999, gpsVerifiable: false));
+    expect(r.eligible, isTrue);
+    expect(r.score, 90);
   });
 
   test('barèmes partiels cumulés', () {

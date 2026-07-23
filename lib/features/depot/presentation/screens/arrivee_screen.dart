@@ -115,6 +115,22 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       final depots = await depotRepo.activeDepots();
       final depot = depots.firstWhere((d) => d.id == arrivee.depotId);
       final dist = haversineMeters(photo.lat, photo.lon, depot.lat, depot.lon);
+      final gpsVerifiable = arrivee.statutGps != 'non_verifiable';
+
+      // Hors zone : on prévient et on laisse forcer (dérive GPS, mais aussi
+      // fraude possible → le score sera pénalisé et le statut conservé).
+      if (arrivee.statutGps == 'hors_zone') {
+        if (!mounted) return;
+        final forcer = await showConfirm(
+          context,
+          'Tu es à ${dist.round()} m de « ${depot.nom} ».\n'
+          'Valider quand même ? Le score sera réduit.',
+          titre: 'Loin du dépôt',
+          confirmLabel: 'Valider',
+        );
+        if (!forcer) return;
+      }
+
       final ratio = resume?.cree == null
           ? 1.0
           : DateTime.now().difference(resume!.cree!).inSeconds /
@@ -126,9 +142,10 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
             mineAutorisee: true,
             donneesCompletes: true,
             nombreMines: 1, // un lot = UNE mine
-            depotReconnu: true,
+            depotReconnu: true, // un dépôt a été rattaché
             gpsNonFalsifie: true,
             distanceGpsMetres: dist,
+            gpsVerifiable: gpsVerifiable,
             ratioDelai: ratio <= 0 ? 1.0 : ratio,
             transportCoherent:
                 arrivee.plaqueCoherente && chaine.every((m) => m.conforme),
@@ -146,8 +163,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       }
 
       if (!mounted) return;
+      final note = switch (arrivee.statutGps) {
+        'hors_zone' => '\n\n⚠ Loin du dépôt (${dist.round()} m)',
+        'non_verifiable' => '\n\nℹ Position du dépôt non renseignée',
+        _ => '',
+      };
       await showAppMessage(
-          context, '${widget.lotId}\n\nScore : ${score.score}/100',
+          context, '${widget.lotId}\n\nScore : ${score.score}/100$note',
           kind: AppMsgKind.success, titre: 'Lot arrivé');
       if (mounted) context.go('/home');
     } finally {

@@ -179,16 +179,20 @@ class ChargementDetailScreen extends ConsumerWidget {
                       if (d.arrivee!.plaqueArrivee != null)
                         _kv('Plaque', d.arrivee!.plaqueArrivee!),
                       const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: StatusPill(
-                          kind: d.arrivee!.plaqueCoherente
-                              ? PillKind.ok
-                              : PillKind.warn,
-                          label: d.arrivee!.plaqueCoherente
-                              ? 'Plaque cohérente'
-                              : 'Plaque différente du départ',
-                        ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          StatusPill(
+                            kind: d.arrivee!.plaqueCoherente
+                                ? PillKind.ok
+                                : PillKind.warn,
+                            label: d.arrivee!.plaqueCoherente
+                                ? 'Plaque cohérente'
+                                : 'Plaque différente du départ',
+                          ),
+                          _gpsPill(d.arrivee!.statutGps),
+                        ],
                       ),
                     ],
                   ),
@@ -228,6 +232,15 @@ class ChargementDetailScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Pastille du statut GPS d'arrivée (valide / hors zone / non vérifiable).
+Widget _gpsPill(String statut) => switch (statut) {
+      'valide' => const StatusPill(kind: PillKind.ok, label: 'GPS validé'),
+      'hors_zone' =>
+        const StatusPill(kind: PillKind.warn, label: 'Hors zone dépôt'),
+      _ => const StatusPill(
+          kind: PillKind.neutral, label: 'GPS non vérifiable'),
+    };
 
 Widget _kv(String k, String v) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),

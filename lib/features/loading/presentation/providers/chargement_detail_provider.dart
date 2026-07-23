@@ -11,13 +11,13 @@ class TransLine {
 }
 
 class ArriveeLine {
-  final String depotId, chauffeur, numPermis, numLot;
+  final String depotId, chauffeur, numPermis, numLot, statutGps;
   final String? plaqueArrivee, photoArrivee, photoPermis;
   final bool plaqueCoherente;
   final int? score;
   const ArriveeLine(this.depotId, this.chauffeur, this.numPermis, this.numLot,
-      this.plaqueArrivee, this.plaqueCoherente, this.score, this.photoArrivee,
-      this.photoPermis);
+      this.statutGps, this.plaqueArrivee, this.plaqueCoherente, this.score,
+      this.photoArrivee, this.photoPermis);
 }
 
 /// Détail d'UN LOT : origine (une mine), ses transbordements, son arrivée.
@@ -88,7 +88,7 @@ final lotDetailProvider =
     arrivee: arr == null
         ? null
         : ArriveeLine(arr.depotId, arr.chauffeur, arr.numPermis, arr.numLot,
-            arr.plaqueArrivee, arr.plaqueCoherente, arr.scoreTracabilite,
-            arr.photoArriveePath, arr.photoPermisPath),
+            arr.statutGps, arr.plaqueArrivee, arr.plaqueCoherente,
+            arr.scoreTracabilite, arr.photoArriveePath, arr.photoPermisPath),
   );
 });

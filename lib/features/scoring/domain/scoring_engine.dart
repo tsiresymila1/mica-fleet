@@ -6,7 +6,7 @@ class ScoringEngine {
     if (!_eligible(i)) {
       return const ScoreResult(eligible: false, score: 0, statut: 'rejete');
     }
-    final score = _gps(i.distanceGpsMetres) +
+    final score = (i.gpsVerifiable ? _gps(i.distanceGpsMetres) : _gpsNeutre) +
         _delai(i.ratioDelai) +
         (i.transportCoherent ? 20 : 0) +
         _quantite(i.ecartQuantitePct) +
@@ -24,6 +24,9 @@ class ScoringEngine {
       i.nombreMines <= 3 &&
       i.depotReconnu &&
       i.gpsNonFalsifie;
+
+  // GPS non vérifiable (coords serveur absentes) : demi-crédit, pas 0.
+  static const _gpsNeutre = 10;
 
   int _gps(double m) => m <= 20
       ? 20

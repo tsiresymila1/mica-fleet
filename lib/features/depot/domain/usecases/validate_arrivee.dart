@@ -27,20 +27,23 @@ class ValidateArrivee {
       return left(
           const Failure.validation('Chauffeur, permis et lot obligatoires'));
     }
-    final depot = detect(depots, lat, lon);
-    if (depot == null) {
-      return left(
-          const Failure.validation('Aucun dépôt reconnu dans la zone GPS'));
+    // On rattache au dépôt le plus proche sans exiger d'être dans la zone :
+    // hors zone ou coords serveur absentes n'empêchent plus de valider — le
+    // statutGps le reflète et le score en tient compte. Seul un référentiel
+    // sans aucun dépôt bloque (rien à rattacher).
+    final proche = detect.nearest(depots, lat, lon);
+    if (proche == null) {
+      return left(const Failure.validation('Aucun dépôt dans le référentiel'));
     }
     return right(ArriveeDepot(
       lotId: lotId,
-      depotId: depot.id,
+      depotId: proche.depot.id,
       chauffeur: chauffeur,
       numPermis: numPermis,
       numLot: numLot,
       gpsLat: lat,
       gpsLon: lon,
-      statutGps: 'valide',
+      statutGps: proche.statutGps,
       plaqueArrivee: plaqueArrivee,
       plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
       photoArriveePath: photoArriveePath,
