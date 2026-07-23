@@ -183,8 +183,12 @@ class _AccountDrawer extends StatelessWidget {
             const SizedBox(height: 8),
             ListTile(
               leading: const Icon(Icons.badge_outlined),
-              title: const Text('Compte fournisseur'),
-              subtitle: Text(id),
+              title: const Text('Mon compte'),
+              subtitle: const Text('Mes mines et dépôts'),
+              onTap: () {
+                Navigator.of(context).pop();
+                context.push('/profil');
+              },
             ),
             if (AppConfig.demo)
               ListTile(

@@ -10,6 +10,7 @@ import '../../features/loading/presentation/screens/suivi_chargement_screen.dart
 import '../../features/transport/presentation/screens/transbordement_screen.dart';
 import '../../features/depot/presentation/screens/arrivee_screen.dart';
 import '../../features/dev/dev_scenarios_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Rafraîchit le routeur quand l'état d'auth change (login/logout).
@@ -30,6 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
+      GoRoute(path: '/profil', builder: (_, _) => const ProfileScreen()),
       GoRoute(
           path: '/chargement', builder: (_, _) => const ChargementScreen()),
       // Détail = UN LOT (unité de traçabilité).
