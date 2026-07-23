@@ -47,8 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Transport et arrivée = au niveau LOT : chaque lot suit son propre camion.
       GoRoute(
           path: '/transbordement/:lotId',
-          builder: (_, s) =>
-              TransbordementScreen(lotId: s.pathParameters['lotId']!)),
+          builder: (_, s) => TransbordementScreen(
+                lotId: s.pathParameters['lotId']!,
+                ordre: int.tryParse(s.uri.queryParameters['ordre'] ?? ''),
+              )),
       GoRoute(
           path: '/arrivee/:lotId',
           builder: (_, s) => ArriveeScreen(lotId: s.pathParameters['lotId']!)),

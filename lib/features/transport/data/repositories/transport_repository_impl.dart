@@ -35,6 +35,8 @@ class TransportRepositoryImpl implements TransportRepository {
                   gpsDechargeLon: Value(m.gpsDechargeLon),
                   gpsRechargeLat: Value(m.gpsRechargeLat),
                   gpsRechargeLon: Value(m.gpsRechargeLon),
+                  photoDechargePath: Value(m.photoDechargePath),
+                  photoRechargePath: Value(m.photoRechargePath),
                   distanceMetres: Value(_distance(m)),
                   conforme: Value(m.conforme),
                 ),
@@ -78,6 +80,8 @@ class TransportRepositoryImpl implements TransportRepository {
               gpsDechargeLon: r.gpsDechargeLon,
               gpsRechargeLat: r.gpsRechargeLat,
               gpsRechargeLon: r.gpsRechargeLon,
+              photoDechargePath: r.photoDechargePath,
+              photoRechargePath: r.photoRechargePath,
               conforme: r.conforme,
             ))
         .toList();

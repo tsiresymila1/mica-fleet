@@ -12,6 +12,8 @@ abstract class Transbordement with _$Transbordement {
     double? gpsDechargeLon,
     double? gpsRechargeLat,
     double? gpsRechargeLon,
+    String? photoDechargePath,
+    String? photoRechargePath,
     @Default(false) bool conforme,
   }) = _Transbordement;
 }

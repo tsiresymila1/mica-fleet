@@ -51,4 +51,33 @@ void main() {
     final back = await repo.chaineFor('MICA-2026-0001');
     expect(back.length, 2);
   });
+
+  test('persistChaine enregistre ET relit les photos', () async {
+    await repo.persistChaine('MICA-2026-0001', [
+      const Transbordement(
+          ordre: 1,
+          photoDechargePath: '/tmp/unload.jpg',
+          photoRechargePath: '/tmp/reload.jpg'),
+    ]);
+    final back = await repo.chaineFor('MICA-2026-0001');
+    expect(back.single.photoDechargePath, '/tmp/unload.jpg');
+    expect(back.single.photoRechargePath, '/tmp/reload.jpg');
+  });
+
+  test('corriger un maillon ne perd pas les photos des autres', () async {
+    await repo.persistChaine('MICA-2026-0001', [
+      const Transbordement(ordre: 1, photoDechargePath: '/a.jpg'),
+      const Transbordement(ordre: 2, photoDechargePath: '/b.jpg'),
+    ]);
+    // Relit, corrige le n°1, re-persiste (flux d'édition du détail).
+    final chaine = await repo.chaineFor('MICA-2026-0001');
+    final corrigee = chaine
+        .map((m) => m.ordre == 1 ? m.copyWith(plaqueApres: 'X') : m)
+        .toList();
+    await repo.persistChaine('MICA-2026-0001', corrigee);
+
+    final relu = await repo.chaineFor('MICA-2026-0001');
+    expect(relu.map((m) => m.photoDechargePath), ['/a.jpg', '/b.jpg']);
+    expect(relu.firstWhere((m) => m.ordre == 1).plaqueApres, 'X');
+  });
 }

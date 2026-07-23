@@ -6,7 +6,31 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../transport/presentation/providers/transport_provider.dart';
 import '../providers/chargement_detail_provider.dart';
+
+/// Supprime un maillon de la chaîne d'un lot (renumérote le reste), après
+/// confirmation. Autorisé seulement tant que le lot est en cours.
+Future<void> _supprimerMaillon(
+    BuildContext context, WidgetRef ref, String lotId, int ordre) async {
+  final ok = await showConfirm(
+      context, 'Supprimer le changement de camion n°$ordre ?',
+      titre: 'Supprimer', confirmLabel: 'Supprimer', danger: true);
+  if (!ok) return;
+  final repo = ref.read(transportRepoProvider);
+  final chaine = await repo.chaineFor(lotId);
+  final restante = ref.read(removeTransbordementProvider)(chaine, ordre);
+  final validee = ref.read(validateTransbordementProvider)(
+      restante, kRayonTransbordementMetres);
+  final res = await repo.persistChaine(lotId, validee);
+  ref.invalidate(lotDetailProvider(lotId));
+  if (context.mounted) {
+    await showAppMessage(
+        context,
+        res.isRight() ? 'Changement supprimé' : 'Suppression impossible',
+        kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error);
+  }
+}
 
 /// Détail d'UN LOT : origine (une mine), ses camions, son arrivée, son score.
 class ChargementDetailScreen extends ConsumerWidget {
@@ -104,9 +128,36 @@ class ChargementDetailScreen extends ConsumerWidget {
                       leading: CircleAvatar(child: Text('${t.ordre}')),
                       title: Text(
                           '${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}'),
-                      trailing: StatusPill(
-                          kind: t.conforme ? PillKind.ok : PillKind.warn,
-                          label: t.conforme ? 'GPS ok' : 'Hors zone'),
+                      subtitle: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: StatusPill(
+                              kind: t.conforme ? PillKind.ok : PillKind.warn,
+                              label: t.conforme ? 'GPS ok' : 'Hors zone'),
+                        ),
+                      ),
+                      // Correction possible tant que le lot n'est pas arrivé.
+                      trailing: d.statut == 'en_cours'
+                          ? Row(mainAxisSize: MainAxisSize.min, children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit_outlined),
+                                tooltip: 'Corriger',
+                                onPressed: () async {
+                                  await context.push(
+                                      '/transbordement/${d.id}?ordre=${t.ordre}');
+                                  ref.invalidate(lotDetailProvider(d.id));
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: AppColors.danger),
+                                tooltip: 'Supprimer',
+                                onPressed: () =>
+                                    _supprimerMaillon(context, ref, d.id, t.ordre),
+                              ),
+                            ])
+                          : null,
                     ),
                   )),
             const SizedBox(height: 16),

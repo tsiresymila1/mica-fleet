@@ -3,6 +3,7 @@ import '../../../../core/di/providers.dart';
 import '../../../depot/presentation/providers/depot_provider.dart';
 import '../../data/repositories/transport_repository_impl.dart';
 import '../../domain/repositories/transport_repository.dart';
+import '../../domain/usecases/remove_transbordement.dart';
 import '../../domain/usecases/validate_transbordement.dart';
 
 const kRayonTransbordementMetres = 20.0; // ponytail: paramétrable Odoo plus tard
@@ -13,6 +14,9 @@ final transportRepoProvider = Provider<TransportRepository>((ref) =>
 
 final validateTransbordementProvider =
     Provider((ref) => ValidateTransbordement());
+
+final removeTransbordementProvider =
+    Provider((ref) => RemoveTransbordement());
 
 /// Lots encore en route d'une session (candidats à un transbordement).
 final lotsEnCoursProvider = FutureProvider.autoDispose
