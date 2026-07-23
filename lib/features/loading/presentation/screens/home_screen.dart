@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../providers/chargement_detail_provider.dart' show SyncEtat;
 import '../providers/chargements_list_provider.dart';
 import '../providers/loading_provider.dart';
 
@@ -68,11 +69,18 @@ class HomeScreen extends ConsumerWidget {
                     if (l.couleur != null) l.couleur!,
                     df.format(l.date),
                   ].join('  •  '),
-                  trailing: l.score != null
-                      ? _ScoreBadge(score: l.score!)
-                      : StatusPill(
-                          kind: l.arrive ? PillKind.ok : PillKind.neutral,
-                          label: l.arrive ? 'Arrivé' : 'En route'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _SyncIcon(l.sync),
+                      if (l.score != null)
+                        _ScoreBadge(score: l.score!)
+                      else
+                        StatusPill(
+                            kind: l.arrive ? PillKind.ok : PillKind.neutral,
+                            label: l.arrive ? 'Arrivé' : 'En route'),
+                    ],
+                  ),
                   onTap: () async {
                     await context.push('/detail/${l.id}');
                     ref.invalidate(lotsListProvider);
@@ -212,6 +220,31 @@ class _AccountDrawer extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+}
+
+/// Petite icône d'état de sync dans la liste (rien à montrer si local).
+class _SyncIcon extends StatelessWidget {
+  final SyncEtat sync;
+  const _SyncIcon(this.sync);
+  @override
+  Widget build(BuildContext context) {
+    final (icon, color, tip) = switch (sync) {
+      SyncEtat.local => (null, null, null),
+      SyncEtat.synchronise => (Icons.cloud_done, AppColors.ok, 'Synchronisé'),
+      SyncEtat.envoiPhotos => (
+          Icons.cloud_sync,
+          AppColors.inkSoft,
+          'Photos en cours'
+        ),
+      SyncEtat.enAttente => (Icons.cloud_upload, AppColors.warn, 'À envoyer'),
+      SyncEtat.echec => (Icons.cloud_off, AppColors.danger, 'Échec'),
+    };
+    if (icon == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Tooltip(message: tip!, child: Icon(icon, color: color, size: 20)),
     );
   }
 }

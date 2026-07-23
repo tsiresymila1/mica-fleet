@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +9,7 @@ import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../providers/chargement_detail_provider.dart';
 
 /// Supprime un maillon de la chaîne d'un lot (renumérote le reste), après
@@ -204,6 +206,10 @@ class ChargementDetailScreen extends ConsumerWidget {
                   ),
                 ),
               ),
+            const SizedBox(height: 16),
+            StepHeader(numero: 4, titre: 'Trajet parcouru'),
+            const SizedBox(height: 8),
+            _TrajetCard(sessionId: d.sessionId),
           ],
         ),
       ),
@@ -240,6 +246,74 @@ class ChargementDetailScreen extends ConsumerWidget {
                 : null),
         orElse: () => null,
       ),
+    );
+  }
+}
+
+/// Carte de la trace GPS de la session (points espacés >20 m). Départ en vert,
+/// arrivée en rouge, tracé bleu entre les deux.
+class _TrajetCard extends ConsumerWidget {
+  final String sessionId;
+  const _TrajetCard({required this.sessionId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final points = ref.watch(trajetPointsProvider(sessionId));
+    return points.when(
+      loading: () => const SizedBox(
+          height: 60, child: Center(child: CircularProgressIndicator())),
+      error: (_, _) => const _Muted('Trajet indisponible'),
+      data: (pts) {
+        if (pts.length < 2) {
+          return const _Muted('Pas de trace GPS enregistrée');
+        }
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            height: 220,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCameraFit: CameraFit.bounds(
+                  bounds: LatLngBounds.fromPoints(pts),
+                  padding: const EdgeInsets.all(30),
+                ),
+                interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'net.radoran.mica',
+                ),
+                PolylineLayer(polylines: [
+                  Polyline(
+                      points: pts,
+                      strokeWidth: 4,
+                      color: AppColors.primary),
+                ]),
+                MarkerLayer(markers: [
+                  Marker(
+                    point: pts.first,
+                    width: 34,
+                    height: 34,
+                    child: const Icon(Icons.trip_origin,
+                        color: AppColors.ok, size: 28),
+                  ),
+                  Marker(
+                    point: pts.last,
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.topCenter,
+                    child: const Icon(Icons.location_on,
+                        color: AppColors.danger, size: 34),
+                  ),
+                ]),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

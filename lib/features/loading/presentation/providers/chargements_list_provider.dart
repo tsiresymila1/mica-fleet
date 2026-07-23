@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
+import 'chargement_detail_provider.dart' show SyncEtat, syncEtatFrom;
 
 /// Ligne d'historique : un LOT (unité de traçabilité et de score).
 class LotListItem {
@@ -11,6 +13,7 @@ class LotListItem {
   final String statut; // en_cours / arrive
   final int? score;
   final bool arrive;
+  final SyncEtat sync;
   const LotListItem({
     required this.id,
     required this.sessionId,
@@ -20,6 +23,7 @@ class LotListItem {
     required this.statut,
     required this.score,
     required this.arrive,
+    required this.sync,
   });
 }
 
@@ -35,6 +39,9 @@ final lotsListProvider =
     final arr = await (db.select(db.arriveesDepot)
           ..where((t) => t.lotId.equals(l.id)))
         .getSingleOrNull();
+    final op = await (db.select(db.syncQueue)
+          ..where((t) => t.entityId.equals(l.id) & t.entityType.equals('lot')))
+        .getSingleOrNull();
     items.add(LotListItem(
       id: l.id,
       sessionId: l.sessionId,
@@ -44,6 +51,7 @@ final lotsListProvider =
       statut: l.statut,
       score: l.score ?? arr?.scoreTracabilite,
       arrive: arr != null,
+      sync: syncEtatFrom(op?.status, l.photosUploaded),
     ));
   }
   items.sort((a, b) => b.date.compareTo(a.date));

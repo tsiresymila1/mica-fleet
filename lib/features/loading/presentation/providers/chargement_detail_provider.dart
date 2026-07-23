@@ -29,6 +29,17 @@ enum SyncEtat {
   synchronise, // tout est côté serveur
 }
 
+/// Dérive l'état affiché depuis le statut de l'op de sync du lot et le fait
+/// que ses photos soient montées. `opStatus` null = aucune op (lot local).
+SyncEtat syncEtatFrom(String? opStatus, bool photosUploaded) =>
+    switch (opStatus) {
+      null => SyncEtat.local,
+      'failed' => SyncEtat.echec,
+      'synced' =>
+        photosUploaded ? SyncEtat.synchronise : SyncEtat.envoiPhotos,
+      _ => SyncEtat.enAttente, // pending / syncing
+    };
+
 /// Détail d'UN LOT : origine (une mine), ses transbordements, son arrivée.
 class LotDetail {
   final String id;
@@ -88,12 +99,7 @@ final lotDetailProvider =
   final op = await (db.select(db.syncQueue)
         ..where((t) => t.entityId.equals(lotId) & t.entityType.equals('lot')))
       .getSingleOrNull();
-  final sync = switch (op?.status) {
-    null => SyncEtat.local,
-    'failed' => SyncEtat.echec,
-    'synced' => l.photosUploaded ? SyncEtat.synchronise : SyncEtat.envoiPhotos,
-    _ => SyncEtat.enAttente, // pending / syncing
-  };
+  final sync = syncEtatFrom(op?.status, l.photosUploaded);
 
   return LotDetail(
     id: l.id,
