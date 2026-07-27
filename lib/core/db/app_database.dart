@@ -36,10 +36,12 @@ class Mines extends Table {
 @DataClassName('ChargementRow')
 class Chargements extends Table {
   TextColumn get id => text()(); // MICA-YYYY-XXXX
+  TextColumn get sessionUuid => text().nullable()(); // UUID exposé à l'API
   TextColumn get fournisseurId => text()();
   DateTimeColumn get dateCreation => dateTime()();
   TextColumn get statut => text().withDefault(const Constant('brouillon'))();
-  TextColumn get lotReference => text().nullable()(); // regroupement Odoo (opt.)
+  TextColumn get lotReference =>
+      text().nullable()(); // regroupement Odoo (opt.)
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -48,6 +50,8 @@ class Chargements extends Table {
 @DataClassName('LotRow')
 class Lots extends Table {
   TextColumn get id => text()(); // ex. MICA-2026-0007-L1
+  TextColumn get payloadUuid =>
+      text().nullable()(); // payload.id exposé à l'API
   TextColumn get sessionId => text().references(Chargements, #id)();
   TextColumn get mineId => text().references(Mines, #id)();
   TextColumn get reference => text().nullable()();
@@ -61,7 +65,8 @@ class Lots extends Table {
   TextColumn get photoHash => text().nullable()();
   DateTimeColumn get dateHeure => dateTime().nullable()();
   TextColumn get statut => text().withDefault(const Constant('en_cours'))();
-  TextColumn get deviceUuid => text().nullable()(); // idempotence sync (par lot)
+  TextColumn get deviceUuid =>
+      text().nullable()(); // idempotence sync (par lot)
   IntColumn get score => integer().nullable()();
   BoolColumn get photosUploaded =>
       boolean().withDefault(const Constant(false))();
@@ -134,7 +139,8 @@ class ArriveesDepot extends Table {
   RealColumn get gpsLon => real()();
   TextColumn get photoArriveePath => text().nullable()();
   TextColumn get plaqueArrivee => text().nullable()();
-  BoolColumn get plaqueCoherente => boolean().withDefault(const Constant(true))();
+  BoolColumn get plaqueCoherente =>
+      boolean().withDefault(const Constant(true))();
   IntColumn get scoreTracabilite => integer().nullable()();
   TextColumn get statutGps => text()(); // valide / hors_zone
   @override
@@ -164,36 +170,47 @@ class TrajetPoints extends Table {
   BoolColumn get simule => boolean().withDefault(const Constant(false))();
 }
 
-@DriftDatabase(tables: [
-  Fournisseurs,
-  Mines,
-  Chargements,
-  Lots,
-  SyncQueue,
-  Depots,
-  Transbordements,
-  ArriveesDepot,
-  JournalEntries,
-  TrajetPoints,
-])
+@DriftDatabase(
+  tables: [
+    Fournisseurs,
+    Mines,
+    Chargements,
+    Lots,
+    SyncQueue,
+    Depots,
+    Transbordements,
+    ArriveesDepot,
+    JournalEntries,
+    TrajetPoints,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
-  // ponytail: migration destructive (recrée tout) — OK en pré-prod/démo.
-  // Avant la prod réelle, remplacer par des migrations pas-à-pas qui
-  // préservent les données (m.addColumn / m.createTable par version).
+  // Les installations historiques antérieures à v12 sont recréées. Depuis
+  // v12, chaque évolution doit utiliser une migration additive et préserver
+  // la file offline ainsi que les identifiants d'idempotence.
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          for (final table in allTables) {
-            await m.deleteTable(table.actualTableName);
-          }
-          await m.createAll();
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      // Les versions historiques restent pré-prod et sont recréées. À
+      // partir de v12, les migrations doivent préserver les données.
+      if (from < 12) {
+        for (final table in allTables) {
+          await m.deleteTable(table.actualTableName);
+        }
+        await m.createAll();
+        return;
+      }
+      if (from < 13) {
+        await m.addColumn(chargements, chargements.sessionUuid);
+        await m.addColumn(lots, lots.payloadUuid);
+      }
+    },
+  );
 
   static Future<AppDatabase> open() async {
     final dir = await getApplicationDocumentsDirectory();

@@ -27,9 +27,15 @@ class LoadingRepositoryImpl implements LoadingRepository {
   Future<Either<Failure, Chargement>> persist(Chargement c) async {
     try {
       await db.transaction(() async {
-        await db.into(db.chargements).insertOnConflictUpdate(
+        final existingSession = await (db.select(
+          db.chargements,
+        )..where((t) => t.id.equals(c.id))).getSingleOrNull();
+        await db
+            .into(db.chargements)
+            .insertOnConflictUpdate(
               ChargementsCompanion.insert(
                 id: c.id,
+                sessionUuid: Value(existingSession?.sessionUuid ?? _uuid.v4()),
                 fournisseurId: c.fournisseurId,
                 dateCreation: c.dateCreation,
                 statut: Value(c.statut),
@@ -37,9 +43,15 @@ class LoadingRepositoryImpl implements LoadingRepository {
               ),
             );
         for (final l in c.lots) {
-          await db.into(db.lots).insertOnConflictUpdate(
+          final existingLot = await (db.select(
+            db.lots,
+          )..where((t) => t.id.equals(l.id))).getSingleOrNull();
+          await db
+              .into(db.lots)
+              .insertOnConflictUpdate(
                 LotsCompanion.insert(
                   id: l.id,
+                  payloadUuid: Value(existingLot?.payloadUuid ?? _uuid.v4()),
                   sessionId: c.id,
                   mineId: l.mineId,
                   reference: Value(l.reference),
@@ -64,14 +76,16 @@ class LoadingRepositoryImpl implements LoadingRepository {
         'supplier_id': c.fournisseurId,
         'lot_reference': c.lotReference,
         'lots': c.lots
-            .map((l) => {
-                  'lot_id': l.id,
-                  'mine_id': l.mineId,
-                  'color': l.couleur,
-                  'estimated_quantity': l.quantiteEstimee,
-                  'plate': l.plaqueDepart,
-                  'hash': l.photo?.sha256,
-                })
+            .map(
+              (l) => {
+                'lot_id': l.id,
+                'mine_id': l.mineId,
+                'color': l.couleur,
+                'estimated_quantity': l.quantiteEstimee,
+                'plate': l.plaqueDepart,
+                'hash': l.photo?.sha256,
+              },
+            )
             .toList(),
       };
       // Sync unique PAR LOT : l'envoi part à l'arrivée de chaque lot.
@@ -85,43 +99,50 @@ class LoadingRepositoryImpl implements LoadingRepository {
   @override
   Future<Either<Failure, Unit>> deleteChargement(String chargementId) async {
     try {
-      final lots = await (db.select(db.lots)
-            ..where((t) => t.sessionId.equals(chargementId)))
-          .get();
+      final lots = await (db.select(
+        db.lots,
+      )..where((t) => t.sessionId.equals(chargementId))).get();
       final lotIds = lots.map((l) => l.id).toList();
       // Refuse si un lot est déjà arrivé au dépôt (finalisé).
       for (final id in lotIds) {
-        final arr = await (db.select(db.arriveesDepot)
-              ..where((t) => t.lotId.equals(id)))
-            .getSingleOrNull();
+        final arr = await (db.select(
+          db.arriveesDepot,
+        )..where((t) => t.lotId.equals(id))).getSingleOrNull();
         if (arr != null) {
-          return left(const Failure.validation(
-              'Un lot est déjà arrivé au dépôt — suppression impossible'));
+          return left(
+            const Failure.validation(
+              'Un lot est déjà arrivé au dépôt — suppression impossible',
+            ),
+          );
         }
       }
       await db.transaction(() async {
         for (final id in lotIds) {
-          await (db.delete(db.transbordements)
-                ..where((t) => t.lotId.equals(id)))
-              .go();
-          await (db.delete(db.syncQueue)..where((t) => t.entityId.equals(id)))
-              .go();
+          await (db.delete(
+            db.transbordements,
+          )..where((t) => t.lotId.equals(id))).go();
+          await (db.delete(
+            db.syncQueue,
+          )..where((t) => t.entityId.equals(id))).go();
         }
-        await (db.delete(db.lots)
-              ..where((t) => t.sessionId.equals(chargementId)))
-            .go();
-        await (db.delete(db.trajetPoints)
-              ..where((t) => t.chargementId.equals(chargementId)))
-            .go();
-        await (db.delete(db.syncQueue)
-              ..where((t) => t.entityId.equals(chargementId)))
-            .go();
-        await (db.delete(db.chargements)
-              ..where((t) => t.id.equals(chargementId)))
-            .go();
+        await (db.delete(
+          db.lots,
+        )..where((t) => t.sessionId.equals(chargementId))).go();
+        await (db.delete(
+          db.trajetPoints,
+        )..where((t) => t.chargementId.equals(chargementId))).go();
+        await (db.delete(
+          db.syncQueue,
+        )..where((t) => t.entityId.equals(chargementId))).go();
+        await (db.delete(
+          db.chargements,
+        )..where((t) => t.id.equals(chargementId))).go();
       });
       await journal.append(
-          'chargement_supprime', chargementId, '{"id":"$chargementId"}');
+        'chargement_supprime',
+        chargementId,
+        '{"id":"$chargementId"}',
+      );
       return right(unit);
     } catch (e) {
       return left(Failure.database(e.toString()));

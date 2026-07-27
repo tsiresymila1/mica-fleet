@@ -106,8 +106,8 @@ y figurent.
 ### `payload` (UN lot complet)
 ```json
 {
-  "id": "MICA-2026-0007-L1",
-  "session_id": "MICA-2026-0007",
+  "id": "de305d54-75b4-431b-adb2-eb6b9e546014",
+  "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
   "supplier_id": "eddy",
   "lot_reference": "LOT-A-2026-06-22",
   "status": "arrive",
@@ -187,7 +187,10 @@ y figurent.
 >   `arrival` et à la racine du payload (même valeur).
 > - **`mine_id`** et **`depot_id`** sont les **ids Odoo numériques** renvoyés
 >   par `/api/mine` et `/api/storage`.
-> - **`session_id`** = les lots partis ensemble (regroupement terrain).
+> - **`id`** = UUID stable et unique du payload (un UUID par lot). La référence
+>   locale lisible `MICA-…-L<n>` n'est pas utilisée comme identifiant API.
+> - **`session_id`** = UUID stable partagé par les lots partis ensemble
+>   (regroupement terrain).
 > - **`lot_reference`** (optionnel, `null` possible) = regroupement **commercial**
 >   côté Odoo (plusieurs lots/camions d'une même opération).
 
@@ -206,33 +209,30 @@ y figurent.
 
 ---
 
-## 3. `POST /api/tracking/upload` — toutes les photos en un batch
+## 3. `POST /api/tracking/upload` — une photo par requête
 
 > ⚠️ **Endpoint non encore présent dans la collection Postman.** Forme proposée
 > par l'équipe mobile, déjà implémentée côté app — **à confirmer par Technarea**.
 
-Envoyé **après** un submit réussi. **Toutes les photos DU LOT en une seule
-requête** `multipart/form-data`. Chaque photo est identifiée par sa `key` (celle
-déclarée dans le payload).
+Envoyé **après** un submit réussi. Chaque photo du lot produit sa propre requête
+`multipart/form-data` et est identifiée par sa `key` (celle déclarée dans le
+payload).
 
 Le lot est identifié par **DEUX champs** :
-- **`load_id`** = l'id du **lot** (`MICA-…-L1`, = `payload.id`) → savoir **à
-  quel payload** ces fichiers appartiennent.
+- **`payload_id`** = UUID du payload (`payload.id`) → savoir à quel submit le
+  fichier appartient.
 - **`device_uuid`** = clé d'idempotence stable (celle du même lot).
 
-**Un seul upload = un lot complet.** (3 lots → 3 submits + 3 uploads.)
+**Un upload = une photo.** Le serveur doit rendre le rejeu du triplet
+`payload_id` + `key` + `hash` idempotent.
 
 ### Requête (multipart/form-data)
 ```
-load_id           : MICA-2026-0007-L1
+payload_id        : de305d54-75b4-431b-adb2-eb6b9e546014
 device_uuid       : 550e8400-e29b-41d4-a716-446655440000
-photos[0][key]    : mine
-photos[0][hash]   : 9f2c...e7
-photos[0][file]   : <binaire JPEG>
-photos[1][key]    : transload_1_unload
-photos[1][file]   : <binaire JPEG>
-photos[2][key]    : arrival
-photos[2][file]   : <binaire JPEG>
+key               : mine
+hash              : 9f2c...e7
+file              : <binaire JPEG>
 ```
 
 ### Réponse attendue (200)
@@ -240,24 +240,22 @@ photos[2][file]   : <binaire JPEG>
 {
   "status": "ok",
   "data": {
-    "load_id": "MICA-2026-0007-L1",
-    "uploaded": [
-      { "photo_key": "mine",               "attachment_id": 812 },
-      { "photo_key": "transload_1_unload", "attachment_id": 813 },
-      { "photo_key": "arrival",            "attachment_id": 814 }
-    ]
+    "payload_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
+    "photo_key": "mine",
+    "attachment_id": 812
   }
 }
 ```
 
-- Le serveur rattache chaque fichier au **lot** (via `load_id` / `device_uuid`)
+- Le serveur rattache chaque fichier au **lot** (via `payload_id` / `device_uuid`)
   sous le champ correspondant à `photo_key`.
 - **Idempotence photo** : si le `hash` est déjà connu pour cette clé, ignorer
-  (ne pas recréer). Permet de rejouer le batch sans doublon.
-- L'app supprime le fichier local après confirmation (le `hash` reste comme preuve).
+  (ne pas recréer). Permet de rejouer la requête sans doublon.
+- L'app supprime le fichier local après confirmation. Le SHA-256 est calculé
+  avant chaque envoi et transmis dans `hash`.
 
 ### Schéma des `photo_key`
-Les clés sont **scopées au lot** (1 upload = 1 lot), donc simples :
+Les clés sont **scopées au lot** (1 payload = 1 lot), donc simples :
 
 | Photo | `photo_key` |
 |---|---|
@@ -301,8 +299,9 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 ## 6. À confirmer par Technarea
 
 1. **`/api/tracking/upload`** — **bloquant** : absent de la collection Postman.
-   Accepte-t-il le batch `photos[i][key|hash|file]` en une requête, rattaché par
-   `load_id` + `device_uuid` ? Sans lui, **aucune photo ne remonte**.
+   Accepte-t-il une photo par requête avec les champs plats
+   `payload_id`, `device_uuid`, `key`, `hash`, `file` ? Sans lui,
+   **aucune photo ne remonte**.
 2. **`/api/mine` et `/api/storage`** : forme exacte de la réponse ? L'app attend
    `data: [...]` avec `id`, `name`, `lat`, `lon`, `radius_m`, `active`.
    **`radius_m` est indispensable** (contrôle GPS anti-fraude).
@@ -314,8 +313,8 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
    Votre exemple montre `"mine_M001"`. La clé n'ayant de sens qu'entre submit et
    upload, on garde `"mine"` sauf objection.
 6. **Durée de vie du token** et comportement au 401 (refresh ou re-login ?).
-7. **`session_id`** et **`lot_reference`** : champs ajoutés par l'app pour
-   regrouper les lots partis ensemble. Les stockez-vous ?
+7. **`session_id`** (UUID) et **`lot_reference`** : champs ajoutés par l'app
+   pour regrouper les lots partis ensemble. Les stockez-vous ?
 
 > Note : quelques **valeurs** enum restent en français dans le payload
 > (`status: "valide"`, `gps_status: "valide"`, `collect_type: "chargement"`).

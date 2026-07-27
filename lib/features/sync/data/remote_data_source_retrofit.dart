@@ -23,21 +23,17 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   RetrofitRemoteDataSource(this.api, this.dio);
 
   @override
-  Future<void> uploadPhotos(
-      String deviceUuid, String loadId, List<PhotoPart> photos) async {
-    if (photos.isEmpty) return;
+  Future<void> uploadPhoto(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo,
+  ) async {
     final form = FormData();
     form.fields.add(MapEntry('device_uuid', deviceUuid));
-    form.fields.add(MapEntry('load_id', loadId)); // = payload.id (id du LOT)
-    for (var i = 0; i < photos.length; i++) {
-      final p = photos[i];
-      form.fields.add(MapEntry('photos[$i][key]', p.key));
-      if (p.hash != null) {
-        form.fields.add(MapEntry('photos[$i][hash]', p.hash!));
-      }
-      form.files.add(MapEntry(
-          'photos[$i][file]', await MultipartFile.fromFile(p.path)));
-    }
+    form.fields.add(MapEntry('payload_id', payloadId));
+    form.fields.add(MapEntry('key', photo.key));
+    form.fields.add(MapEntry('hash', photo.hash));
+    form.files.add(MapEntry('file', await MultipartFile.fromFile(photo.path)));
     final resp = await dio.post('/api/tracking/upload', data: form);
     final data = resp.data;
     if (data is Map && data['status'] == 'error') {
@@ -81,7 +77,9 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       mines = resp;
     } else if (resp is Map) {
       final data = resp['data'];
-      mines = data is List ? data : (data is Map ? data['mines'] as List? : null);
+      mines = data is List
+          ? data
+          : (data is Map ? data['mines'] as List? : null);
     }
     if (mines == null) return [];
     return mines.map((e) {

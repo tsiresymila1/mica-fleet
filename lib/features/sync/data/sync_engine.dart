@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import '../../../core/db/app_database.dart';
 import '../domain/entities/sync_operation.dart';
@@ -29,19 +31,30 @@ class SyncEngine {
         if (!await store.claim(op.opId)) continue;
         try {
           final odooId = await remote.pushOperation(op);
-          await store.updateStatus(op.opId, SyncStatus.synced,
-              odooId: odooId, syncedAt: DateTime.now());
+          await store.updateStatus(
+            op.opId,
+            SyncStatus.synced,
+            odooId: odooId,
+            syncedAt: DateTime.now(),
+          );
         } catch (e) {
           final attempts = op.attempts + 1;
           if (attempts >= maxAttempts) {
             // Échec terminal après N tentatives → intervention manuelle.
-            await store.updateStatus(op.opId, SyncStatus.failed,
-                attempts: attempts, lastError: e.toString());
+            await store.updateStatus(
+              op.opId,
+              SyncStatus.failed,
+              attempts: attempts,
+              lastError: e.toString(),
+            );
           } else {
-            await store.updateStatus(op.opId, SyncStatus.pending,
-                attempts: attempts,
-                lastError: e.toString(),
-                nextRetryAt: _backoff(attempts));
+            await store.updateStatus(
+              op.opId,
+              SyncStatus.pending,
+              attempts: attempts,
+              lastError: e.toString(),
+              nextRetryAt: _backoff(attempts),
+            );
           }
         }
       }
@@ -60,26 +73,39 @@ class SyncEngine {
     }
   }
 
-  /// Après le submit d'un LOT (op synced), envoie ses photos en un batch,
-  /// puis marque et purge les fichiers locaux. Réessayé tant que non uploadé.
+  /// Après le submit d'un LOT (op synced), envoie chaque photo séparément.
+  /// Chaque fichier confirmé est purgé immédiatement : en cas d'échec partiel,
+  /// le prochain passage ne reprend que les fichiers restants.
   Future<void> _uploadPendingPhotos() async {
-    final syncedOps = await (db.select(db.syncQueue)
-          ..where((t) => t.status.equals('synced') & t.entityType.equals('lot')))
-        .get();
+    final syncedOps =
+        await (db.select(db.syncQueue)..where(
+              (t) => t.status.equals('synced') & t.entityType.equals('lot'),
+            ))
+            .get();
     for (final op in syncedOps) {
-      final lot = await (db.select(db.lots)..where((t) => t.id.equals(op.entityId)))
-          .getSingleOrNull();
+      final lot = await (db.select(
+        db.lots,
+      )..where((t) => t.id.equals(op.entityId))).getSingleOrNull();
       if (lot == null || lot.photosUploaded) continue;
-      final photos = await _collectPhotos(lot.id);
-      await remote.uploadPhotos(lot.deviceUuid ?? lot.id, lot.id, photos);
-      // Succès : marque uploadé + purge les fichiers (le hash reste comme preuve).
-      await (db.update(db.lots)..where((t) => t.id.equals(lot.id)))
-          .write(const LotsCompanion(photosUploaded: Value(true)));
-      for (final p in photos) {
-        try {
-          await File(p.path).delete();
-        } catch (_) {}
+      final payload = jsonDecode(op.payload) as Map<String, dynamic>;
+      final payloadId = payload['id']?.toString();
+      if (payloadId == null || payloadId.isEmpty) {
+        throw StateError('payload.id absent pour le lot ${lot.id}');
       }
+      final photos = await _collectPhotos(lot.id);
+      for (final photo in photos) {
+        await remote.uploadPhoto(lot.deviceUuid ?? op.opId, payloadId, photo);
+        try {
+          await File(photo.path).delete();
+        } catch (_) {
+          // L'upload est confirmé. Un fichier impossible à purger ne doit pas
+          // provoquer un nouvel envoi ; photosUploaded clôture le lot.
+        }
+      }
+      // Toutes les photos encore présentes ont été confirmées par le serveur.
+      await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
+        const LotsCompanion(photosUploaded: Value(true)),
+      );
     }
   }
 
@@ -87,36 +113,35 @@ class SyncEngine {
   /// celles de son arrivée. Clés scopées au lot (1 submit = 1 lot).
   Future<List<PhotoPart>> _collectPhotos(String lotId) async {
     final parts = <PhotoPart>[];
-    final lot = await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
-        .getSingleOrNull();
-    if (lot?.photoPath != null) {
-      parts.add(PhotoPart('mine', lot!.photoPath!, lot.photoHash));
+    Future<void> add(String key, String? path, String? storedHash) async {
+      if (path == null) return;
+      final file = File(path);
+      if (!file.existsSync()) return;
+      final hash = storedHash == null || storedHash.isEmpty
+          ? (await sha256.bind(file.openRead()).first).toString()
+          : storedHash;
+      parts.add(PhotoPart(key, path, hash));
     }
-    final trans = await (db.select(db.transbordements)
-          ..where((t) => t.lotId.equals(lotId)))
-        .get();
+
+    final lot = await (db.select(
+      db.lots,
+    )..where((t) => t.id.equals(lotId))).getSingleOrNull();
+    await add('mine', lot?.photoPath, lot?.photoHash);
+    final trans = await (db.select(
+      db.transbordements,
+    )..where((t) => t.lotId.equals(lotId))).get();
     for (final t in trans) {
-      if (t.photoDechargePath != null) {
-        parts.add(PhotoPart(
-            'transload_${t.ordre}_unload', t.photoDechargePath!, null));
-      }
-      if (t.photoRechargePath != null) {
-        parts.add(PhotoPart(
-            'transload_${t.ordre}_reload', t.photoRechargePath!, null));
-      }
+      await add('transload_${t.ordre}_unload', t.photoDechargePath, null);
+      await add('transload_${t.ordre}_reload', t.photoRechargePath, null);
     }
-    final arr = await (db.select(db.arriveesDepot)
-          ..where((t) => t.lotId.equals(lotId)))
-        .getSingleOrNull();
+    final arr = await (db.select(
+      db.arriveesDepot,
+    )..where((t) => t.lotId.equals(lotId))).getSingleOrNull();
     if (arr != null) {
-      if (arr.photoArriveePath != null) {
-        parts.add(PhotoPart('arrival', arr.photoArriveePath!, null));
-      }
-      if (arr.photoPermisPath != null) {
-        parts.add(PhotoPart('license', arr.photoPermisPath!, null));
-      }
+      await add('arrival', arr.photoArriveePath, null);
+      await add('license', arr.photoPermisPath, null);
     }
-    return parts.where((p) => File(p.path).existsSync()).toList();
+    return parts;
   }
 
   Future<void> _pullMines() async {

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/db/app_database.dart';
 
 /// Snapshot complet d'UN LOT pour l'envoi unique (submit) : mine d'origine +
@@ -15,37 +16,61 @@ typedef LotSnapshot = ({
 
 class LotSnapshotBuilder {
   final AppDatabase db;
+  final _uuid = const Uuid();
   LotSnapshotBuilder(this.db);
 
   Future<LotSnapshot?> build(String lotId) async {
-    final lot =
-        await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
-            .getSingleOrNull();
+    final lot = await (db.select(
+      db.lots,
+    )..where((t) => t.id.equals(lotId))).getSingleOrNull();
     if (lot == null) return null;
 
-    final session = await (db.select(db.chargements)
-          ..where((t) => t.id.equals(lot.sessionId)))
-        .getSingleOrNull();
-    final trans = await (db.select(db.transbordements)
-          ..where((t) => t.lotId.equals(lotId))
-          ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
-        .get();
-    final arr = await (db.select(db.arriveesDepot)
-          ..where((t) => t.lotId.equals(lotId)))
-        .getSingleOrNull();
-    final trajet = await (db.select(db.trajetPoints)
-          ..where((t) => t.chargementId.equals(lot.sessionId))
-          ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
-        .get();
+    final session = await (db.select(
+      db.chargements,
+    )..where((t) => t.id.equals(lot.sessionId))).getSingleOrNull();
+    if (session == null) return null;
+
+    // Les références MICA restent les clés locales/UI. L'API reçoit des UUID
+    // stables, persistés une seule fois et partagés par tous les lots d'une
+    // même session.
+    final payloadUuid = lot.payloadUuid ?? _uuid.v4();
+    final sessionUuid = session.sessionUuid ?? _uuid.v4();
+    if (lot.payloadUuid == null || session.sessionUuid == null) {
+      await db.transaction(() async {
+        if (lot.payloadUuid == null) {
+          await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
+            LotsCompanion(payloadUuid: Value(payloadUuid)),
+          );
+        }
+        if (session.sessionUuid == null) {
+          await (db.update(db.chargements)
+                ..where((t) => t.id.equals(session.id)))
+              .write(ChargementsCompanion(sessionUuid: Value(sessionUuid)));
+        }
+      });
+    }
+    final trans =
+        await (db.select(db.transbordements)
+              ..where((t) => t.lotId.equals(lotId))
+              ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
+            .get();
+    final arr = await (db.select(
+      db.arriveesDepot,
+    )..where((t) => t.lotId.equals(lotId))).getSingleOrNull();
+    final trajet =
+        await (db.select(db.trajetPoints)
+              ..where((t) => t.chargementId.equals(lot.sessionId))
+              ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
+            .get();
 
     final payload = <String, dynamic>{
-      // `id` = identifiant du payload = identifiant du LOT (1 payload = 1 lot).
-      'id': lot.id,
-      'session_id': lot.sessionId, // lots partis ensemble
-      'supplier_id': session?.fournisseurId,
-      'lot_reference': session?.lotReference,
+      // Identifiants d'intégration UUID. Les références MICA restent locales.
+      'id': payloadUuid,
+      'session_id': sessionUuid,
+      'supplier_id': session.fournisseurId,
+      'lot_reference': session.lotReference,
       'status': lot.statut,
-      'created_at': session == null ? null : _d(session.dateCreation),
+      'created_at': _d(session.dateCreation),
 
       // Origine : UNE mine, quantité figée au départ (lot indivisible).
       'mine': {
@@ -63,17 +88,19 @@ class LotSnapshotBuilder {
 
       // Camions successifs ayant porté CE lot.
       'transloads': trans
-          .map((t) => {
-                'order': t.ordre,
-                'plate_before': t.plaqueAvant,
-                'plate_after': t.plaqueApres,
-                'gps_unload': [t.gpsDechargeLat, t.gpsDechargeLon],
-                'gps_reload': [t.gpsRechargeLat, t.gpsRechargeLon],
-                'distance_m': t.distanceMetres,
-                'compliant': t.conforme,
-                'photo_unload': {'key': 'transload_${t.ordre}_unload'},
-                'photo_reload': {'key': 'transload_${t.ordre}_reload'},
-              })
+          .map(
+            (t) => {
+              'order': t.ordre,
+              'plate_before': t.plaqueAvant,
+              'plate_after': t.plaqueApres,
+              'gps_unload': [t.gpsDechargeLat, t.gpsDechargeLon],
+              'gps_reload': [t.gpsRechargeLat, t.gpsRechargeLon],
+              'distance_m': t.distanceMetres,
+              'compliant': t.conforme,
+              'photo_unload': {'key': 'transload_${t.ordre}_unload'},
+              'photo_reload': {'key': 'transload_${t.ordre}_reload'},
+            },
+          )
           .toList(),
 
       'arrival': arr == null
@@ -100,7 +127,7 @@ class LotSnapshotBuilder {
 
     return (
       deviceUuid: lot.deviceUuid ?? lot.id,
-      agentLogin: session?.fournisseurId,
+      agentLogin: session.fournisseurId,
       gpsLat: lot.gpsLat,
       gpsLon: lot.gpsLon,
       gpsAccuracy: lot.gpsPrecision,
