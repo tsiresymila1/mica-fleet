@@ -1,3 +1,7 @@
+## v1.2.1 - 2026-07-27
+
+- chore: configure Android packaging options for dependency conflicts and add VS Code Java configuration settings
+
 ## v1.2.0 - 2026-07-23
 
 
