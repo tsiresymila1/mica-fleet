@@ -1,5 +1,6 @@
 ## v1.2.2 - 2026-07-29
 
+- chore(release): v1.2.2
 - fix: improve HTTP 500 error handling and implement UUID migration for sync operations
 - feat: introduce session and payload UUIDs for sync tracking and refactor photo upload to process files individually
 
