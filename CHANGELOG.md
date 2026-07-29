@@ -1,3 +1,8 @@
+## v1.2.2 - 2026-07-29
+
+- fix: improve HTTP 500 error handling and implement UUID migration for sync operations
+- feat: introduce session and payload UUIDs for sync tracking and refactor photo upload to process files individually
+
 ## v1.2.1 - 2026-07-27
 
 - chore: configure Android packaging options for dependency conflicts and add VS Code Java configuration settings
