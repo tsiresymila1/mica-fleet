@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/db/app_database.dart';
+import '../../../core/network/api_error_details.dart';
 import '../domain/entities/sync_operation.dart';
 import '../domain/repositories/local_sync_store.dart';
 import '../domain/repositories/remote_data_source.dart';
@@ -11,6 +13,7 @@ class SyncEngine {
   final LocalSyncStore store;
   final RemoteDataSource remote;
   final AppDatabase db;
+  final _uuid = const Uuid();
   SyncEngine(this.store, this.remote, this.db);
 
   static const int maxAttempts = 5; // au-delà → statut failed (terminal)
@@ -30,7 +33,8 @@ class SyncEngine {
         // déjà prise, on saute — pas de double envoi.
         if (!await store.claim(op.opId)) continue;
         try {
-          final odooId = await remote.pushOperation(op);
+          final operation = await _normalizePendingLotIdentifiers(op);
+          final odooId = await remote.pushOperation(operation);
           await store.updateStatus(
             op.opId,
             SyncStatus.synced,
@@ -45,14 +49,14 @@ class SyncEngine {
               op.opId,
               SyncStatus.failed,
               attempts: attempts,
-              lastError: e.toString(),
+              lastError: apiErrorDetails(e),
             );
           } else {
             await store.updateStatus(
               op.opId,
               SyncStatus.pending,
               attempts: attempts,
-              lastError: e.toString(),
+              lastError: apiErrorDetails(e),
               nextRetryAt: _backoff(attempts),
             );
           }
@@ -71,6 +75,66 @@ class SyncEngine {
     } finally {
       _running = false;
     }
+  }
+
+  /// Met à niveau une opération qui aurait été créée sans UUID API. Une op
+  /// encore pending n'a pas été confirmée par Odoo : on peut donc lui affecter
+  /// les UUID persistés du lot et de sa session.
+  /// Les opérations déjà synced ne passent pas ici, afin que leurs photos
+  /// continuent de cibler l'identifiant réellement soumis au serveur.
+  Future<SyncOperation> _normalizePendingLotIdentifiers(
+    SyncOperation op,
+  ) async {
+    if (op.entityType != 'lot') return op;
+    final lot = await (db.select(
+      db.lots,
+    )..where((t) => t.id.equals(op.entityId))).getSingleOrNull();
+    if (lot == null) return op;
+
+    final session = await (db.select(
+      db.chargements,
+    )..where((t) => t.id.equals(lot.sessionId))).getSingleOrNull();
+    if (session == null) return op;
+
+    final currentPayloadId = op.payload['id']?.toString();
+    final currentSessionId = op.payload['session_id']?.toString();
+    final payloadId =
+        currentPayloadId != null &&
+            Uuid.isValidUUID(fromString: currentPayloadId)
+        ? currentPayloadId
+        : (lot.payloadUuid ?? _uuid.v4());
+    final sessionId =
+        currentSessionId != null &&
+            Uuid.isValidUUID(fromString: currentSessionId)
+        ? currentSessionId
+        : (session.sessionUuid ?? _uuid.v4());
+
+    if (lot.payloadUuid != payloadId || session.sessionUuid != sessionId) {
+      await db.transaction(() async {
+        if (lot.payloadUuid != payloadId) {
+          await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
+            LotsCompanion(payloadUuid: Value(payloadId)),
+          );
+        }
+        if (session.sessionUuid != sessionId) {
+          await (db.update(db.chargements)
+                ..where((t) => t.id.equals(session.id)))
+              .write(ChargementsCompanion(sessionUuid: Value(sessionId)));
+        }
+      });
+    }
+
+    if (currentPayloadId == payloadId && currentSessionId == sessionId) {
+      return op;
+    }
+
+    final payload = Map<String, dynamic>.from(op.payload)
+      ..['id'] = payloadId
+      ..['session_id'] = sessionId;
+    await (db.update(db.syncQueue)..where((t) => t.opId.equals(op.opId))).write(
+      SyncQueueCompanion(payload: Value(jsonEncode(payload))),
+    );
+    return op.copyWith(payload: payload);
   }
 
   /// Après le submit d'un LOT (op synced), envoie chaque photo séparément.
@@ -94,7 +158,17 @@ class SyncEngine {
       }
       final photos = await _collectPhotos(lot.id);
       for (final photo in photos) {
-        await remote.uploadPhoto(lot.deviceUuid ?? op.opId, payloadId, photo);
+        try {
+          await remote.uploadPhoto(lot.deviceUuid ?? op.opId, payloadId, photo);
+        } catch (error) {
+          await store.updateStatus(
+            op.opId,
+            SyncStatus.synced,
+            lastError:
+                'Échec de la photo « ${photo.key} »\n${apiErrorDetails(error)}',
+          );
+          rethrow;
+        }
         try {
           await File(photo.path).delete();
         } catch (_) {
@@ -106,6 +180,7 @@ class SyncEngine {
       await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
         const LotsCompanion(photosUploaded: Value(true)),
       );
+      await store.updateStatus(op.opId, SyncStatus.synced, lastError: null);
     }
   }
 

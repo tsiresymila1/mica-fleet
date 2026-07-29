@@ -209,10 +209,7 @@ y figurent.
 
 ---
 
-## 3. `POST /api/tracking/upload` — une photo par requête
-
-> ⚠️ **Endpoint non encore présent dans la collection Postman.** Forme proposée
-> par l'équipe mobile, déjà implémentée côté app — **à confirmer par Technarea**.
+## 3. `POST /api/attachments` — une photo par requête
 
 Envoyé **après** un submit réussi. Chaque photo du lot produit sa propre requête
 `multipart/form-data` et est identifiée par sa `key` (celle déclarée dans le
@@ -298,22 +295,18 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 
 ## 6. À confirmer par Technarea
 
-1. **`/api/tracking/upload`** — **bloquant** : absent de la collection Postman.
-   Accepte-t-il une photo par requête avec les champs plats
-   `payload_id`, `device_uuid`, `key`, `hash`, `file` ? Sans lui,
-   **aucune photo ne remonte**.
-2. **`/api/mine` et `/api/storage`** : forme exacte de la réponse ? L'app attend
+1. **`/api/mine` et `/api/storage`** : forme exacte de la réponse ? L'app attend
    `data: [...]` avec `id`, `name`, `lat`, `lon`, `radius_m`, `active`.
    **`radius_m` est indispensable** (contrôle GPS anti-fraude).
-3. **`/api/logout`** : l'`id` numérique attendu doit être renvoyé par `/api/login`
+2. **`/api/logout`** : l'`id` numérique attendu doit être renvoyé par `/api/login`
    (`data.agent.id`). Confirmé ?
-4. **`collect_type`** : l'app envoie `"chargement"` comme dans votre exemple,
+3. **`collect_type`** : l'app envoie `"chargement"` comme dans votre exemple,
    alors qu'un payload = **un lot**. Faut-il une valeur distincte ?
-5. **`photo.key` de la mine** : l'app envoie `"mine"` (clé unique dans le lot).
+4. **`photo.key` de la mine** : l'app envoie `"mine"` (clé unique dans le lot).
    Votre exemple montre `"mine_M001"`. La clé n'ayant de sens qu'entre submit et
    upload, on garde `"mine"` sauf objection.
-6. **Durée de vie du token** et comportement au 401 (refresh ou re-login ?).
-7. **`session_id`** (UUID) et **`lot_reference`** : champs ajoutés par l'app
+5. **Durée de vie du token** et comportement au 401 (refresh ou re-login ?).
+6. **`session_id`** (UUID) et **`lot_reference`** : champs ajoutés par l'app
    pour regrouper les lots partis ensemble. Les stockez-vous ?
 
 > Note : quelques **valeurs** enum restent en français dans le payload

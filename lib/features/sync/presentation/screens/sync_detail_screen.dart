@@ -35,27 +35,33 @@ class SyncDetailScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(h.entityId,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(
+                      h.entityId,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
-                  _statutPill(h.status),
+                  _statutPill(h.status, hasError: h.lastError != null),
                 ],
               ),
               const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(children: [
-                    _kv('Type', '${h.entityType} · ${h.opType}'),
-                    _kv('Identifiant', h.opId),
-                    if (h.agentLogin != null) _kv('Agent', h.agentLogin!),
-                    _kv('Créé', df.format(h.createdAt)),
-                    if (h.syncedAt != null) _kv('Envoyé', df.format(h.syncedAt!)),
-                    if (h.odooId != null) _kv('Réf. Odoo', '#${h.odooId}'),
-                    if (h.status != 'synced') _kv('Tentatives', '${h.attempts}'),
-                    if (h.nextRetryAt != null && h.status != 'synced')
-                      _kv('Prochain essai', df.format(h.nextRetryAt!)),
-                  ]),
+                  child: Column(
+                    children: [
+                      _kv('Type', '${h.entityType} · ${h.opType}'),
+                      _kv('Identifiant', h.opId),
+                      if (h.agentLogin != null) _kv('Agent', h.agentLogin!),
+                      _kv('Créé', df.format(h.createdAt)),
+                      if (h.syncedAt != null)
+                        _kv('Envoyé', df.format(h.syncedAt!)),
+                      if (h.odooId != null) _kv('Réf. Odoo', '#${h.odooId}'),
+                      if (h.status != 'synced')
+                        _kv('Tentatives', '${h.attempts}'),
+                      if (h.nextRetryAt != null && h.status != 'synced')
+                        _kv('Prochain essai', df.format(h.nextRetryAt!)),
+                    ],
+                  ),
                 ),
               ),
               if (h.lastError != null) ...[
@@ -67,13 +73,45 @@ class SyncDetailScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Dernière erreur',
-                            style: TextStyle(
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Dernière erreur',
+                                style: TextStyle(
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Copier l’erreur',
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.copy,
+                                size: 18,
                                 color: AppColors.danger,
-                                fontWeight: FontWeight.w700)),
+                              ),
+                              onPressed: () async {
+                                await Clipboard.setData(
+                                  ClipboardData(text: h.lastError!),
+                                );
+                                if (context.mounted) {
+                                  await showAppMessage(
+                                    context,
+                                    'Erreur copiée',
+                                    kind: AppMsgKind.success,
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 4),
-                        Text(h.lastError!,
-                            style: const TextStyle(color: AppColors.danger)),
+                        SelectableText(
+                          h.lastError!,
+                          style: const TextStyle(color: AppColors.danger),
+                        ),
                       ],
                     ),
                   ),
@@ -83,8 +121,10 @@ class SyncDetailScreen extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child:
-                        StepHeader(numero: 1, titre: 'Données envoyées (JSON)'),
+                    child: StepHeader(
+                      numero: 1,
+                      titre: 'Données envoyées (JSON)',
+                    ),
                   ),
                   IconButton(
                     tooltip: 'Copier',
@@ -92,8 +132,11 @@ class SyncDetailScreen extends ConsumerWidget {
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: json));
                       if (context.mounted) {
-                        await showAppMessage(context, 'JSON copié',
-                            kind: AppMsgKind.success);
+                        await showAppMessage(
+                          context,
+                          'JSON copié',
+                          kind: AppMsgKind.success,
+                        );
                       }
                     },
                   ),
@@ -110,7 +153,10 @@ class SyncDetailScreen extends ConsumerWidget {
                 child: SelectableText(
                   json,
                   style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ],
@@ -118,7 +164,10 @@ class SyncDetailScreen extends ConsumerWidget {
         },
       ),
       bottomNavigationBar: op.maybeWhen(
-        data: (h) => (h != null && h.status != 'synced' && h.status != 'syncing')
+        data: (h) =>
+            (h != null &&
+                h.status != 'syncing' &&
+                (h.status != 'synced' || h.lastError != null))
             ? SafeArea(
                 minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 child: BigButton(
@@ -146,25 +195,32 @@ String _prettyJson(String raw) {
   }
 }
 
-Widget _statutPill(String s) => switch (s) {
-      'synced' => const StatusPill(kind: PillKind.ok, label: 'Envoyé'),
-      'failed' => const StatusPill(kind: PillKind.danger, label: 'Échec'),
-      'syncing' => const StatusPill(kind: PillKind.neutral, label: 'En cours'),
-      _ => const StatusPill(kind: PillKind.warn, label: 'En attente'),
-    };
+Widget _statutPill(String s, {required bool hasError}) => switch ((
+  s,
+  hasError,
+)) {
+  ('synced', true) => const StatusPill(
+    kind: PillKind.danger,
+    label: 'Photos en échec',
+  ),
+  ('synced', _) => const StatusPill(kind: PillKind.ok, label: 'Envoyé'),
+  ('failed', _) => const StatusPill(kind: PillKind.danger, label: 'Échec'),
+  ('syncing', _) => const StatusPill(kind: PillKind.neutral, label: 'En cours'),
+  _ => const StatusPill(kind: PillKind.warn, label: 'En attente'),
+};
 
 Widget _kv(String k, String v) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-              width: 110,
-              child: Text(k, style: const TextStyle(color: AppColors.inkSoft))),
-          Expanded(
-            child: Text(v,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
+  padding: const EdgeInsets.symmetric(vertical: 3),
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 110,
+        child: Text(k, style: const TextStyle(color: AppColors.inkSoft)),
       ),
-    );
+      Expanded(
+        child: Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
+    ],
+  ),
+);

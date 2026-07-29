@@ -34,7 +34,7 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     form.fields.add(MapEntry('key', photo.key));
     form.fields.add(MapEntry('hash', photo.hash));
     form.files.add(MapEntry('file', await MultipartFile.fromFile(photo.path)));
-    final resp = await dio.post('/api/tracking/upload', data: form);
+    final resp = await dio.post('/api/attachments', data: form);
     final data = resp.data;
     if (data is Map && data['status'] == 'error') {
       throw Exception(data['message'] ?? 'Échec upload photos');

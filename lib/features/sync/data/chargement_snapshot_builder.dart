@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
+
 import '../../../core/db/app_database.dart';
 
 /// Snapshot complet d'UN LOT pour l'envoi unique (submit) : mine d'origine +
@@ -49,6 +50,7 @@ class LotSnapshotBuilder {
         }
       });
     }
+
     final trans =
         await (db.select(db.transbordements)
               ..where((t) => t.lotId.equals(lotId))

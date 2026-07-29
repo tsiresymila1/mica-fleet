@@ -68,7 +68,10 @@ class SyncHistoryScreen extends ConsumerWidget {
                                 Icons.chevron_right,
                                 color: AppColors.inkSoft,
                               ),
-                              _statutPill(h.status),
+                              _statutPill(
+                                h.status,
+                                hasError: h.lastError != null,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -105,10 +108,17 @@ class SyncHistoryScreen extends ConsumerWidget {
   }
 }
 
-Widget _statutPill(String s) => switch (s) {
-  'synced' => const StatusPill(kind: PillKind.ok, label: 'Envoyé'),
-  'failed' => const StatusPill(kind: PillKind.danger, label: 'Échec'),
-  'syncing' => const StatusPill(kind: PillKind.neutral, label: 'En cours'),
+Widget _statutPill(String s, {required bool hasError}) => switch ((
+  s,
+  hasError,
+)) {
+  ('synced', true) => const StatusPill(
+    kind: PillKind.danger,
+    label: 'Photos en échec',
+  ),
+  ('synced', _) => const StatusPill(kind: PillKind.ok, label: 'Envoyé'),
+  ('failed', _) => const StatusPill(kind: PillKind.danger, label: 'Échec'),
+  ('syncing', _) => const StatusPill(kind: PillKind.neutral, label: 'En cours'),
   _ => const StatusPill(kind: PillKind.warn, label: 'En attente'),
 };
 

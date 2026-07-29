@@ -43,16 +43,16 @@ void main() {
 
     await remote.uploadPhoto(
       'device-uuid',
-      'payload-uuid',
+      '11111111-1111-4111-8111-111111111111',
       PhotoPart('mine', tmp.path, 'photo-hash'),
     );
 
     final request = adapter.request!;
-    expect(request.path, '/api/tracking/upload');
+    expect(request.path, '/api/attachments');
     final form = request.data as FormData;
     expect(Map.fromEntries(form.fields), {
       'device_uuid': 'device-uuid',
-      'payload_id': 'payload-uuid',
+      'payload_id': '11111111-1111-4111-8111-111111111111',
       'key': 'mine',
       'hash': 'photo-hash',
     });

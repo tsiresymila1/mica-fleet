@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
@@ -6,6 +7,7 @@ import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
 import 'package:mica_fleet/features/sync/data/sync_engine.dart';
 import 'package:mica_fleet/features/sync/domain/entities/sync_operation.dart';
 import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
+import 'package:uuid/uuid.dart';
 
 SyncOperation _op(String id, DateTime at) => SyncOperation(
   opId: id,
@@ -18,18 +20,27 @@ SyncOperation _op(String id, DateTime at) => SyncOperation(
 
 class _FakeRemote implements RemoteDataSource {
   final List<String> pushed = [];
+  final List<SyncOperation> pushedOperations = [];
   int failTimes;
   final bool alwaysFail;
   final String? failPhotoKey;
-  _FakeRemote({this.failTimes = 0, this.alwaysFail = false, this.failPhotoKey});
+  final Object? pushError;
+  _FakeRemote({
+    this.failTimes = 0,
+    this.alwaysFail = false,
+    this.failPhotoKey,
+    this.pushError,
+  });
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
+    if (pushError != null) throw pushError!;
     if (alwaysFail || failTimes > 0) {
       failTimes--;
       throw Exception('net');
     }
     pushed.add(op.opId);
+    pushedOperations.add(op);
     return 42; // faux odoo_id
   }
 
@@ -111,6 +122,35 @@ void main() {
       },
     );
 
+    test(
+      'un HTTP 500 stocke le corps serveur au lieu du message Dio',
+      () async {
+        await store.enqueue(_op('http-500', DateTime(2026, 1, 1)));
+        final request = RequestOptions(
+          path: '/api/tracking/submit',
+          method: 'POST',
+        );
+        final error = DioException.badResponse(
+          statusCode: 500,
+          requestOptions: request,
+          response: Response<dynamic>(
+            requestOptions: request,
+            statusCode: 500,
+            data: {'status': 'error', 'message': 'Erreur Odoo détaillée'},
+          ),
+        );
+
+        await SyncEngine(store, _FakeRemote(pushError: error), db).sync();
+
+        final row = await (db.select(
+          db.syncQueue,
+        )..where((t) => t.opId.equals('http-500'))).getSingle();
+        expect(row.lastError, contains('HTTP 500'));
+        expect(row.lastError, contains('Erreur Odoo détaillée'));
+        expect(row.lastError, isNot(contains('validateStatus')));
+      },
+    );
+
     test('resetInFlight remet les syncing en pending', () async {
       await store.enqueue(_op('a', DateTime(2026, 1, 1)));
       await store.updateStatus('a', SyncStatus.syncing);
@@ -138,6 +178,61 @@ void main() {
       expect(row.odooId, 42);
       expect(row.syncedAt, isNotNull);
     });
+
+    test(
+      'une ancienne op pending sans UUID reçoit des UUID persistés',
+      () async {
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: 'MICA-2026-0007',
+                fournisseurId: 'F001',
+                dateCreation: DateTime(2026),
+              ),
+            );
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'MICA-2026-0007-L1',
+                sessionId: 'MICA-2026-0007',
+                mineId: 'M001',
+              ),
+            );
+        await store.enqueue(
+          SyncOperation(
+            opId: 'migration-device-uuid',
+            entityType: 'lot',
+            entityId: 'MICA-2026-0007-L1',
+            opType: SyncOpType.create,
+            payload: const {
+              'id': 'MICA-2026-0007-L1',
+              'session_id': 'MICA-2026-0007',
+            },
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        );
+
+        final remote = _FakeRemote();
+        await SyncEngine(store, remote, db).sync();
+
+        final submitted = remote.pushedOperations.single.payload;
+        final payloadId = submitted['id'] as String;
+        final sessionId = submitted['session_id'] as String;
+        expect(Uuid.isValidUUID(fromString: payloadId), isTrue);
+        expect(Uuid.isValidUUID(fromString: sessionId), isTrue);
+
+        final lot = await (db.select(
+          db.lots,
+        )..where((t) => t.id.equals('MICA-2026-0007-L1'))).getSingle();
+        final session = await (db.select(
+          db.chargements,
+        )..where((t) => t.id.equals('MICA-2026-0007'))).getSingle();
+        expect(lot.payloadUuid, payloadId);
+        expect(session.sessionUuid, sessionId);
+      },
+    );
 
     test('après 5 tentatives → statut failed (terminal)', () async {
       await store.enqueue(_op('a', DateTime(2026, 1, 1)));
@@ -183,7 +278,10 @@ void main() {
             entityType: 'lot',
             entityId: 'C1-L1',
             opType: SyncOpType.create,
-            payload: const {'id': 'payload-uuid-1'},
+            payload: const {
+              'id': '11111111-1111-4111-8111-111111111111',
+              'session_id': 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+            },
             createdAt: DateTime(2026, 1, 1),
           ),
         );
@@ -192,7 +290,17 @@ void main() {
         await SyncEngine(store, remote, db).sync();
 
         expect(remote.uploadedFor, ['uuid-1']);
-        expect(remote.uploadedPayloads, ['payload-uuid-1']);
+        expect(remote.uploadedPayloads, [
+          '11111111-1111-4111-8111-111111111111',
+        ]);
+        expect(
+          remote.pushedOperations.single.payload['id'],
+          '11111111-1111-4111-8111-111111111111',
+        );
+        expect(
+          remote.pushedOperations.single.payload['session_id'],
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        );
         expect(remote.uploadedPhotos.single.key, 'mine');
         expect(remote.uploadedPhotos.single.hash, 'h');
         final lot = await (db.select(
@@ -200,6 +308,59 @@ void main() {
         )..where((t) => t.id.equals('C1-L1'))).getSingle();
         expect(lot.photosUploaded, isTrue);
         expect(tmp.existsSync(), isFalse); // fichier purgé
+      },
+    );
+
+    test(
+      'un ancien submit déjà synchronisé garde son payload_id pour les photos',
+      () async {
+        final tmp = File(
+          '${Directory.systemTemp.path}/mica_legacy_synced_photo.jpg',
+        )..writeAsBytesSync([1, 2, 3]);
+        addTearDown(() {
+          if (tmp.existsSync()) tmp.deleteSync();
+        });
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: 'C-LEGACY',
+                fournisseurId: 'F001',
+                dateCreation: DateTime(2026),
+              ),
+            );
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'C-LEGACY-L1',
+                sessionId: 'C-LEGACY',
+                mineId: 'M001',
+                photoPath: Value(tmp.path),
+                photoHash: const Value('legacy-hash'),
+                deviceUuid: const Value('legacy-device-uuid'),
+              ),
+            );
+        await store.enqueue(
+          SyncOperation(
+            opId: 'legacy-device-uuid',
+            entityType: 'lot',
+            entityId: 'C-LEGACY-L1',
+            opType: SyncOpType.create,
+            payload: const {
+              'id': 'legacy-payload-uuid',
+              'session_id': 'legacy-session-uuid',
+            },
+            createdAt: DateTime(2026, 1, 1),
+          ),
+        );
+        await store.updateStatus('legacy-device-uuid', SyncStatus.synced);
+
+        final remote = _FakeRemote();
+        await SyncEngine(store, remote, db).sync();
+
+        expect(remote.pushed, isEmpty);
+        expect(remote.uploadedPayloads, ['legacy-payload-uuid']);
       },
     );
 
@@ -246,7 +407,10 @@ void main() {
           entityType: 'lot',
           entityId: 'C2-L1',
           opType: SyncOpType.create,
-          payload: const {'id': 'payload-uuid-2'},
+          payload: const {
+            'id': '22222222-2222-4222-8222-222222222222',
+            'session_id': 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          },
           createdAt: DateTime(2026, 1, 1),
         ),
       );
@@ -254,6 +418,7 @@ void main() {
       final remote = _FakeRemote();
       await SyncEngine(store, remote, db).sync();
 
+      expect(remote.uploadedPayloads, ['22222222-2222-4222-8222-222222222222']);
       expect(remote.uploadedPhotos.single.key, 'arrival');
       expect(
         remote.uploadedPhotos.single.hash,
@@ -310,7 +475,10 @@ void main() {
           entityType: 'lot',
           entityId: 'C3-L1',
           opType: SyncOpType.create,
-          payload: const {'id': 'payload-uuid-3'},
+          payload: const {
+            'id': '33333333-3333-4333-8333-333333333333',
+            'session_id': 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          },
           createdAt: DateTime(2026, 1, 1),
         ),
       );
@@ -318,6 +486,9 @@ void main() {
       final firstRemote = _FakeRemote(failPhotoKey: 'arrival');
       await SyncEngine(store, firstRemote, db).sync();
 
+      expect(firstRemote.uploadedPayloads, [
+        '33333333-3333-4333-8333-333333333333',
+      ]);
       expect(firstRemote.uploadedPhotos.map((p) => p.key), ['mine']);
       expect(mine.existsSync(), isFalse);
       expect(arrival.existsSync(), isTrue);
@@ -325,6 +496,11 @@ void main() {
         db.lots,
       )..where((t) => t.id.equals('C3-L1'))).getSingle();
       expect(lot.photosUploaded, isFalse);
+      var op = await (db.select(
+        db.syncQueue,
+      )..where((t) => t.opId.equals('op3'))).getSingle();
+      expect(op.lastError, contains('Échec de la photo « arrival »'));
+      expect(op.lastError, contains('photo net'));
 
       final retryRemote = _FakeRemote();
       await SyncEngine(store, retryRemote, db).sync();
@@ -335,6 +511,10 @@ void main() {
         db.lots,
       )..where((t) => t.id.equals('C3-L1'))).getSingle();
       expect(lot.photosUploaded, isTrue);
+      op = await (db.select(
+        db.syncQueue,
+      )..where((t) => t.opId.equals('op3'))).getSingle();
+      expect(op.lastError, isNull);
     });
 
     test('pull insère les mines en local', () async {
