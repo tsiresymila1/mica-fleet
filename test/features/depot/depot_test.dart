@@ -39,7 +39,7 @@ void main() {
 
   test('nearest : rayon 0 → non_verifiable', () {
     final casse = [
-      const Depot(id: 'DY', nom: 'Y', lat: -18.9, lon: 47.5, rayonMetres: 0)
+      const Depot(id: 'DY', nom: 'Y', lat: -18.9, lon: 47.5, rayonMetres: 0),
     ];
     final n = DetectDepot().nearest(casse, -18.9, 47.5);
     expect(n?.statutGps, 'non_verifiable');
@@ -51,61 +51,85 @@ void main() {
 
   test('validate hors zone → réussit en hors_zone (plus de blocage)', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1',
-        depots: depots,
-        lat: -18.95,
-        lon: 47.55,
-        chauffeur: 'Jean',
-        numPermis: 'P1',
-        numLot: 'L1');
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.95,
+      lon: 47.55,
+      chauffeur: 'Jean',
+      numPermis: 'P1',
+      numLot: 'L1',
+    );
     expect(r.getRight().toNullable()!.statutGps, 'hors_zone');
   });
 
   test('validate échoue si champs obligatoires vides', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1',
-        depots: depots,
-        lat: -18.9,
-        lon: 47.5,
-        chauffeur: '',
-        numPermis: 'P1',
-        numLot: 'L1');
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.9,
+      lon: 47.5,
+      chauffeur: '',
+      numPermis: 'P1',
+      numLot: 'L1',
+    );
     expect(r.isLeft(), isTrue);
   });
 
   test('validate réussit dans la zone avec champs remplis', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1',
-        depots: depots,
-        lat: -18.90005,
-        lon: 47.5,
-        chauffeur: 'Jean',
-        numPermis: 'P1',
-        numLot: 'L1');
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: 'P1',
+      numLot: 'L1',
+    );
     expect(r.getRight().toNullable()!.depotId, 'D1');
   });
 
   test('plaque cohérente si arrivée == attendue (normalisée)', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1', depots: depots, lat: -18.90005, lon: 47.5,
-        chauffeur: 'J', numPermis: 'P', numLot: 'L',
-        plaqueArrivee: '1234 tbr', plaqueAttendue: '1234-TBR');
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'J',
+      numPermis: 'P',
+      numLot: 'L',
+      plaqueArrivee: '1234 tbr',
+      plaqueAttendue: '1234-TBR',
+    );
     expect(r.getRight().toNullable()!.plaqueCoherente, isTrue);
   });
 
   test('plaque incohérente si arrivée != attendue', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1', depots: depots, lat: -18.90005, lon: 47.5,
-        chauffeur: 'J', numPermis: 'P', numLot: 'L',
-        plaqueArrivee: '9999 ABC', plaqueAttendue: '1234 TBR');
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'J',
+      numPermis: 'P',
+      numLot: 'L',
+      plaqueArrivee: '9999 ABC',
+      plaqueAttendue: '1234 TBR',
+    );
     expect(r.getRight().toNullable()!.plaqueCoherente, isFalse);
   });
 
-  test('plaque cohérente par défaut si attendue inconnue', () {
+  test('plaque non vérifiable si la plaque attendue est inconnue', () {
     final r = ValidateArrivee(DetectDepot())(
-        lotId: 'MICA-2026-0001-L1', depots: depots, lat: -18.90005, lon: 47.5,
-        chauffeur: 'J', numPermis: 'P', numLot: 'L',
-        plaqueArrivee: '9999 ABC', plaqueAttendue: null);
-    expect(r.getRight().toNullable()!.plaqueCoherente, isTrue);
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'J',
+      numPermis: 'P',
+      numLot: 'L',
+      plaqueArrivee: '9999 ABC',
+      plaqueAttendue: null,
+    );
+    expect(r.getRight().toNullable()!.plaqueCoherente, isFalse);
   });
 }

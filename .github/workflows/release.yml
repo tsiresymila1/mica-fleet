@@ -89,6 +89,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           ODOO_URL="${ODOO_URL:-https://staging.radoran.net}"
+          ODOO_URL="${ODOO_URL#"${ODOO_URL%%[![:space:]]*}"}"
+          ODOO_URL="${ODOO_URL%"${ODOO_URL##*[![:space:]]}"}"
           case "$ODOO_URL" in
             https://*) ;;
             *) echo "::error::MICA_ODOO_URL doit être une URL HTTPS non vide"; exit 1 ;;

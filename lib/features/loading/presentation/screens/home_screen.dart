@@ -44,6 +44,7 @@ class HomeScreen extends ConsumerWidget {
             tooltip: 'Synchroniser',
             icon: const Icon(Icons.sync),
             onPressed: () async {
+              showAppToast(context, 'Synchronisation lancée');
               await ref.read(triggerSyncProvider).sync();
               ref.invalidate(lotsListProvider);
             },

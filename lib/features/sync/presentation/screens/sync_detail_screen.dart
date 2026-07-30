@@ -187,6 +187,9 @@ class SyncDetailScreen extends ConsumerWidget {
                             nextRetryAt: null,
                           );
                     }
+                    if (context.mounted) {
+                      showAppToast(context, 'Nouvelle tentative lancée');
+                    }
                     await ref.read(triggerSyncProvider).sync();
                     ref.invalidate(syncOpProvider(opId));
                     ref.invalidate(syncHistoryProvider);

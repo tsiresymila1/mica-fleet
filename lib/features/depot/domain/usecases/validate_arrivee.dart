@@ -25,7 +25,8 @@ class ValidateArrivee {
         numPermis.trim().isEmpty ||
         numLot.trim().isEmpty) {
       return left(
-          const Failure.validation('Chauffeur, permis et lot obligatoires'));
+        const Failure.validation('Chauffeur, permis et lot obligatoires'),
+      );
     }
     // On rattache au dépôt le plus proche sans exiger d'être dans la zone :
     // hors zone ou coords serveur absentes n'empêchent plus de valider — le
@@ -35,27 +36,34 @@ class ValidateArrivee {
     if (proche == null) {
       return left(const Failure.validation('Aucun dépôt dans le référentiel'));
     }
-    return right(ArriveeDepot(
-      lotId: lotId,
-      depotId: proche.depot.id,
-      chauffeur: chauffeur,
-      numPermis: numPermis,
-      numLot: numLot,
-      gpsLat: lat,
-      gpsLon: lon,
-      statutGps: proche.statutGps,
-      plaqueArrivee: plaqueArrivee,
-      plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
-      photoArriveePath: photoArriveePath,
-      photoPermisPath: photoPermisPath,
-    ));
+    return right(
+      ArriveeDepot(
+        lotId: lotId,
+        depotId: proche.depot.id,
+        chauffeur: chauffeur,
+        numPermis: numPermis,
+        numLot: numLot,
+        gpsLat: lat,
+        gpsLon: lon,
+        statutGps: proche.statutGps,
+        plaqueArrivee: plaqueArrivee,
+        plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
+        photoArriveePath: photoArriveePath,
+        photoPermisPath: photoPermisPath,
+      ),
+    );
   }
 
   /// Vrai si plaque d'arrivée == plaque attendue (anti-fraude immatriculation).
-  /// Si l'une est inconnue, on ne peut pas infirmer → cohérent.
+  /// Une plaque absente ne peut pas être validée et pénalise donc le score.
   bool _coherente(String? arrivee, String? attendue) {
-    if (arrivee == null || attendue == null) return true;
-    String norm(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-    return norm(arrivee) == norm(attendue);
+    if (arrivee == null || attendue == null) return false;
+    String norm(String s) =>
+        s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final plaqueArrivee = norm(arrivee);
+    final plaqueAttendue = norm(attendue);
+    return plaqueArrivee.isNotEmpty &&
+        plaqueAttendue.isNotEmpty &&
+        plaqueArrivee == plaqueAttendue;
   }
 }

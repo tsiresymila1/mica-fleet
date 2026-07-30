@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,23 +14,34 @@ import '../providers/chargement_detail_provider.dart';
 /// Supprime un maillon de la chaîne d'un lot (renumérote le reste), après
 /// confirmation. Autorisé seulement tant que le lot est en cours.
 Future<void> _supprimerMaillon(
-    BuildContext context, WidgetRef ref, String lotId, int ordre) async {
+  BuildContext context,
+  WidgetRef ref,
+  String lotId,
+  int ordre,
+) async {
   final ok = await showConfirm(
-      context, 'Supprimer le changement de camion n°$ordre ?',
-      titre: 'Supprimer', confirmLabel: 'Supprimer', danger: true);
+    context,
+    'Supprimer le changement de camion n°$ordre ?',
+    titre: 'Supprimer',
+    confirmLabel: 'Supprimer',
+    danger: true,
+  );
   if (!ok) return;
   final repo = ref.read(transportRepoProvider);
   final chaine = await repo.chaineFor(lotId);
   final restante = ref.read(removeTransbordementProvider)(chaine, ordre);
   final validee = ref.read(validateTransbordementProvider)(
-      restante, kRayonTransbordementMetres);
+    restante,
+    kRayonTransbordementMetres,
+  );
   final res = await repo.persistChaine(lotId, validee);
   ref.invalidate(lotDetailProvider(lotId));
   if (context.mounted) {
     await showAppMessage(
-        context,
-        res.isRight() ? 'Changement supprimé' : 'Suppression impossible',
-        kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error);
+      context,
+      res.isRight() ? 'Changement supprimé' : 'Suppression impossible',
+      kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error,
+    );
   }
 }
 
@@ -58,16 +68,18 @@ class ChargementDetailScreen extends ConsumerWidget {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(children: [
-                  _kv('Session', d.sessionId),
-                  _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
-                  _kv('Statut', d.statut),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _syncPill(d.sync),
-                  ),
-                ]),
+                child: Column(
+                  children: [
+                    _kv('Session', d.sessionId),
+                    _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
+                    _kv('Statut', d.statut),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _syncPill(d.sync),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -76,88 +88,121 @@ class ChargementDetailScreen extends ConsumerWidget {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Row(children: [
-                  _thumb(context, d.photoPath, size: 64),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(d.mineId,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w700)),
-                        Text([
-                          if (d.couleur != null) d.couleur,
-                          if (d.plaqueDepart != null) d.plaqueDepart,
-                          if (d.quantite != null) '${d.quantite} kg',
-                        ].whereType<String>().join('  •  ')),
-                        if (d.lat != null)
+                child: Row(
+                  children: [
+                    _thumb(context, d.photoPath, size: 64),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
+                            d.mineId,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            [
+                              if (d.couleur != null) d.couleur,
+                              if (d.plaqueDepart != null) d.plaqueDepart,
+                              if (d.quantite != null) '${d.quantite} kg',
+                            ].whereType<String>().join('  •  '),
+                          ),
+                          if (d.lat != null)
+                            Text(
                               'GPS ${d.lat!.toStringAsFixed(4)}, ${d.lon!.toStringAsFixed(4)}',
-                              style: Theme.of(context).textTheme.bodyMedium),
-                      ],
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
             StepHeader(
-                numero: 2,
-                titre: 'Camions (${d.transbordements.length} changement(s))'),
+              numero: 2,
+              titre: 'Camions (${d.transbordements.length} changement(s))',
+            ),
             const SizedBox(height: 8),
             if (d.transbordements.isEmpty)
               const _Muted('Transport direct (aucun changement)')
             else
-              ...d.transbordements.map((t) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Column(children: [
-                    ListTile(
-                      leading: CircleAvatar(child: Text('${t.ordre}')),
-                      title: Text(
-                          '${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}'),
-                      subtitle: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: StatusPill(
-                              kind: t.conforme ? PillKind.ok : PillKind.warn,
-                              label: t.conforme ? 'GPS ok' : 'Hors zone'),
+              ...d.transbordements.map(
+                (t) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: CircleAvatar(child: Text('${t.ordre}')),
+                        title: Text(
+                          '${t.plaqueAvant ?? '?'} → ${t.plaqueApres ?? '?'}',
                         ),
+                        subtitle: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: StatusPill(
+                              kind: t.conforme ? PillKind.ok : PillKind.warn,
+                              label: t.conforme ? 'GPS ok' : 'Hors zone',
+                            ),
+                          ),
+                        ),
+                        // Correction possible tant que le lot n'est pas arrivé.
+                        trailing: d.statut == 'en_cours'
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_outlined),
+                                    tooltip: 'Corriger',
+                                    onPressed: () async {
+                                      await context.push(
+                                        '/transbordement/${d.id}?ordre=${t.ordre}',
+                                      );
+                                      ref.invalidate(lotDetailProvider(d.id));
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: AppColors.danger,
+                                    ),
+                                    tooltip: 'Supprimer',
+                                    onPressed: () => _supprimerMaillon(
+                                      context,
+                                      ref,
+                                      d.id,
+                                      t.ordre,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : null,
                       ),
-                      // Correction possible tant que le lot n'est pas arrivé.
-                      trailing: d.statut == 'en_cours'
-                          ? Row(mainAxisSize: MainAxisSize.min, children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit_outlined),
-                                tooltip: 'Corriger',
-                                onPressed: () async {
-                                  await context.push(
-                                      '/transbordement/${d.id}?ordre=${t.ordre}');
-                                  ref.invalidate(lotDetailProvider(d.id));
-                                },
+                      if (t.photoDecharge != null || t.photoRecharge != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                          child: Row(
+                            children: [
+                              _thumbLabel(
+                                context,
+                                'Déchargement',
+                                t.photoDecharge,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: AppColors.danger),
-                                tooltip: 'Supprimer',
-                                onPressed: () =>
-                                    _supprimerMaillon(context, ref, d.id, t.ordre),
+                              const SizedBox(width: 16),
+                              _thumbLabel(
+                                context,
+                                'Rechargement',
+                                t.photoRecharge,
                               ),
-                            ])
-                          : null,
-                    ),
-                    if (t.photoDecharge != null || t.photoRecharge != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: Row(children: [
-                          _thumbLabel(context, 'Déchargement', t.photoDecharge),
-                          const SizedBox(width: 16),
-                          _thumbLabel(context, 'Rechargement', t.photoRecharge),
-                        ]),
-                      ),
-                    ]),
-                  )),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             const SizedBox(height: 16),
             StepHeader(numero: 3, titre: 'Arrivée'),
             const SizedBox(height: 8),
@@ -187,7 +232,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                                 : PillKind.warn,
                             label: d.arrivee!.plaqueCoherente
                                 ? 'Plaque cohérente'
-                                : 'Plaque différente du départ',
+                                : 'Plaque différente ou non vérifiable',
                           ),
                           _gpsPill(d.arrivee!.statutGps),
                         ],
@@ -195,17 +240,25 @@ class ChargementDetailScreen extends ConsumerWidget {
                       if (d.arrivee!.photoArrivee != null ||
                           d.arrivee!.photoPermis != null) ...[
                         const SizedBox(height: 12),
-                        Row(children: [
-                          if (d.arrivee!.photoArrivee != null)
-                            _thumbLabel(
-                                context, 'Arrivée', d.arrivee!.photoArrivee),
-                          if (d.arrivee!.photoArrivee != null &&
-                              d.arrivee!.photoPermis != null)
-                            const SizedBox(width: 16),
-                          if (d.arrivee!.photoPermis != null)
-                            _thumbLabel(
-                                context, 'Permis', d.arrivee!.photoPermis),
-                        ]),
+                        Row(
+                          children: [
+                            if (d.arrivee!.photoArrivee != null)
+                              _thumbLabel(
+                                context,
+                                'Arrivée',
+                                d.arrivee!.photoArrivee,
+                              ),
+                            if (d.arrivee!.photoArrivee != null &&
+                                d.arrivee!.photoPermis != null)
+                              const SizedBox(width: 16),
+                            if (d.arrivee!.photoPermis != null)
+                              _thumbLabel(
+                                context,
+                                'Permis',
+                                d.arrivee!.photoPermis,
+                              ),
+                          ],
+                        ),
                       ],
                     ],
                   ),
@@ -244,11 +297,11 @@ class ChargementDetailScreen extends ConsumerWidget {
                 ),
               )
             : (d.renvoyable
-                ? SafeArea(
-                    minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-                    child: _SyncButton(lotId: lotId),
-                  )
-                : null),
+                  ? SafeArea(
+                      minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                      child: _SyncButton(lotId: lotId),
+                    )
+                  : null),
         orElse: () => null,
       ),
     );
@@ -266,7 +319,9 @@ class _TrajetCard extends ConsumerWidget {
     final points = ref.watch(trajetPointsProvider(sessionId));
     return points.when(
       loading: () => const SizedBox(
-          height: 60, child: Center(child: CircularProgressIndicator())),
+        height: 60,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, _) => const _Muted('Trajet indisponible'),
       data: (pts) {
         if (pts.length < 2) {
@@ -283,37 +338,48 @@ class _TrajetCard extends ConsumerWidget {
                   padding: const EdgeInsets.all(30),
                 ),
                 interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag),
+                  flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                ),
               ),
               children: [
                 TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'net.radoran.mica',
                 ),
-                PolylineLayer(polylines: [
-                  Polyline(
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
                       points: pts,
                       strokeWidth: 4,
-                      color: AppColors.primary),
-                ]),
-                MarkerLayer(markers: [
-                  Marker(
-                    point: pts.first,
-                    width: 34,
-                    height: 34,
-                    child: const Icon(Icons.trip_origin,
-                        color: AppColors.ok, size: 28),
-                  ),
-                  Marker(
-                    point: pts.last,
-                    width: 34,
-                    height: 34,
-                    alignment: Alignment.topCenter,
-                    child: const Icon(Icons.location_on,
-                        color: AppColors.danger, size: 34),
-                  ),
-                ]),
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: pts.first,
+                      width: 34,
+                      height: 34,
+                      child: const Icon(
+                        Icons.trip_origin,
+                        color: AppColors.ok,
+                        size: 28,
+                      ),
+                    ),
+                    Marker(
+                      point: pts.last,
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.topCenter,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: AppColors.danger,
+                        size: 34,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -325,17 +391,27 @@ class _TrajetCard extends ConsumerWidget {
 
 /// Pastille de l'état de synchronisation du lot.
 Widget _syncPill(SyncEtat s) => switch (s) {
-      SyncEtat.synchronise =>
-        const StatusPill(kind: PillKind.ok, label: 'Synchronisé'),
-      SyncEtat.envoiPhotos =>
-        const StatusPill(kind: PillKind.neutral, label: 'Photos en cours'),
-      SyncEtat.enAttente =>
-        const StatusPill(kind: PillKind.warn, label: 'À envoyer'),
-      SyncEtat.echec =>
-        const StatusPill(kind: PillKind.danger, label: 'Échec — à renvoyer'),
-      SyncEtat.local =>
-        const StatusPill(kind: PillKind.neutral, label: 'Non envoyé'),
-    };
+  SyncEtat.synchronise => const StatusPill(
+    kind: PillKind.ok,
+    label: 'Synchronisé',
+  ),
+  SyncEtat.envoiPhotos => const StatusPill(
+    kind: PillKind.neutral,
+    label: 'Photos en cours',
+  ),
+  SyncEtat.enAttente => const StatusPill(
+    kind: PillKind.warn,
+    label: 'À envoyer',
+  ),
+  SyncEtat.echec => const StatusPill(
+    kind: PillKind.danger,
+    label: 'Échec — à renvoyer',
+  ),
+  SyncEtat.local => const StatusPill(
+    kind: PillKind.neutral,
+    label: 'Non envoyé',
+  ),
+};
 
 /// Bouton d'envoi manuel. Désactive pendant l'envoi (anti double-tap) ; le
 /// double envoi réel est déjà empêché par le claim atomique + l'idempotence
@@ -352,6 +428,7 @@ class _SyncButtonState extends ConsumerState<_SyncButton> {
 
   Future<void> _envoyer() async {
     setState(() => _envoi = true);
+    showAppToast(context, 'Synchronisation lancée');
     try {
       await ref.read(triggerSyncProvider).sync();
       ref.invalidate(lotDetailProvider(widget.lotId));
@@ -362,71 +439,56 @@ class _SyncButtonState extends ConsumerState<_SyncButton> {
 
   @override
   Widget build(BuildContext context) => BigButton(
-        icon: _envoi ? Icons.hourglass_top : Icons.cloud_upload,
-        label: _envoi ? 'Envoi en cours…' : 'Envoyer maintenant',
-        onPressed: _envoi ? null : _envoyer,
-      );
+    icon: _envoi ? Icons.hourglass_top : Icons.cloud_upload,
+    label: _envoi ? 'Envoi en cours…' : 'Envoyer maintenant',
+    onPressed: _envoi ? null : _envoyer,
+  );
 }
 
 /// Pastille du statut GPS d'arrivée (valide / hors zone / non vérifiable).
 Widget _gpsPill(String statut) => switch (statut) {
-      'valide' => const StatusPill(kind: PillKind.ok, label: 'GPS validé'),
-      'hors_zone' =>
-        const StatusPill(kind: PillKind.warn, label: 'Hors zone dépôt'),
-      _ => const StatusPill(
-          kind: PillKind.neutral, label: 'GPS non vérifiable'),
-    };
+  'valide' => const StatusPill(kind: PillKind.ok, label: 'GPS validé'),
+  'hors_zone' => const StatusPill(
+    kind: PillKind.warn,
+    label: 'Hors zone dépôt',
+  ),
+  _ => const StatusPill(kind: PillKind.neutral, label: 'GPS non vérifiable'),
+};
 
 /// Vignette photo cliquable (ouvre en plein écran), ou placeholder si absente.
 Widget _thumb(BuildContext context, String? path, {double size = 56}) {
-  final existe = path != null && File(path).existsSync();
-  return GestureDetector(
-    onTap: existe ? () => openPhoto(context, path) : null,
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: existe
-            ? Hero(tag: path, child: Image.file(File(path), fit: BoxFit.cover))
-            : Container(
-                color: AppColors.line,
-                child: const Icon(Icons.image_not_supported,
-                    color: AppColors.inkSoft)),
-      ),
-    ),
-  );
+  return PhotoThumb(path: path, size: size);
 }
 
 /// Vignette + légende sous elle (pour les photos de camion / arrivée).
 Widget _thumbLabel(BuildContext context, String label, String? path) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _thumb(context, path, size: 72),
-        const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
-    );
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    _thumb(context, path, size: 72),
+    const SizedBox(height: 4),
+    Text(label, style: Theme.of(context).textTheme.bodyMedium),
+  ],
+);
 
 Widget _kv(String k, String v) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(k, style: const TextStyle(color: AppColors.inkSoft)),
-          Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
+  padding: const EdgeInsets.symmetric(vertical: 4),
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(k, style: const TextStyle(color: AppColors.inkSoft)),
+      Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+    ],
+  ),
+);
 
 class _Muted extends StatelessWidget {
   final String texte;
   const _Muted(this.texte);
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(texte, style: Theme.of(context).textTheme.bodyMedium),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Text(texte, style: Theme.of(context).textTheme.bodyMedium),
+  );
 }
 
 class _ScoreCircle extends StatelessWidget {
@@ -437,24 +499,26 @@ class _ScoreCircle extends StatelessWidget {
     final couleur = score >= 80
         ? AppColors.ok
         : score > 0
-            ? AppColors.warn
-            : AppColors.danger;
+        ? AppColors.warn
+        : AppColors.danger;
     return Container(
       width: 120,
       height: 120,
       decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: couleur.withValues(alpha: 0.12),
-          border: Border.all(color: couleur, width: 6)),
+        shape: BoxShape.circle,
+        color: couleur.withValues(alpha: 0.12),
+        border: Border.all(color: couleur, width: 6),
+      ),
       alignment: Alignment.center,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('$score',
-              style: Theme.of(context)
-                  .textTheme
-                  .displaySmall!
-                  .copyWith(color: couleur, fontSize: 40)),
+          Text(
+            '$score',
+            style: Theme.of(
+              context,
+            ).textTheme.displaySmall!.copyWith(color: couleur, fontSize: 40),
+          ),
           const Text('/ 100', style: TextStyle(color: AppColors.inkSoft)),
         ],
       ),

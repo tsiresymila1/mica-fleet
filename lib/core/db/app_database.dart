@@ -104,6 +104,10 @@ class Lots extends Table {
   IntColumn get score => integer().nullable()();
   BoolColumn get photosUploaded =>
       boolean().withDefault(const Constant(false))();
+  // Clés des fichiers déjà confirmés par Odoo. Les fichiers restent conservés
+  // pour l'historique visuel ; cette liste évite les doublons à la reprise.
+  TextColumn get uploadedPhotoKeys =>
+      text().withDefault(const Constant('[]'))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -223,7 +227,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -248,6 +252,9 @@ class AppDatabase extends _$AppDatabase {
       if (from < 14) {
         await m.createTable(mineSubmissions);
         await m.createTable(mineSubmissionPhotos);
+      }
+      if (from < 15) {
+        await m.addColumn(lots, lots.uploadedPhotoKeys);
       }
     },
   );

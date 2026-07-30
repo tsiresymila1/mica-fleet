@@ -12,22 +12,22 @@ ScoringInputs _base({
   double ecart = 1,
   double hist = 1.0,
   bool gpsVerifiable = true,
-}) =>
-    ScoringInputs(
-        gpsMineDansRayon: gpsMine,
-        photoMineValide: true,
-        fournisseurActif: true,
-        mineAutorisee: true,
-        donneesCompletes: true,
-        nombreMines: mines,
-        depotReconnu: true,
-        gpsNonFalsifie: !mock,
-        distanceGpsMetres: dist,
-        gpsVerifiable: gpsVerifiable,
-        ratioDelai: ratio,
-        transportCoherent: transport,
-        ecartQuantitePct: ecart,
-        tauxConformite90j: hist);
+}) => ScoringInputs(
+  gpsMineDansRayon: gpsMine,
+  photoMineValide: true,
+  fournisseurActif: true,
+  mineAutorisee: true,
+  donneesCompletes: true,
+  nombreMines: mines,
+  depotReconnu: true,
+  gpsNonFalsifie: !mock,
+  distanceGpsMetres: dist,
+  gpsVerifiable: gpsVerifiable,
+  ratioDelai: ratio,
+  transportCoherent: transport,
+  ecartQuantitePct: ecart,
+  tauxConformite90j: hist,
+);
 
 void main() {
   final engine = ScoringEngine();
@@ -53,17 +53,24 @@ void main() {
     expect(engine.evaluate(_base(mines: 4)).eligible, isFalse);
   });
 
-  test('GPS non vérifiable (coords serveur absentes) → 10 pts neutres', () {
-    // Distance énorme (comme un dépôt à 0,0) mais non vérifiable : on ne
-    // pénalise pas — demi-crédit au lieu de 0. 10 + 25 + 20 + 20 + 15 = 90.
+  test('GPS non vérifiable (coords serveur absentes) → 0 point GPS', () {
     final r = engine.evaluate(_base(dist: 999999, gpsVerifiable: false));
     expect(r.eligible, isTrue);
-    expect(r.score, 90);
+    expect(r.score, 80);
+  });
+
+  test('GPS non vérifiable et plaque incohérente ne peuvent pas donner 90', () {
+    final r = engine.evaluate(
+      _base(dist: 999999, gpsVerifiable: false, transport: false),
+    );
+    expect(r.eligible, isTrue);
+    expect(r.score, 60);
   });
 
   test('barèmes partiels cumulés', () {
-    final r = engine.evaluate(_base(
-        dist: 40, ratio: 1.25, transport: false, ecart: 8, hist: 0.92));
+    final r = engine.evaluate(
+      _base(dist: 40, ratio: 1.25, transport: false, ecart: 8, hist: 0.92),
+    );
     expect(r.score, 15 + 12 + 0 + 10 + 12);
   });
 }

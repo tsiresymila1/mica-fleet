@@ -25,6 +25,7 @@ class SyncHistoryScreen extends ConsumerWidget {
             tooltip: 'Tout synchroniser',
             icon: const Icon(Icons.sync),
             onPressed: () async {
+              showAppToast(context, 'Synchronisation lancée');
               await ref.read(triggerSyncProvider).sync();
               ref.invalidate(syncHistoryProvider);
             },

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show OrderingTerm, Value;
@@ -288,7 +289,7 @@ void main() {
     });
 
     test(
-      'après submit lot : upload une photo à la fois + purge fichier',
+      'après submit lot : upload unitaire et conservation du fichier',
       () async {
         final tmp = File('${Directory.systemTemp.path}/mica_test_photo.jpg')
           ..writeAsBytesSync([1, 2, 3]);
@@ -348,7 +349,8 @@ void main() {
           db.lots,
         )..where((t) => t.id.equals('C1-L1'))).getSingle();
         expect(lot.photosUploaded, isTrue);
-        expect(tmp.existsSync(), isFalse); // fichier purgé
+        expect(tmp.existsSync(), isTrue); // conservé pour le détail du lot
+        expect(jsonDecode(lot.uploadedPhotoKeys), ['mine']);
       },
     );
 
@@ -465,7 +467,7 @@ void main() {
         remote.uploadedPhotos.single.hash,
         '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
       );
-      expect(tmp.existsSync(), isFalse);
+      expect(tmp.existsSync(), isTrue);
     });
 
     test('un échec partiel reprend uniquement les photos restantes', () async {
@@ -531,12 +533,13 @@ void main() {
         '33333333-3333-4333-8333-333333333333',
       ]);
       expect(firstRemote.uploadedPhotos.map((p) => p.key), ['mine']);
-      expect(mine.existsSync(), isFalse);
+      expect(mine.existsSync(), isTrue);
       expect(arrival.existsSync(), isTrue);
       var lot = await (db.select(
         db.lots,
       )..where((t) => t.id.equals('C3-L1'))).getSingle();
       expect(lot.photosUploaded, isFalse);
+      expect(jsonDecode(lot.uploadedPhotoKeys), ['mine']);
       var op = await (db.select(
         db.syncQueue,
       )..where((t) => t.opId.equals('op3'))).getSingle();
@@ -547,11 +550,13 @@ void main() {
       await SyncEngine(store, retryRemote, db).sync();
 
       expect(retryRemote.uploadedPhotos.map((p) => p.key), ['arrival']);
-      expect(arrival.existsSync(), isFalse);
+      expect(mine.existsSync(), isTrue);
+      expect(arrival.existsSync(), isTrue);
       lot = await (db.select(
         db.lots,
       )..where((t) => t.id.equals('C3-L1'))).getSingle();
       expect(lot.photosUploaded, isTrue);
+      expect(jsonDecode(lot.uploadedPhotoKeys), ['mine', 'arrival']);
       op = await (db.select(
         db.syncQueue,
       )..where((t) => t.opId.equals('op3'))).getSingle();

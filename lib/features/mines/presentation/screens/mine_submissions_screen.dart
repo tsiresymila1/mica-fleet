@@ -29,7 +29,10 @@ class MineSubmissionsScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Synchroniser',
             icon: const Icon(Icons.sync),
-            onPressed: () => _refresh(ref),
+            onPressed: () async {
+              showAppToast(context, 'Synchronisation lancée');
+              await _refresh(ref);
+            },
           ),
         ],
       ),

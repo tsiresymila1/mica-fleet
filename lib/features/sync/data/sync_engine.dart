@@ -159,8 +159,9 @@ class SyncEngine {
   }
 
   /// Après le submit d'un LOT (op synced), envoie chaque photo séparément.
-  /// Chaque fichier confirmé est purgé immédiatement : en cas d'échec partiel,
-  /// le prochain passage ne reprend que les fichiers restants.
+  /// Les fichiers restent sur l'appareil pour être consultables dans le détail
+  /// du lot. Les clés confirmées sont persistées séparément afin qu'une reprise
+  /// n'envoie que les photos restantes.
   Future<void> _uploadPendingPhotos() async {
     final syncedOps =
         await (db.select(db.syncQueue)..where(
@@ -177,7 +178,8 @@ class SyncEngine {
       if (payloadId == null || payloadId.isEmpty) {
         throw StateError('payload.id absent pour le lot ${lot.id}');
       }
-      final photos = await _collectPhotos(lot.id);
+      final uploadedKeys = _decodeUploadedPhotoKeys(lot.uploadedPhotoKeys);
+      final photos = await _collectPhotos(lot.id, excludeKeys: uploadedKeys);
       for (final photo in photos) {
         try {
           await remote.uploadPhoto(lot.deviceUuid ?? op.opId, payloadId, photo);
@@ -190,14 +192,14 @@ class SyncEngine {
           );
           rethrow;
         }
-        try {
-          await File(photo.path).delete();
-        } catch (_) {
-          // L'upload est confirmé. Un fichier impossible à purger ne doit pas
-          // provoquer un nouvel envoi ; photosUploaded clôture le lot.
-        }
+        uploadedKeys.add(photo.key);
+        await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
+          LotsCompanion(
+            uploadedPhotoKeys: Value(jsonEncode(uploadedKeys.toList())),
+          ),
+        );
       }
-      // Toutes les photos encore présentes ont été confirmées par le serveur.
+      // Toutes les photos présentes ont été confirmées par le serveur.
       await (db.update(db.lots)..where((t) => t.id.equals(lot.id))).write(
         const LotsCompanion(photosUploaded: Value(true)),
       );
@@ -207,10 +209,13 @@ class SyncEngine {
 
   /// Photos d'UN lot : sa photo de mine, celles de ses transbordements, et
   /// celles de son arrivée. Clés scopées au lot (1 submit = 1 lot).
-  Future<List<PhotoPart>> _collectPhotos(String lotId) async {
+  Future<List<PhotoPart>> _collectPhotos(
+    String lotId, {
+    Set<String> excludeKeys = const {},
+  }) async {
     final parts = <PhotoPart>[];
     Future<void> add(String key, String? path, String? storedHash) async {
-      if (path == null) return;
+      if (path == null || excludeKeys.contains(key)) return;
       final file = File(path);
       if (!file.existsSync()) return;
       final hash = storedHash == null || storedHash.isEmpty
@@ -238,6 +243,18 @@ class SyncEngine {
       await add('license', arr.photoPermisPath, null);
     }
     return parts;
+  }
+
+  Set<String> _decodeUploadedPhotoKeys(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded.whereType<String>().toSet();
+      }
+    } catch (_) {
+      // Une ancienne valeur invalide ne doit pas empêcher la reprise.
+    }
+    return <String>{};
   }
 
   /// Après le submit d'une proposition, envoie ses preuves une par une. Le

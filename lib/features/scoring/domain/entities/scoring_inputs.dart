@@ -16,8 +16,8 @@ abstract class ScoringInputs with _$ScoringInputs {
     // Niveau 2 — conformité
     required double distanceGpsMetres, // A
     // GPS vérifiable = coordonnées du lieu renseignées côté serveur. Si false
-    // (lat/lon 0,0 ou rayon 0), on ne peut ni confirmer ni infirmer la position
-    // → score GPS neutre (ni plein, ni pénalisé), à auditer côté Odoo.
+    // (lat/lon 0,0 ou rayon 0), la position ne peut pas être confirmée : la
+    // composante GPS vaut 0 et le référentiel doit être corrigé côté Odoo.
     @Default(true) bool gpsVerifiable,
     required double ratioDelai, // B : temps écoulé / limite (1.0 = pile)
     required bool transportCoherent, // C
