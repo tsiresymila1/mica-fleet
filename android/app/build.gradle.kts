@@ -36,7 +36,7 @@ android {
     // sinon clé debug (pratique en local). Une clé stable = mises à jour possibles.
     signingConfigs {
         create("release") {
-            val ksPath = System.getenv("KEYSTORE_PATH")
+            val ksPath = System.getenv("KEYSTORE_PATH")?.takeIf { it.isNotBlank() }
             if (ksPath != null) {
                 storeFile = file(ksPath)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
@@ -48,7 +48,7 @@ android {
 
     buildTypes {
         release {
-            val hasKeystore = System.getenv("KEYSTORE_PATH") != null
+            val hasKeystore = !System.getenv("KEYSTORE_PATH").isNullOrBlank()
             signingConfig = if (hasKeystore) {
                 signingConfigs.getByName("release")
             } else {

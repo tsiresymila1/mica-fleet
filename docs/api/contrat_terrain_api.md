@@ -4,6 +4,9 @@ Document de référence pour l'équipe Odoo (Technarea) et l'équipe mobile. Dé
 les endpoints appelés par l'app Android, les données envoyées et les réponses
 attendues. Aligné sur la collection Postman **RADORAN API**.
 
+La proposition manuelle d'une nouvelle mine et son workflow de validation sont
+décrits dans [`contrat_creation_mine.md`](contrat_creation_mine.md).
+
 - **Base URL** : `https://<odoo>/` (configurée dans l'app via `MICA_ODOO_URL`)
 - **Format** : JSON (sauf upload photos = `multipart/form-data`)
 - **Auth** : `Authorization: Bearer <token>` sur tous les endpoints **sauf** `/login`

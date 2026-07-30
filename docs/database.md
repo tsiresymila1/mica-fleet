@@ -153,6 +153,36 @@ Référentiel des carrières (synchronisé depuis Odoo). Sert au contrôle GPS d
 | district, commune, region | text | nullable | Localisation administrative |
 | actif | bool | défaut true | Mine autorisée/active |
 
+### MineSubmissions
+Propositions créées manuellement sur le terrain. Elles restent séparées de
+`Mines` jusqu'à la réponse `approved` du serveur.
+
+| Colonne | Type | Contrainte | Rôle |
+|---|---|---|---|
+| payloadId | text | **PK**, UUID | `payload.id` de la proposition |
+| deviceUuid | text | UUID | Idempotence du submit et des photos |
+| nom | text | non nul | Nom proposé |
+| agentLogin | text | nullable | Agent ayant créé la proposition |
+| state | text | défaut `local_pending` | État local/serveur de validation |
+| serverId | int | nullable | Identifiant technique Odoo |
+| approvedMineId | text | nullable | Mine canonique créée après validation |
+| rejectionReason | text | nullable | Motif de refus Odoo |
+| createdAt, updatedAt | datetime | non nul | Suivi local |
+
+### MineSubmissionPhotos
+Preuves géolocalisées d'une proposition, envoyées une par une.
+
+| Colonne | Type | Contrainte | Rôle |
+|---|---|---|---|
+| payloadId | text | **PK**, FK → MineSubmissions | Proposition |
+| key | text | **PK** | `position_1`, `position_2`, etc. |
+| path | text | non nul | Copie locale durable du JPEG |
+| hash | text | non nul | SHA-256 transmis et vérifié |
+| lat, lon | real | non nul | Position de capture |
+| gpsAccuracy | real | non nul | Précision GPS en mètres |
+| capturedAt | datetime | non nul | Horodatage de capture |
+| uploaded | bool | défaut false | Confirmation d'upload unitaire |
+
 ### Depots
 Référentiel des dépôts de destination. Sert au contrôle GPS d'arrivée.
 

@@ -26,6 +26,20 @@ class PhotoPart {
   PhotoPart(this.key, this.path, this.hash);
 }
 
+class RemoteMineSubmissionStatus {
+  final String payloadId;
+  final String state;
+  final String? rejectionReason;
+  final RemoteMine? mine;
+
+  const RemoteMineSubmissionStatus({
+    required this.payloadId,
+    required this.state,
+    this.rejectionReason,
+    this.mine,
+  });
+}
+
 abstract class RemoteDataSource {
   /// Push idempotent : Odoo déduplique sur op.opId. Lève en cas d'échec réseau.
   /// Renvoie l'id du record créé/mis à jour côté Odoo (odoo_id), ou null.
@@ -38,6 +52,18 @@ abstract class RemoteDataSource {
     String deviceUuid,
     String payloadId,
     PhotoPart photo,
+  );
+
+  /// Upload unitaire d'une preuve de position pour une proposition de mine.
+  Future<void> uploadMinePhoto(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo,
+  );
+
+  /// État de validation Odoo d'une proposition de mine.
+  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
+    String payloadId,
   );
 
   /// Pull du référentiel mines.

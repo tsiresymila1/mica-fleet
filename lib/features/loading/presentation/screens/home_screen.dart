@@ -27,10 +27,13 @@ class HomeScreen extends ConsumerWidget {
         id: fournisseur?.id ?? '',
         onLogout: () async {
           Navigator.of(context).pop();
-          final ok = await showConfirm(context, 'Veux-tu te déconnecter ?',
-              titre: 'Déconnexion',
-              confirmLabel: 'Déconnexion',
-              danger: true);
+          final ok = await showConfirm(
+            context,
+            'Veux-tu te déconnecter ?',
+            titre: 'Déconnexion',
+            confirmLabel: 'Déconnexion',
+            danger: true,
+          );
           if (ok) ref.read(authControllerProvider.notifier).logout();
         },
       ),
@@ -77,8 +80,9 @@ class HomeScreen extends ConsumerWidget {
                         _ScoreBadge(score: l.score!)
                       else
                         StatusPill(
-                            kind: l.arrive ? PillKind.ok : PillKind.neutral,
-                            label: l.arrive ? 'Arrivé' : 'En route'),
+                          kind: l.arrive ? PillKind.ok : PillKind.neutral,
+                          label: l.arrive ? 'Arrivé' : 'En route',
+                        ),
                     ],
                   ),
                   onTap: () async {
@@ -94,15 +98,18 @@ class HomeScreen extends ConsumerWidget {
                     alignment: Alignment.centerRight,
                     padding: const EdgeInsets.only(right: 24),
                     decoration: BoxDecoration(
-                        color: AppColors.danger.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8)),
+                      color: AppColors.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: const Icon(Icons.delete, color: AppColors.danger),
                   ),
-                  confirmDismiss: (_) => showConfirm(context,
-                      'Supprimer le chargement ${l.sessionId} et tous ses lots ?',
-                      titre: 'Supprimer',
-                      confirmLabel: 'Supprimer',
-                      danger: true),
+                  confirmDismiss: (_) => showConfirm(
+                    context,
+                    'Supprimer le chargement ${l.sessionId} et tous ses lots ?',
+                    titre: 'Supprimer',
+                    confirmLabel: 'Supprimer',
+                    danger: true,
+                  ),
                   onDismissed: (_) async {
                     final res = await ref
                         .read(loadingRepoProvider)
@@ -110,13 +117,14 @@ class HomeScreen extends ConsumerWidget {
                     ref.invalidate(lotsListProvider);
                     if (context.mounted) {
                       await showAppMessage(
-                          context,
-                          res.isRight()
-                              ? 'Chargement supprimé'
-                              : 'Suppression impossible',
-                          kind: res.isRight()
-                              ? AppMsgKind.success
-                              : AppMsgKind.error);
+                        context,
+                        res.isRight()
+                            ? 'Chargement supprimé'
+                            : 'Suppression impossible',
+                        kind: res.isRight()
+                            ? AppMsgKind.success
+                            : AppMsgKind.error,
+                      );
                     }
                   },
                   child: tile,
@@ -145,8 +153,11 @@ class _AccountDrawer extends StatelessWidget {
   final String nom;
   final String id;
   final VoidCallback onLogout;
-  const _AccountDrawer(
-      {required this.nom, required this.id, required this.onLogout});
+  const _AccountDrawer({
+    required this.nom,
+    required this.id,
+    required this.onLogout,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -171,20 +182,24 @@ class _AccountDrawer extends StatelessWidget {
                   CircleAvatar(
                     radius: 28,
                     backgroundColor: AppColors.gold,
-                    child: Text(initiale,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall!
-                            .copyWith(color: Colors.white)),
+                    child: Text(
+                      initiale,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineSmall!.copyWith(color: Colors.white),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  Text(nom,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge!
-                          .copyWith(color: Colors.white)),
-                  Text('ID : $id',
-                      style: const TextStyle(color: Colors.white70)),
+                  Text(
+                    nom,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge!.copyWith(color: Colors.white),
+                  ),
+                  Text(
+                    'ID : $id',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                 ],
               ),
             ),
@@ -208,6 +223,15 @@ class _AccountDrawer extends StatelessWidget {
               context.push('/sync');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.add_location_alt_outlined),
+            title: const Text('Proposer une mine'),
+            subtitle: const Text('Ajout manuel et validation'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.push('/mines-manual');
+            },
+          ),
           if (AppConfig.demo)
             ListTile(
               leading: const Icon(Icons.science_outlined),
@@ -222,8 +246,10 @@ class _AccountDrawer extends StatelessWidget {
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.logout, color: AppColors.danger),
-            title: const Text('Se déconnecter',
-                style: TextStyle(color: AppColors.danger)),
+            title: const Text(
+              'Se déconnecter',
+              style: TextStyle(color: AppColors.danger),
+            ),
             onTap: onLogout,
           ),
           const SizedBox(height: 8),
@@ -243,17 +269,20 @@ class _SyncIcon extends StatelessWidget {
       SyncEtat.local => (null, null, null),
       SyncEtat.synchronise => (Icons.cloud_done, AppColors.ok, 'Synchronisé'),
       SyncEtat.envoiPhotos => (
-          Icons.cloud_sync,
-          AppColors.inkSoft,
-          'Photos en cours'
-        ),
+        Icons.cloud_sync,
+        AppColors.inkSoft,
+        'Photos en cours',
+      ),
       SyncEtat.enAttente => (Icons.cloud_upload, AppColors.warn, 'À envoyer'),
       SyncEtat.echec => (Icons.cloud_off, AppColors.danger, 'Échec'),
     };
     if (icon == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: Tooltip(message: tip!, child: Icon(icon, color: color, size: 20)),
+      child: Tooltip(
+        message: tip!,
+        child: Icon(icon, color: color, size: 20),
+      ),
     );
   }
 }
@@ -266,21 +295,24 @@ class _ScoreBadge extends StatelessWidget {
     final couleur = score >= 80
         ? AppColors.ok
         : score > 0
-            ? AppColors.warn
-            : AppColors.danger;
+        ? AppColors.warn
+        : AppColors.danger;
     return Container(
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-          color: couleur.withValues(alpha: 0.12),
-          shape: BoxShape.circle,
-          border: Border.all(color: couleur, width: 2)),
+        color: couleur.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(color: couleur, width: 2),
+      ),
       alignment: Alignment.center,
-      child: Text('$score',
-          style: Theme.of(context)
-              .textTheme
-              .titleMedium!
-              .copyWith(color: couleur, fontWeight: FontWeight.w700)),
+      child: Text(
+        '$score',
+        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+          color: couleur,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }
@@ -288,28 +320,33 @@ class _ScoreBadge extends StatelessWidget {
 class _Empty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListView(
-        children: [
-          const SizedBox(height: 120),
-          Center(
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      shape: BoxShape.circle),
-                  child: const Icon(Icons.inventory_2,
-                      size: 44, color: AppColors.primary),
-                ),
-                const SizedBox(height: 16),
-                Text('Aucun lot',
-                    style: Theme.of(context).textTheme.titleMedium),
-                Text('Appuie sur « Nouveau chargement »',
-                    style: Theme.of(context).textTheme.bodyMedium),
-              ],
+    children: [
+      const SizedBox(height: 120),
+      Center(
+        child: Column(
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.inventory_2,
+                size: 44,
+                color: AppColors.primary,
+              ),
             ),
-          ),
-        ],
-      );
+            const SizedBox(height: 16),
+            Text('Aucun lot', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'Appuie sur « Nouveau chargement »',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

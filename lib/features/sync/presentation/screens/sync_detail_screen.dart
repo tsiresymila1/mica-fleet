@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/di/providers.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../domain/entities/sync_operation.dart';
 import '../sync_history_provider.dart';
 import '../sync_provider.dart';
 
@@ -174,6 +176,17 @@ class SyncDetailScreen extends ConsumerWidget {
                   icon: Icons.cloud_upload,
                   label: 'Réessayer maintenant',
                   onPressed: () async {
+                    if (h.status == 'failed') {
+                      await ref
+                          .read(localSyncStoreProvider)
+                          .updateStatus(
+                            h.opId,
+                            SyncStatus.pending,
+                            attempts: 0,
+                            lastError: null,
+                            nextRetryAt: null,
+                          );
+                    }
                     await ref.read(triggerSyncProvider).sync();
                     ref.invalidate(syncOpProvider(opId));
                     ref.invalidate(syncHistoryProvider);

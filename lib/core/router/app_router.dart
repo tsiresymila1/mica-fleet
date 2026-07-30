@@ -13,6 +13,9 @@ import '../../features/dev/dev_scenarios_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../features/sync/presentation/screens/sync_history_screen.dart';
 import '../../features/sync/presentation/screens/sync_detail_screen.dart';
+import '../../features/mines/presentation/screens/mine_submissions_screen.dart';
+import '../../features/mines/presentation/screens/create_mine_submission_screen.dart';
+import '../../shared/capture_photo_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   // Rafraîchit le routeur quand l'état d'auth change (login/logout).
@@ -35,36 +38,53 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/profil', builder: (_, _) => const ProfileScreen()),
       GoRoute(
-          path: '/sync', builder: (_, _) => const SyncHistoryScreen()),
+        path: '/mines-manual',
+        builder: (_, _) => const MineSubmissionsScreen(),
+      ),
       GoRoute(
-          path: '/sync-detail/:opId',
-          builder: (_, s) =>
-              SyncDetailScreen(opId: s.pathParameters['opId']!)),
+        path: '/mines-manual/new',
+        builder: (_, _) => const CreateMineSubmissionScreen(),
+      ),
       GoRoute(
-          path: '/chargement', builder: (_, _) => const ChargementScreen()),
+        path: '/capture-photo',
+        builder: (_, state) => CapturePhotoScreen(
+          titre: state.uri.queryParameters['title'] ?? 'Prendre une photo',
+        ),
+      ),
+      GoRoute(path: '/sync', builder: (_, _) => const SyncHistoryScreen()),
+      GoRoute(
+        path: '/sync-detail/:opId',
+        builder: (_, s) => SyncDetailScreen(opId: s.pathParameters['opId']!),
+      ),
+      GoRoute(path: '/chargement', builder: (_, _) => const ChargementScreen()),
       // Détail = UN LOT (unité de traçabilité).
       GoRoute(
-          path: '/detail/:lotId',
-          builder: (_, s) =>
-              ChargementDetailScreen(lotId: s.pathParameters['lotId']!)),
+        path: '/detail/:lotId',
+        builder: (_, s) =>
+            ChargementDetailScreen(lotId: s.pathParameters['lotId']!),
+      ),
       // Récap juste après création : liste les lots créés (niveau SESSION).
       GoRoute(
-          path: '/suivi/:sessionId',
-          builder: (_, s) =>
-              SuiviChargementScreen(sessionId: s.pathParameters['sessionId']!)),
+        path: '/suivi/:sessionId',
+        builder: (_, s) =>
+            SuiviChargementScreen(sessionId: s.pathParameters['sessionId']!),
+      ),
       // Transport et arrivée = au niveau LOT : chaque lot suit son propre camion.
       GoRoute(
-          path: '/transbordement/:lotId',
-          builder: (_, s) => TransbordementScreen(
-                lotId: s.pathParameters['lotId']!,
-                ordre: int.tryParse(s.uri.queryParameters['ordre'] ?? ''),
-              )),
+        path: '/transbordement/:lotId',
+        builder: (_, s) => TransbordementScreen(
+          lotId: s.pathParameters['lotId']!,
+          ordre: int.tryParse(s.uri.queryParameters['ordre'] ?? ''),
+        ),
+      ),
       GoRoute(
-          path: '/arrivee/:lotId',
-          builder: (_, s) => ArriveeScreen(lotId: s.pathParameters['lotId']!)),
+        path: '/arrivee/:lotId',
+        builder: (_, s) => ArriveeScreen(lotId: s.pathParameters['lotId']!),
+      ),
       GoRoute(
-          path: '/dev-scenarios',
-          builder: (_, _) => const DevScenariosScreen()),
+        path: '/dev-scenarios',
+        builder: (_, _) => const DevScenariosScreen(),
+      ),
     ],
   );
 });

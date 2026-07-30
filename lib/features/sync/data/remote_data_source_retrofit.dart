@@ -13,6 +13,12 @@ abstract class OdooApi {
   @POST('/api/tracking/submit')
   Future<dynamic> submit(@Body() Map<String, dynamic> body);
 
+  @POST('/api/mine/submit')
+  Future<dynamic> submitMine(@Body() Map<String, dynamic> body);
+
+  @GET('/api/mine/submissions/{payloadId}')
+  Future<dynamic> mineSubmissionStatus(@Path('payloadId') String payloadId);
+
   @GET('/api/mine')
   Future<dynamic> mines();
 }
@@ -28,7 +34,28 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     String payloadId,
     PhotoPart photo,
   ) async {
+    await _uploadAttachment(deviceUuid, payloadId, photo);
+  }
+
+  @override
+  Future<void> uploadMinePhoto(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo,
+  ) async {
+    await _uploadAttachment(deviceUuid, payloadId, photo, entityType: 'mine');
+  }
+
+  Future<void> _uploadAttachment(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo, {
+    String? entityType,
+  }) async {
     final form = FormData();
+    if (entityType != null) {
+      form.fields.add(MapEntry('entity_type', entityType));
+    }
     form.fields.add(MapEntry('device_uuid', deviceUuid));
     form.fields.add(MapEntry('payload_id', payloadId));
     form.fields.add(MapEntry('key', photo.key));
@@ -43,17 +70,25 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
-    final resp = await api.submit({
-      'device_uuid': op.opId, // idempotence (UNIQUE côté Odoo)
+    final envelope = {
+      'device_uuid': op.opId,
       'agent_login': op.agentLogin,
       'collected_at': _odooDate(op.createdAt),
-      // Odoo attend 'chargement' : côté serveur un enregistrement = un lot.
-      'collect_type': 'chargement',
-      'gps_lat': op.gpsLat,
-      'gps_lon': op.gpsLon,
-      'gps_accuracy': op.gpsAccuracy,
       'payload': op.payload,
-    });
+    };
+    final dynamic resp;
+    if (op.entityType == 'mine_submission') {
+      resp = await api.submitMine(envelope);
+    } else {
+      resp = await api.submit({
+        ...envelope,
+        // Odoo attend 'chargement' : côté serveur un enregistrement = un lot.
+        'collect_type': 'chargement',
+        'gps_lat': op.gpsLat,
+        'gps_lon': op.gpsLon,
+        'gps_accuracy': op.gpsAccuracy,
+      });
+    }
     // Réponse uniforme : lire 'status' (pas le code HTTP).
     // created (201) et already_synced (200) = succès.
     if (resp is Map) {
@@ -70,6 +105,27 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   }
 
   @override
+  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
+    String payloadId,
+  ) async {
+    final resp = await api.mineSubmissionStatus(payloadId);
+    if (resp is Map && resp['status'] == 'error') {
+      throw Exception(resp['message'] ?? 'Erreur de validation de la mine');
+    }
+    final data = resp is Map ? resp['data'] : null;
+    if (data is! Map) {
+      throw const FormatException('Réponse de validation mine invalide');
+    }
+    final mineData = data['mine'];
+    return RemoteMineSubmissionStatus(
+      payloadId: (data['payload_id'] ?? payloadId).toString(),
+      state: (data['state'] ?? 'pending_validation').toString(),
+      rejectionReason: data['rejection_reason']?.toString(),
+      mine: mineData is Map ? _mineFromMap(mineData) : null,
+    );
+  }
+
+  @override
   Future<List<RemoteMine>> fetchMines() async {
     final resp = await api.mines();
     List? mines;
@@ -83,20 +139,21 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     }
     if (mines == null) return [];
     return mines.map((e) {
-      final m = e as Map<String, dynamic>;
-      return RemoteMine(
-        m['id'].toString(),
-        m['name'] as String,
-        (m['lat'] as num).toDouble(),
-        (m['lon'] as num).toDouble(),
-        (m['radius_m'] as num?)?.toDouble() ?? 20,
-        m['district'] as String?,
-        m['commune'] as String?,
-        m['region'] as String?,
-        m['active'] as bool? ?? true,
-      );
+      return _mineFromMap(e as Map);
     }).toList();
   }
+
+  static RemoteMine _mineFromMap(Map m) => RemoteMine(
+    m['id'].toString(),
+    m['name'] as String,
+    (m['lat'] as num).toDouble(),
+    (m['lon'] as num).toDouble(),
+    (m['radius_m'] as num?)?.toDouble() ?? 20,
+    m['district'] as String?,
+    m['commune'] as String?,
+    m['region'] as String?,
+    m['active'] as bool? ?? true,
+  );
 
   /// Datetime au format Odoo : 'YYYY-MM-DD HH:MM:SS' (UTC).
   static String _odooDate(DateTime d) =>

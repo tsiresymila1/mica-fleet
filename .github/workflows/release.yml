@@ -2,8 +2,15 @@ name: Release APK
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: android-release-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -16,6 +23,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # historique complet pour le changelog
+
+      - name: Identifier les sources
+        run: |
+          echo "Commit construit : ${GITHUB_SHA}"
+          git status --short
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -31,7 +44,9 @@ jobs:
           cache: true
 
       - name: Dépendances
-        run: flutter pub get
+        run: |
+          flutter clean
+          flutter pub get
 
       - name: Génération de code (freezed / drift / retrofit)
         run: dart run build_runner build --delete-conflicting-outputs
@@ -39,15 +54,29 @@ jobs:
       - name: Tests
         run: flutter test
 
-      # Keystore de signature stable (optionnel). Sans secret → clé debug.
+      - name: Analyse statique
+        run: flutter analyze
+
+      # Keystore de signature stable obligatoire pour tout APK publié par la CI.
       - name: Préparer le keystore
         id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
+            test -n "$KEYSTORE_PASSWORD" || { echo "::error::ANDROID_KEYSTORE_PASSWORD manquant"; exit 1; }
+            test -n "$KEY_ALIAS" || { echo "::error::ANDROID_KEY_ALIAS manquant"; exit 1; }
+            test -n "$KEY_PASSWORD" || { echo "::error::ANDROID_KEY_PASSWORD manquant"; exit 1; }
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "path=$RUNNER_TEMP/release.keystore" >> "$GITHUB_OUTPUT"
+            keytool -list -keystore "$RUNNER_TEMP/release.keystore" \
+              -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          else
+            echo "::error::ANDROID_KEYSTORE_BASE64 manquant : un APK de release doit utiliser la clé stable"
+            exit 1
           fi
 
       # APK PROD (universel) : vrai Odoo (URL depuis la variable MICA_ODOO_URL).
@@ -59,12 +88,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          ODOO_URL="${ODOO_URL:-https://staging.radoran.net}"
+          case "$ODOO_URL" in
+            https://*) ;;
+            *) echo "::error::MICA_ODOO_URL doit être une URL HTTPS non vide"; exit 1 ;;
+          esac
           flutter build apk --release \
             --dart-define=MICA_DEMO=false \
-            --dart-define=MICA_ODOO_URL="${ODOO_URL:-https://staging.radoran.net}"
+            --dart-define=MICA_ODOO_URL="$ODOO_URL"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk \
             "dist/mica-fleet-${GITHUB_REF_NAME}.apk"
+          sha256sum "dist/mica-fleet-${GITHUB_REF_NAME}.apk"
 
       # APK DÉMO (universel) : applicationId .demo → coexiste avec la prod.
       - name: Build APK démo
@@ -80,6 +115,7 @@ jobs:
           ls -lh dist
 
       - name: Générer le changelog
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF_NAME}"
           PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
@@ -108,6 +144,7 @@ jobs:
           path: dist/*.apk
 
       - name: Publier la release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           name: mica-fleet ${{ github.ref_name }}

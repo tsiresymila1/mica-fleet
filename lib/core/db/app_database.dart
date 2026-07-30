@@ -31,6 +31,40 @@ class Mines extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Proposition de mine créée sur le terrain. Elle reste séparée du référentiel
+/// [Mines] tant que le serveur ne l'a pas approuvée.
+@DataClassName('MineSubmissionRow')
+class MineSubmissions extends Table {
+  TextColumn get payloadId => text()(); // UUID envoyé dans payload.id
+  TextColumn get deviceUuid => text()(); // idempotence submit + photos
+  TextColumn get nom => text()();
+  TextColumn get agentLogin => text().nullable()();
+  TextColumn get state => text().withDefault(const Constant('local_pending'))();
+  IntColumn get serverId => integer().nullable()();
+  TextColumn get approvedMineId => text().nullable()();
+  TextColumn get rejectionReason => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  @override
+  Set<Column> get primaryKey => {payloadId};
+}
+
+/// Preuves photographiques d'une proposition. Une ligne = un upload unitaire.
+@DataClassName('MineSubmissionPhotoRow')
+class MineSubmissionPhotos extends Table {
+  TextColumn get payloadId => text().references(MineSubmissions, #payloadId)();
+  TextColumn get key => text()(); // position_1, position_2, ...
+  TextColumn get path => text()();
+  TextColumn get hash => text()();
+  RealColumn get lat => real()();
+  RealColumn get lon => real()();
+  RealColumn get gpsAccuracy => real()();
+  DateTimeColumn get capturedAt => dateTime()();
+  BoolColumn get uploaded => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column> get primaryKey => {payloadId, key};
+}
+
 /// Session de collecte : les lots partis ensemble (regroupement pratique).
 /// L'unité de traçabilité est le LOT, pas la session.
 @DataClassName('ChargementRow')
@@ -174,6 +208,8 @@ class TrajetPoints extends Table {
   tables: [
     Fournisseurs,
     Mines,
+    MineSubmissions,
+    MineSubmissionPhotos,
     Chargements,
     Lots,
     SyncQueue,
@@ -187,7 +223,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -208,6 +244,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 13) {
         await m.addColumn(chargements, chargements.sessionUuid);
         await m.addColumn(lots, lots.payloadUuid);
+      }
+      if (from < 14) {
+        await m.createTable(mineSubmissions);
+        await m.createTable(mineSubmissionPhotos);
       }
     },
   );

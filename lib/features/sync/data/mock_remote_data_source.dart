@@ -23,6 +23,34 @@ class MockRemoteDataSource implements RemoteDataSource {
   }
 
   @override
+  Future<void> uploadMinePhoto(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo,
+  ) async {
+    // Démo : accepté sans rien envoyer.
+  }
+
+  @override
+  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
+    String payloadId,
+  ) async => RemoteMineSubmissionStatus(
+    payloadId: payloadId,
+    state: 'approved',
+    mine: RemoteMine(
+      'DEMO-${payloadId.substring(0, 8)}',
+      'Mine proposée (démo)',
+      -18.91,
+      47.52,
+      20,
+      null,
+      null,
+      null,
+      true,
+    ),
+  );
+
+  @override
   Future<List<RemoteMine>> fetchMines() async => [
     RemoteMine(
       'M001',

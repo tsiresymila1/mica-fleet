@@ -5,7 +5,9 @@ import '../config/app_config.dart';
 /// Repli sur le flag --dart-define MICA_ODOO_TOKEN si rien n'est stocké.
 class SecureTokenStore {
   static const _key = 'odoo_bearer_token';
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(migrateWithBackup: true),
+  );
 
   Future<String?> read() async {
     final stored = await _storage.read(key: _key);

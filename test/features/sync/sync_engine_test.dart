@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
 import 'package:mica_fleet/features/sync/data/sync_engine.dart';
+import 'package:mica_fleet/features/mines/data/repositories/mine_submission_repository_impl.dart';
+import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
 import 'package:mica_fleet/features/sync/domain/entities/sync_operation.dart';
 import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
 import 'package:uuid/uuid.dart';
@@ -25,11 +27,13 @@ class _FakeRemote implements RemoteDataSource {
   final bool alwaysFail;
   final String? failPhotoKey;
   final Object? pushError;
+  final String mineSubmissionState;
   _FakeRemote({
     this.failTimes = 0,
     this.alwaysFail = false,
     this.failPhotoKey,
     this.pushError,
+    this.mineSubmissionState = 'approved',
   });
 
   @override
@@ -47,6 +51,7 @@ class _FakeRemote implements RemoteDataSource {
   final List<String> uploadedFor = [];
   final List<String> uploadedPayloads = [];
   final List<PhotoPart> uploadedPhotos = [];
+  final List<PhotoPart> uploadedMinePhotos = [];
   @override
   Future<void> uploadPhoto(
     String deviceUuid,
@@ -58,6 +63,42 @@ class _FakeRemote implements RemoteDataSource {
     uploadedPayloads.add(payloadId);
     uploadedPhotos.add(photo);
   }
+
+  @override
+  Future<void> uploadMinePhoto(
+    String deviceUuid,
+    String payloadId,
+    PhotoPart photo,
+  ) async {
+    if (photo.key == failPhotoKey) throw Exception('mine photo net');
+    uploadedFor.add(deviceUuid);
+    uploadedPayloads.add(payloadId);
+    uploadedMinePhotos.add(photo);
+  }
+
+  @override
+  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
+    String payloadId,
+  ) async => RemoteMineSubmissionStatus(
+    payloadId: payloadId,
+    state: mineSubmissionState,
+    rejectionReason: mineSubmissionState == 'rejected'
+        ? 'Positions incohérentes'
+        : null,
+    mine: mineSubmissionState == 'approved'
+        ? RemoteMine(
+            'M-APPROVED',
+            'Mine approuvée',
+            -18.91,
+            47.52,
+            20,
+            null,
+            null,
+            null,
+            true,
+          )
+        : null,
+  );
 
   @override
   Future<List<RemoteMine>> fetchMines() async => [
@@ -521,6 +562,172 @@ void main() {
       await SyncEngine(store, _FakeRemote(), db).sync();
       final mines = await db.select(db.mines).get();
       expect(mines.single.id, 'm1');
+    });
+
+    test(
+      'proposition mine : submit, 5 uploads puis ajout après approbation',
+      () async {
+        final storage = Directory.systemTemp.createTempSync(
+          'mica_submission_storage_',
+        );
+        final files = <File>[];
+        final photos = <CapturedPhoto>[];
+        for (var i = 1; i <= 5; i++) {
+          final file = File(
+            '${Directory.systemTemp.path}/mica_submission_position_$i.jpg',
+          )..writeAsBytesSync([i]);
+          files.add(file);
+          photos.add(
+            CapturedPhoto(
+              path: file.path,
+              sha256: 'hash-$i',
+              lat: -18.91 + i / 10000,
+              lon: 47.52 + i / 10000,
+              precision: 4,
+              takenAt: DateTime.utc(2026, 7, 30, 8, i),
+            ),
+          );
+        }
+        addTearDown(() {
+          for (final file in files) {
+            if (file.existsSync()) file.deleteSync();
+          }
+          if (storage.existsSync()) storage.deleteSync(recursive: true);
+        });
+        final created = await MineSubmissionRepositoryImpl(
+          db,
+          storageDirectory: () async => storage,
+        ).create(name: 'Mine terrain', photos: photos, agentLogin: 'eddy');
+        expect(created.isRight(), isTrue);
+
+        final remote = _FakeRemote();
+        await SyncEngine(store, remote, db).sync();
+
+        expect(remote.pushedOperations.single.entityType, 'mine_submission');
+        expect(remote.uploadedMinePhotos, hasLength(5));
+        expect(remote.uploadedMinePhotos.map((p) => p.key), [
+          'position_1',
+          'position_2',
+          'position_3',
+          'position_4',
+          'position_5',
+        ]);
+        final submission = (await db.select(db.mineSubmissions).get()).single;
+        expect(submission.state, 'approved');
+        expect(submission.approvedMineId, 'M-APPROVED');
+        final approved = await (db.select(
+          db.mines,
+        )..where((t) => t.id.equals('M-APPROVED'))).getSingle();
+        expect(approved.nom, 'Mine approuvée');
+        expect(files.every((file) => !file.existsSync()), isTrue);
+      },
+    );
+
+    test(
+      'un échec photo mine reprend uniquement les preuves restantes',
+      () async {
+        final storage = Directory.systemTemp.createTempSync(
+          'mica_mine_retry_storage_',
+        );
+        final files = <File>[];
+        final photos = <CapturedPhoto>[];
+        for (var i = 1; i <= 5; i++) {
+          final file = File(
+            '${Directory.systemTemp.path}/mica_mine_retry_position_$i.jpg',
+          )..writeAsBytesSync([i]);
+          files.add(file);
+          photos.add(
+            CapturedPhoto(
+              path: file.path,
+              sha256: 'retry-hash-$i',
+              lat: -18.91,
+              lon: 47.52,
+              precision: 4,
+              takenAt: DateTime.utc(2026, 7, 30, 9, i),
+            ),
+          );
+        }
+        addTearDown(() {
+          for (final file in files) {
+            if (file.existsSync()) file.deleteSync();
+          }
+          if (storage.existsSync()) storage.deleteSync(recursive: true);
+        });
+        await MineSubmissionRepositoryImpl(
+          db,
+          storageDirectory: () async => storage,
+        ).create(name: 'Mine reprise', photos: photos, agentLogin: 'eddy');
+
+        final firstRemote = _FakeRemote(failPhotoKey: 'position_3');
+        await SyncEngine(store, firstRemote, db).sync();
+        expect(firstRemote.uploadedMinePhotos.map((photo) => photo.key), [
+          'position_1',
+          'position_2',
+        ]);
+        var rows = await (db.select(
+          db.mineSubmissionPhotos,
+        )..orderBy([(t) => OrderingTerm.asc(t.key)])).get();
+        expect(rows.map((row) => row.uploaded), [
+          true,
+          true,
+          false,
+          false,
+          false,
+        ]);
+
+        final retryRemote = _FakeRemote();
+        await SyncEngine(store, retryRemote, db).sync();
+        expect(retryRemote.uploadedMinePhotos.map((photo) => photo.key), [
+          'position_3',
+          'position_4',
+          'position_5',
+        ]);
+        final submission = (await db.select(db.mineSubmissions).get()).single;
+        expect(submission.state, 'approved');
+      },
+    );
+
+    test('une proposition rejetée ne devient jamais utilisable', () async {
+      final now = DateTime.utc(2026, 7, 30);
+      await db
+          .into(db.mineSubmissions)
+          .insert(
+            MineSubmissionsCompanion.insert(
+              payloadId: 'rejected-payload',
+              deviceUuid: 'rejected-device',
+              nom: 'Mine refusée',
+              state: const Value('pending_validation'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await store.enqueue(
+        SyncOperation(
+          opId: 'rejected-device',
+          entityType: 'mine_submission',
+          entityId: 'rejected-payload',
+          opType: SyncOpType.create,
+          payload: const {'id': 'rejected-payload'},
+          createdAt: now,
+        ),
+      );
+      await store.updateStatus('rejected-device', SyncStatus.synced);
+
+      await SyncEngine(
+        store,
+        _FakeRemote(mineSubmissionState: 'rejected'),
+        db,
+      ).sync();
+
+      final submission = (await db.select(db.mineSubmissions).get()).single;
+      expect(submission.state, 'rejected');
+      expect(submission.rejectionReason, 'Positions incohérentes');
+      expect(
+        await (db.select(
+          db.mines,
+        )..where((t) => t.id.equals('M-APPROVED'))).getSingleOrNull(),
+        isNull,
+      );
     });
   });
 }

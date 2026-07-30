@@ -41,6 +41,17 @@ class SyncEngine {
             odooId: odooId,
             syncedAt: DateTime.now(),
           );
+          if (op.entityType == 'mine_submission') {
+            await (db.update(
+              db.mineSubmissions,
+            )..where((t) => t.payloadId.equals(op.entityId))).write(
+              MineSubmissionsCompanion(
+                state: const Value('awaiting_attachments'),
+                serverId: Value(odooId),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+          }
         } catch (e) {
           final attempts = op.attempts + 1;
           if (attempts >= maxAttempts) {
@@ -66,6 +77,16 @@ class SyncEngine {
         await _uploadPendingPhotos();
       } catch (_) {
         // Réseau indisponible : réessai au prochain sync.
+      }
+      try {
+        await _uploadPendingMinePhotos();
+      } catch (_) {
+        // Les preuves restantes seront reprises au prochain passage.
+      }
+      try {
+        await _pollMineSubmissionStatuses();
+      } catch (_) {
+        // Le statut de validation sera relu au prochain passage.
       }
       try {
         await _pullMines();
@@ -217,6 +238,153 @@ class SyncEngine {
       await add('license', arr.photoPermisPath, null);
     }
     return parts;
+  }
+
+  /// Après le submit d'une proposition, envoie ses preuves une par une. Le
+  /// booléen `uploaded` garantit qu'un échec partiel ne rejoue que le reliquat.
+  Future<void> _uploadPendingMinePhotos() async {
+    final submissions =
+        await (db.select(db.mineSubmissions)..where(
+              (t) =>
+                  t.state.equals('awaiting_attachments') |
+                  t.state.equals('pending_validation'),
+            ))
+            .get();
+    for (final submission in submissions) {
+      final op =
+          await (db.select(db.syncQueue)..where(
+                (t) =>
+                    t.entityType.equals('mine_submission') &
+                    t.entityId.equals(submission.payloadId) &
+                    t.status.equals('synced'),
+              ))
+              .getSingleOrNull();
+      if (op == null) continue;
+
+      final pending =
+          await (db.select(db.mineSubmissionPhotos)
+                ..where(
+                  (t) =>
+                      t.payloadId.equals(submission.payloadId) &
+                      t.uploaded.equals(false),
+                )
+                ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
+              .get();
+      var uploadFailed = false;
+      for (final photo in pending) {
+        try {
+          await remote.uploadMinePhoto(
+            submission.deviceUuid,
+            submission.payloadId,
+            PhotoPart(photo.key, photo.path, photo.hash),
+          );
+          await (db.update(db.mineSubmissionPhotos)..where(
+                (t) =>
+                    t.payloadId.equals(submission.payloadId) &
+                    t.key.equals(photo.key),
+              ))
+              .write(
+                const MineSubmissionPhotosCompanion(uploaded: Value(true)),
+              );
+          try {
+            await File(photo.path).delete();
+          } catch (_) {
+            // L'upload confirmé ne doit jamais être rejoué pour un souci local.
+          }
+        } catch (error) {
+          await store.updateStatus(
+            op.opId,
+            SyncStatus.synced,
+            lastError:
+                'Échec de la photo mine « ${photo.key} »\n${apiErrorDetails(error)}',
+          );
+          uploadFailed = true;
+          break;
+        }
+      }
+      if (uploadFailed) continue;
+
+      final remaining =
+          await (db.select(db.mineSubmissionPhotos)..where(
+                (t) =>
+                    t.payloadId.equals(submission.payloadId) &
+                    t.uploaded.equals(false),
+              ))
+              .get();
+      if (remaining.isEmpty) {
+        await (db.update(
+          db.mineSubmissions,
+        )..where((t) => t.payloadId.equals(submission.payloadId))).write(
+          MineSubmissionsCompanion(
+            state: const Value('pending_validation'),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        await store.updateStatus(op.opId, SyncStatus.synced, lastError: null);
+      }
+    }
+  }
+
+  /// Récupère la décision Odoo. Seule une réponse `approved` contenant une mine
+  /// canonique alimente le référentiel sélectionnable par les chargements.
+  Future<void> _pollMineSubmissionStatuses() async {
+    final submissions = await (db.select(
+      db.mineSubmissions,
+    )..where((t) => t.state.equals('pending_validation'))).get();
+    for (final submission in submissions) {
+      try {
+        final status = await remote.fetchMineSubmissionStatus(
+          submission.payloadId,
+        );
+        if (status.state == 'approved' && status.mine == null) {
+          throw const FormatException(
+            'Une proposition approuvée doit contenir la mine validée',
+          );
+        }
+        await db.transaction(() async {
+          final mine = status.mine;
+          if (status.state == 'approved' && mine != null) {
+            await db
+                .into(db.mines)
+                .insert(
+                  MinesCompanion.insert(
+                    id: mine.id,
+                    nom: mine.nom,
+                    lat: mine.lat,
+                    lon: mine.lon,
+                    rayonMetres: Value(mine.rayonMetres),
+                    district: Value(mine.district),
+                    commune: Value(mine.commune),
+                    region: Value(mine.region),
+                    actif: Value(mine.actif),
+                  ),
+                  mode: InsertMode.insertOrReplace,
+                );
+          }
+          await (db.update(
+            db.mineSubmissions,
+          )..where((t) => t.payloadId.equals(submission.payloadId))).write(
+            MineSubmissionsCompanion(
+              state: Value(status.state),
+              approvedMineId: Value(mine?.id),
+              rejectionReason: Value(status.rejectionReason),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+        });
+        await store.updateStatus(
+          submission.deviceUuid,
+          SyncStatus.synced,
+          lastError: null,
+        );
+      } catch (error) {
+        await store.updateStatus(
+          submission.deviceUuid,
+          SyncStatus.synced,
+          lastError: 'Validation de la mine\n${apiErrorDetails(error)}',
+        );
+      }
+    }
   }
 
   Future<void> _pullMines() async {
