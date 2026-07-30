@@ -1,3 +1,8 @@
+## v1.2.3 - 2026-07-30
+
+- feat: implement mine submission workflow including data models, repository, UI screens, and remote API integration
+- chore(release): v1.2.2
+
 ## v1.2.2 - 2026-07-29
 
 - chore(release): v1.2.2
