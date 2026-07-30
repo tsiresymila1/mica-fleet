@@ -1,3 +1,7 @@
+## v1.2.4 - 2026-07-31
+
+- refactor: harden validation logic, improve sync photo handling, and update scoring criteria
+
 ## v1.2.3 - 2026-07-30
 
 - chore(release): v1.2.3
