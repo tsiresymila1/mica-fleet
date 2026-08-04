@@ -21,17 +21,20 @@ class DepotRepositoryImpl implements DepotRepository {
 
   @override
   Future<List<Depot>> activeDepots() async {
-    final rows =
-        await (db.select(db.depots)..where((d) => d.actif.equals(true))).get();
+    final rows = await (db.select(
+      db.depots,
+    )..where((d) => d.actif.equals(true))).get();
     return rows
-        .map((r) => Depot(
-              id: r.id,
-              nom: r.nom,
-              lat: r.lat,
-              lon: r.lon,
-              rayonMetres: r.rayonMetres,
-              actif: r.actif,
-            ))
+        .map(
+          (r) => Depot(
+            id: r.id,
+            nom: r.nom,
+            lat: r.lat,
+            lon: r.lon,
+            rayonMetres: r.rayonMetres,
+            actif: r.actif,
+          ),
+        )
         .toList();
   }
 
@@ -39,7 +42,9 @@ class DepotRepositoryImpl implements DepotRepository {
   Future<Either<Failure, Unit>> persistArrivee(ArriveeDepot a) async {
     try {
       await db.transaction(() async {
-        await db.into(db.arriveesDepot).insertOnConflictUpdate(
+        await db
+            .into(db.arriveesDepot)
+            .insertOnConflictUpdate(
               ArriveesDepotCompanion.insert(
                 lotId: a.lotId,
                 depotId: a.depotId,
@@ -50,7 +55,19 @@ class DepotRepositoryImpl implements DepotRepository {
                 gpsLon: a.gpsLon,
                 statutGps: a.statutGps,
                 photoPermisPath: Value(a.photoPermisPath),
+                photoPermisHeadingDegrees: Value(a.photoPermisHeadingDegrees),
+                photoPermisHeadingAccuracy: Value(a.photoPermisHeadingAccuracy),
+                photoPermisHeadingReference: Value(
+                  a.photoPermisHeadingReference,
+                ),
                 photoArriveePath: Value(a.photoArriveePath),
+                photoArriveeHeadingDegrees: Value(a.photoArriveeHeadingDegrees),
+                photoArriveeHeadingAccuracy: Value(
+                  a.photoArriveeHeadingAccuracy,
+                ),
+                photoArriveeHeadingReference: Value(
+                  a.photoArriveeHeadingReference,
+                ),
                 plaqueArrivee: Value(a.plaqueArrivee),
                 plaqueCoherente: Value(a.plaqueCoherente),
                 scoreTracabilite: Value(a.scoreTracabilite),
@@ -69,19 +86,25 @@ class DepotRepositoryImpl implements DepotRepository {
       // + arrivée + trajet) en une seule opération de sync.
       final snap = await _snapshot.build(a.lotId);
       if (snap != null) {
-        await syncStore.enqueue(SyncOperation(
-          opId: snap.deviceUuid, // stable par lot → idempotence
-          entityType: 'lot',
-          entityId: a.lotId,
-          opType: SyncOpType.create,
-          payload: snap.payload,
-          createdAt: DateTime.now(),
-          agentLogin: snap.agentLogin,
-          gpsLat: snap.gpsLat,
-          gpsLon: snap.gpsLon,
-          gpsAccuracy: snap.gpsAccuracy,
-        ));
-        await journal.append('arrivee_depot', a.lotId, jsonEncode(snap.payload));
+        await syncStore.enqueue(
+          SyncOperation(
+            opId: snap.deviceUuid, // stable par lot → idempotence
+            entityType: 'lot',
+            entityId: a.lotId,
+            opType: SyncOpType.create,
+            payload: snap.payload,
+            createdAt: DateTime.now(),
+            agentLogin: snap.agentLogin,
+            gpsLat: snap.gpsLat,
+            gpsLon: snap.gpsLon,
+            gpsAccuracy: snap.gpsAccuracy,
+          ),
+        );
+        await journal.append(
+          'arrivee_depot',
+          a.lotId,
+          jsonEncode(snap.payload),
+        );
       }
       return right(unit);
     } catch (e) {
@@ -91,12 +114,13 @@ class DepotRepositoryImpl implements DepotRepository {
 
   @override
   Future<LotResume?> lotResume(String lotId) async {
-    final l = await (db.select(db.lots)..where((t) => t.id.equals(lotId)))
-        .getSingleOrNull();
+    final l = await (db.select(
+      db.lots,
+    )..where((t) => t.id.equals(lotId))).getSingleOrNull();
     if (l == null) return null;
-    final s = await (db.select(db.chargements)
-          ..where((t) => t.id.equals(l.sessionId)))
-        .getSingleOrNull();
+    final s = await (db.select(
+      db.chargements,
+    )..where((t) => t.id.equals(l.sessionId))).getSingleOrNull();
     return (
       sessionId: l.sessionId,
       mineId: l.mineId,
@@ -108,11 +132,14 @@ class DepotRepositoryImpl implements DepotRepository {
 
   @override
   Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
-      String sessionId) async {
-    final rows = await (db.select(db.lots)
-          ..where((t) =>
-              t.sessionId.equals(sessionId) & t.statut.equals('en_cours')))
-        .get();
+    String sessionId,
+  ) async {
+    final rows =
+        await (db.select(db.lots)..where(
+              (t) =>
+                  t.sessionId.equals(sessionId) & t.statut.equals('en_cours'),
+            ))
+            .get();
     return rows
         .map((l) => (id: l.id, mineId: l.mineId, couleur: l.couleur))
         .toList();

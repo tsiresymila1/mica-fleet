@@ -54,6 +54,9 @@ void main() {
             id: 'MICA-2026-0001-L1',
             sessionId: 'MICA-2026-0001',
             mineId: 'M001',
+            photoHeadingDegrees: const Value(15),
+            photoHeadingAccuracy: const Value(1.5),
+            photoHeadingReference: const Value('magnetic'),
           ),
         );
   });
@@ -65,6 +68,20 @@ void main() {
   });
 
   test('persistArrivee enregistre et journalise la sync', () async {
+    await db
+        .into(db.transbordements)
+        .insert(
+          TransbordementsCompanion.insert(
+            lotId: 'MICA-2026-0001-L1',
+            ordre: 1,
+            photoDechargeHeadingDegrees: const Value(90),
+            photoDechargeHeadingAccuracy: const Value(2),
+            photoDechargeHeadingReference: const Value('magnetic'),
+            photoRechargeHeadingDegrees: const Value(180),
+            photoRechargeHeadingAccuracy: const Value(3),
+            photoRechargeHeadingReference: const Value('magnetic'),
+          ),
+        );
     final r = await repo.persistArrivee(
       const ArriveeDepot(
         lotId: 'MICA-2026-0001-L1',
@@ -75,12 +92,20 @@ void main() {
         gpsLat: -18.9,
         gpsLon: 47.5,
         statutGps: 'valide',
+        photoArriveeHeadingDegrees: 270,
+        photoArriveeHeadingAccuracy: 4,
+        photoArriveeHeadingReference: 'magnetic',
+        photoPermisHeadingDegrees: 315,
+        photoPermisHeadingAccuracy: 5,
+        photoPermisHeadingReference: 'magnetic',
       ),
     );
     expect(r.isRight(), isTrue);
 
     final rows = await db.select(db.arriveesDepot).get();
     expect(rows.single.chauffeur, 'Jean');
+    expect(rows.single.photoArriveeHeadingDegrees, 270);
+    expect(rows.single.photoPermisHeadingDegrees, 315);
 
     // Envoi unique : à l'arrivée, une seule op 'lot' (snapshot complet du lot).
     final pending = await sync.pending();
@@ -100,6 +125,15 @@ void main() {
       isNot(pending.single.payload['session_id']),
     );
     expect(pending.single.payload['arrival'], isNot(null));
+    final mine = pending.single.payload['mine'] as Map<String, dynamic>;
+    expect((mine['photo'] as Map)['heading_deg'], 15);
+    final transload =
+        (pending.single.payload['transloads'] as List).single as Map;
+    expect((transload['photo_unload'] as Map)['heading_deg'], 90);
+    expect((transload['photo_reload'] as Map)['heading_deg'], 180);
+    final arrival = pending.single.payload['arrival'] as Map<String, dynamic>;
+    expect((arrival['photo_arrival'] as Map)['heading_deg'], 270);
+    expect((arrival['photo_license'] as Map)['heading_deg'], 315);
   });
 
   test('les UUID payload sont stables et la session est partagée', () async {

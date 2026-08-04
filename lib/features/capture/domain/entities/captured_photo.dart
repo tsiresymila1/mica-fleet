@@ -10,5 +10,8 @@ abstract class CapturedPhoto with _$CapturedPhoto {
     required double lon,
     required double precision,
     required DateTime takenAt,
+    double? headingDegrees,
+    double? headingAccuracy,
+    String? headingReference,
   }) = _CapturedPhoto;
 }

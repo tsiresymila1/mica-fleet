@@ -63,6 +63,9 @@ class LoadingRepositoryImpl implements LoadingRepository {
                   gpsPrecision: Value(l.photo?.precision),
                   photoPath: Value(l.photo?.path),
                   photoHash: Value(l.photo?.sha256),
+                  photoHeadingDegrees: Value(l.photo?.headingDegrees),
+                  photoHeadingAccuracy: Value(l.photo?.headingAccuracy),
+                  photoHeadingReference: Value(l.photo?.headingReference),
                   dateHeure: Value(l.photo?.takenAt),
                   statut: const Value('en_cours'),
                   // Idempotence sync : un device_uuid stable PAR LOT.

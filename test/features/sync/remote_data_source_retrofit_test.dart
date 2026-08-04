@@ -91,7 +91,7 @@ void main() {
     });
   });
 
-  test('une opération mine utilise /api/mine/submit', () async {
+  test('une opération mine utilise POST /api/mine', () async {
     final adapter = _CaptureAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
@@ -103,16 +103,24 @@ void main() {
         entityType: 'mine_submission',
         entityId: 'payload-uuid',
         opType: SyncOpType.create,
-        payload: const {'id': 'payload-uuid', 'name': 'Mine test'},
+        payload: const {
+          'id': 'payload-uuid',
+          'name': 'Mine test',
+          'commune_id': 24091,
+        },
         createdAt: DateTime.utc(2026, 7, 30),
         agentLogin: 'eddy',
       ),
     );
 
-    expect(adapter.request!.path, '/api/mine/submit');
+    expect(adapter.request!.path, '/api/mine');
     final body = adapter.request!.data as Map<String, dynamic>;
     expect(body['device_uuid'], 'device-uuid');
-    expect(body['payload'], {'id': 'payload-uuid', 'name': 'Mine test'});
+    expect(body['payload'], {
+      'id': 'payload-uuid',
+      'name': 'Mine test',
+      'commune_id': 24091,
+    });
     expect(body.containsKey('collect_type'), isFalse);
   });
 

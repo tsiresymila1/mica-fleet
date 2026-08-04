@@ -5,7 +5,8 @@ import '../../../core/db/app_database.dart';
 
 /// Snapshot complet d'UN LOT pour l'envoi unique (submit) : mine d'origine +
 /// transbordements du lot + arrivée + trace GPS de la session.
-/// Les photos sont déclarées par clé + hash (binaires uploadés à part).
+/// Les photos déclarent leur clé, hash disponible et cap magnétique ; les
+/// binaires sont uploadés séparément.
 typedef LotSnapshot = ({
   String deviceUuid,
   String? agentLogin,
@@ -85,7 +86,13 @@ class LotSnapshotBuilder {
         'lon': lot.gpsLon,
         'gps_accuracy': lot.gpsPrecision,
         'captured_at': lot.dateHeure == null ? null : _d(lot.dateHeure!),
-        'photo': {'key': 'mine', 'hash': lot.photoHash},
+        'photo': _photoMetadata(
+          'mine',
+          hash: lot.photoHash,
+          headingDegrees: lot.photoHeadingDegrees,
+          headingAccuracy: lot.photoHeadingAccuracy,
+          headingReference: lot.photoHeadingReference,
+        ),
       },
 
       // Camions successifs ayant porté CE lot.
@@ -99,8 +106,18 @@ class LotSnapshotBuilder {
               'gps_reload': [t.gpsRechargeLat, t.gpsRechargeLon],
               'distance_m': t.distanceMetres,
               'compliant': t.conforme,
-              'photo_unload': {'key': 'transload_${t.ordre}_unload'},
-              'photo_reload': {'key': 'transload_${t.ordre}_reload'},
+              'photo_unload': _photoMetadata(
+                'transload_${t.ordre}_unload',
+                headingDegrees: t.photoDechargeHeadingDegrees,
+                headingAccuracy: t.photoDechargeHeadingAccuracy,
+                headingReference: t.photoDechargeHeadingReference,
+              ),
+              'photo_reload': _photoMetadata(
+                'transload_${t.ordre}_reload',
+                headingDegrees: t.photoRechargeHeadingDegrees,
+                headingAccuracy: t.photoRechargeHeadingAccuracy,
+                headingReference: t.photoRechargeHeadingReference,
+              ),
             },
           )
           .toList(),
@@ -119,8 +136,18 @@ class LotSnapshotBuilder {
               'plate_arrival': arr.plaqueArrivee,
               'plate_consistent': arr.plaqueCoherente,
               'traceability_score': arr.scoreTracabilite,
-              'photo_arrival': {'key': 'arrival'},
-              'photo_license': {'key': 'license'},
+              'photo_arrival': _photoMetadata(
+                'arrival',
+                headingDegrees: arr.photoArriveeHeadingDegrees,
+                headingAccuracy: arr.photoArriveeHeadingAccuracy,
+                headingReference: arr.photoArriveeHeadingReference,
+              ),
+              'photo_license': _photoMetadata(
+                'license',
+                headingDegrees: arr.photoPermisHeadingDegrees,
+                headingAccuracy: arr.photoPermisHeadingAccuracy,
+                headingReference: arr.photoPermisHeadingReference,
+              ),
             },
 
       'track': trajet.map((p) => [p.lat, p.lon, _d(p.capturedAt)]).toList(),
@@ -141,6 +168,20 @@ class LotSnapshotBuilder {
   /// On renvoie l'entier quand c'est possible, sinon la chaîne telle quelle
   /// (jeux de données de démo type « M001 »).
   static dynamic _id(String v) => int.tryParse(v) ?? v;
+
+  static Map<String, dynamic> _photoMetadata(
+    String key, {
+    String? hash,
+    double? headingDegrees,
+    double? headingAccuracy,
+    String? headingReference,
+  }) => {
+    'key': key,
+    'hash': ?hash,
+    'heading_deg': ?headingDegrees,
+    'heading_accuracy': ?headingAccuracy,
+    'heading_reference': ?headingReference,
+  };
 
   static String _d(DateTime d) =>
       d.toUtc().toIso8601String().replaceFirst('T', ' ').split('.').first;

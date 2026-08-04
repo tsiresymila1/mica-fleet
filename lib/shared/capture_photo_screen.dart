@@ -37,8 +37,11 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
         });
         return;
       }
-      final ctrl = CameraController(cams.first, ResolutionPreset.medium,
-          enableAudio: false);
+      final ctrl = CameraController(
+        cams.first,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
       await ctrl.initialize();
       if (!mounted) return;
       setState(() {
@@ -64,25 +67,32 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
     if (cam == null) return;
     setState(() => _capturing = true);
     try {
-      final mock =
-          await ref.read(mockLocationGuardProvider).isMockLocationActive();
+      final mock = await ref
+          .read(mockLocationGuardProvider)
+          .isMockLocationActive();
       if (mock) {
         if (mounted) {
           await showAppMessage(
-              context, 'Position GPS simulée détectée — capture refusée',
-              kind: AppMsgKind.warning);
+            context,
+            'Position GPS simulée détectée — capture refusée',
+            kind: AppMsgKind.warning,
+          );
         }
         return;
       }
-      final photo =
-          await CameraCaptureService(cam, ref.read(locationSourceProvider))
-              .capture();
+      final photo = await CameraCaptureService(
+        cam,
+        ref.read(locationSourceProvider),
+        ref.read(headingSourceProvider),
+      ).capture();
       if (mounted) Navigator.of(context).pop(photo);
     } catch (e) {
       if (mounted) {
         await showAppMessage(
-            context, e.toString().replaceFirst('Exception: ', ''),
-            kind: AppMsgKind.error);
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+          kind: AppMsgKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _capturing = false);
@@ -91,28 +101,27 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.titre)),
-        body: _initializing
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  Expanded(
-                    child: _error != null
-                        ? Center(child: Text(_error!))
-                        : (_cam != null
-                            ? CameraPreview(_cam!)
-                            : const SizedBox.shrink()),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: FilledButton.icon(
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Capturer'),
-                      onPressed:
-                          (_capturing || _cam == null) ? null : _capture,
-                    ),
-                  ),
-                ],
+    appBar: AppBar(title: Text(widget.titre)),
+    body: _initializing
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
+            children: [
+              Expanded(
+                child: _error != null
+                    ? Center(child: Text(_error!))
+                    : (_cam != null
+                          ? CameraPreview(_cam!)
+                          : const SizedBox.shrink()),
               ),
-      );
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: FilledButton.icon(
+                  icon: const Icon(Icons.camera_alt),
+                  label: const Text('Capturer'),
+                  onPressed: (_capturing || _cam == null) ? null : _capture,
+                ),
+              ),
+            ],
+          ),
+  );
 }

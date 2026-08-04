@@ -17,6 +17,12 @@ abstract class ArriveeDepot with _$ArriveeDepot {
     @Default(true) bool plaqueCoherente,
     int? scoreTracabilite,
     String? photoPermisPath,
+    double? photoPermisHeadingDegrees,
+    double? photoPermisHeadingAccuracy,
+    String? photoPermisHeadingReference,
     String? photoArriveePath,
+    double? photoArriveeHeadingDegrees,
+    double? photoArriveeHeadingAccuracy,
+    String? photoArriveeHeadingReference,
   }) = _ArriveeDepot;
 }

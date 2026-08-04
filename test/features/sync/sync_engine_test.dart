@@ -599,10 +599,16 @@ void main() {
           }
           if (storage.existsSync()) storage.deleteSync(recursive: true);
         });
-        final created = await MineSubmissionRepositoryImpl(
-          db,
-          storageDirectory: () async => storage,
-        ).create(name: 'Mine terrain', photos: photos, agentLogin: 'eddy');
+        final created =
+            await MineSubmissionRepositoryImpl(
+              db,
+              storageDirectory: () async => storage,
+            ).create(
+              name: 'Mine terrain',
+              communeId: 24091,
+              photos: photos,
+              agentLogin: 'eddy',
+            );
         expect(created.isRight(), isTrue);
 
         final remote = _FakeRemote();
@@ -661,7 +667,12 @@ void main() {
         await MineSubmissionRepositoryImpl(
           db,
           storageDirectory: () async => storage,
-        ).create(name: 'Mine reprise', photos: photos, agentLogin: 'eddy');
+        ).create(
+          name: 'Mine reprise',
+          communeId: 24091,
+          photos: photos,
+          agentLogin: 'eddy',
+        );
 
         final firstRemote = _FakeRemote(failPhotoKey: 'position_3');
         await SyncEngine(store, firstRemote, db).sync();

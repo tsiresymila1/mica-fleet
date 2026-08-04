@@ -19,7 +19,13 @@ class ValidateArrivee {
     String? plaqueArrivee,
     String? plaqueAttendue, // dernière plaque connue de CE lot
     String? photoArriveePath,
+    double? photoArriveeHeadingDegrees,
+    double? photoArriveeHeadingAccuracy,
+    String? photoArriveeHeadingReference,
     String? photoPermisPath,
+    double? photoPermisHeadingDegrees,
+    double? photoPermisHeadingAccuracy,
+    String? photoPermisHeadingReference,
   }) {
     if (chauffeur.trim().isEmpty ||
         numPermis.trim().isEmpty ||
@@ -49,7 +55,13 @@ class ValidateArrivee {
         plaqueArrivee: plaqueArrivee,
         plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
         photoArriveePath: photoArriveePath,
+        photoArriveeHeadingDegrees: photoArriveeHeadingDegrees,
+        photoArriveeHeadingAccuracy: photoArriveeHeadingAccuracy,
+        photoArriveeHeadingReference: photoArriveeHeadingReference,
         photoPermisPath: photoPermisPath,
+        photoPermisHeadingDegrees: photoPermisHeadingDegrees,
+        photoPermisHeadingAccuracy: photoPermisHeadingAccuracy,
+        photoPermisHeadingReference: photoPermisHeadingReference,
       ),
     );
   }

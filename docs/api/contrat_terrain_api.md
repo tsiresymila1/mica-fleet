@@ -46,9 +46,9 @@ fournit).
 ```
 
 > L'app stocke le `token` (chiffré, Android Keystore) puis appelle
-> immédiatement `/api/mine` et `/api/storage` pour **remplacer** le référentiel
-> local. Les connexions suivantes fonctionnent hors ligne (session +
-> référentiel en cache).
+> immédiatement `/api/mine`, `/api/storage` et `/api/commune` pour mettre à
+> jour les référentiels locaux. Les connexions suivantes fonctionnent hors
+> ligne (session + référentiels en cache).
 
 ---
 
@@ -79,6 +79,30 @@ chaque login et à chaque synchronisation.
   de la mine ou du dépôt. Sans lui, elle applique 20 m par défaut.
 - **`active: false`** masque l'entrée sans casser les chargements passés.
 
+### `GET /api/commune`
+
+Le même Bearer token permet de charger les communes proposées lors de l'ajout
+manuel d'une mine. L'app met cette réponse en cache après le login afin que le
+champ de recherche reste disponible hors ligne.
+
+```json
+{
+  "status": "ok",
+  "data": [
+    {
+      "id": 24091,
+      "name": "Andilana",
+      "district": "Ambohidratrimo",
+      "active": true
+    }
+  ]
+}
+```
+
+Champs requis : `id` entier et `name`. `district` est uniquement affiché pour
+aider l'agent ; `active: false` masque la commune. La création d'une mine
+envoie ensuite uniquement cet identifiant sous la clé `payload.commune_id`.
+
 ---
 
 ## 2. `POST /api/tracking/submit`
@@ -91,8 +115,9 @@ c'est l'**unité de traçabilité, de numéro de lot et de score**.
 > lots partis ensemble partagent le même `session_id` (et éventuellement le même
 > `lot_reference`).
 
-Les **photos ne sont pas dans le JSON** (voir §3) : seules leurs **clés + hash**
-y figurent.
+Les **photos binaires ne sont pas dans le JSON** (voir §3). Chaque objet
+photo y déclare sa clé, son hash lorsqu'il est déjà disponible et son cap
+magnétique lorsqu'il a pu être mesuré.
 
 ### Enveloppe
 ```json
@@ -124,7 +149,12 @@ y figurent.
     "plate": "1234 TBR",
     "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
     "captured_at": "2026-06-22 08:00:00",
-    "photo": { "key": "mine", "hash": "9f2c...e7" }
+    "photo": {
+      "key": "mine", "hash": "9f2c...e7",
+      "heading_deg": 15.0,
+      "heading_accuracy": 1.5,
+      "heading_reference": "magnetic"
+    }
   },
 
   "transloads": [
@@ -134,8 +164,18 @@ y figurent.
       "gps_unload": [-18.92000, 47.53000],
       "gps_reload": [-18.92010, 47.53000],
       "distance_m": 11.4, "compliant": true,
-      "photo_unload": { "key": "transload_1_unload" },
-      "photo_reload": { "key": "transload_1_reload" }
+      "photo_unload": {
+        "key": "transload_1_unload",
+        "heading_deg": 90.0,
+        "heading_accuracy": 2.0,
+        "heading_reference": "magnetic"
+      },
+      "photo_reload": {
+        "key": "transload_1_reload",
+        "heading_deg": 180.0,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic"
+      }
     },
     {
       "order": 2,
@@ -143,8 +183,18 @@ y figurent.
       "gps_unload": [-18.95000, 47.55000],
       "gps_reload": [-18.95012, 47.55000],
       "distance_m": 13.1, "compliant": true,
-      "photo_unload": { "key": "transload_2_unload" },
-      "photo_reload": { "key": "transload_2_reload" }
+      "photo_unload": {
+        "key": "transload_2_unload",
+        "heading_deg": 200.0,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic"
+      },
+      "photo_reload": {
+        "key": "transload_2_reload",
+        "heading_deg": 225.0,
+        "heading_accuracy": 4.0,
+        "heading_reference": "magnetic"
+      }
     }
   ],
 
@@ -159,8 +209,18 @@ y figurent.
     "plate_arrival": "9012 DEF",
     "plate_consistent": true,
     "traceability_score": 100,
-    "photo_arrival": { "key": "arrival" },
-    "photo_license": { "key": "license" }
+    "photo_arrival": {
+      "key": "arrival",
+      "heading_deg": 270.0,
+      "heading_accuracy": 4.0,
+      "heading_reference": "magnetic"
+    },
+    "photo_license": {
+      "key": "license",
+      "heading_deg": 315.0,
+      "heading_accuracy": 5.0,
+      "heading_reference": "magnetic"
+    }
   },
 
   "track": [
@@ -196,6 +256,24 @@ y figurent.
 >   (regroupement terrain).
 > - **`lot_reference`** (optionnel, `null` possible) = regroupement **commercial**
 >   côté Odoo (plusieurs lots/camions d'une même opération).
+
+### Métadonnées d'orientation des photos
+
+Tous les objets `photo`, `photo_unload`, `photo_reload`, `photo_arrival` et
+`photo_license` utilisent le même format :
+
+| Champ | Type | Obligatoire | Description |
+|---|---|---|---|
+| `key` | string | oui | Clé identique à celle de l'upload multipart |
+| `hash` | string | non | SHA-256 s'il est disponible lors du submit |
+| `heading_deg` | number | non | Direction visée par la caméra, `0 <= x < 360` |
+| `heading_accuracy` | number | non | Marge d'erreur estimée en degrés |
+| `heading_reference` | string | non | Toujours `magnetic` dans l'app actuelle |
+
+`heading_deg=0` indique le nord magnétique, `90` l'est, `180` le sud et `270`
+l'ouest. Les trois champs `heading_*` sont absents pour les anciennes captures
+et lorsqu'aucun magnétomètre n'est disponible. Leur absence ne doit pas faire
+échouer le submit.
 
 ### Réponses attendues
 ```json
@@ -251,8 +329,9 @@ file              : <binaire JPEG>
   sous le champ correspondant à `photo_key`.
 - **Idempotence photo** : si le `hash` est déjà connu pour cette clé, ignorer
   (ne pas recréer). Permet de rejouer la requête sans doublon.
-- L'app supprime le fichier local après confirmation. Le SHA-256 est calculé
-  avant chaque envoi et transmis dans `hash`.
+- L'app conserve le fichier local après confirmation pour permettre sa
+  consultation. Elle mémorise la clé confirmée afin de ne pas la renvoyer.
+  Le SHA-256 est calculé avant chaque envoi et transmis dans `hash`.
 
 ### Schéma des `photo_key`
 Les clés sont **scopées au lot** (1 payload = 1 lot), donc simples :
@@ -311,6 +390,9 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 5. **Durée de vie du token** et comportement au 401 (refresh ou re-login ?).
 6. **`session_id`** (UUID) et **`lot_reference`** : champs ajoutés par l'app
    pour regrouper les lots partis ensemble. Les stockez-vous ?
+7. **Orientation photo** : confirmez-vous que les objets photo acceptent les
+   champs optionnels `heading_deg`, `heading_accuracy` et
+   `heading_reference="magnetic"` ?
 
 > Note : quelques **valeurs** enum restent en français dans le payload
 > (`status: "valide"`, `gps_status: "valide"`, `collect_type: "chargement"`).

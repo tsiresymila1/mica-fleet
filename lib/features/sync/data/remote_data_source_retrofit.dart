@@ -13,7 +13,7 @@ abstract class OdooApi {
   @POST('/api/tracking/submit')
   Future<dynamic> submit(@Body() Map<String, dynamic> body);
 
-  @POST('/api/mine/submit')
+  @POST('/api/mine')
   Future<dynamic> submitMine(@Body() Map<String, dynamic> body);
 
   @GET('/api/mine/submissions/{payloadId}')

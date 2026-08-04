@@ -25,6 +25,7 @@ class _CreateMineSubmissionScreenState
     extends ConsumerState<CreateMineSubmissionScreen> {
   final _nameController = TextEditingController();
   final List<CapturedPhoto> _photos = [];
+  int? _communeId;
   bool _saving = false;
 
   @override
@@ -59,12 +60,22 @@ class _CreateMineSubmissionScreenState
 
   Future<void> _save() async {
     if (_saving) return;
+    final communeId = _communeId;
+    if (communeId == null) {
+      await showAppMessage(
+        context,
+        'Sélectionne une commune',
+        kind: AppMsgKind.error,
+      );
+      return;
+    }
     setState(() => _saving = true);
     final agent = ref.read(authControllerProvider);
     final result = await ref
         .read(createMineSubmissionProvider)
         .create(
           name: _nameController.text,
+          communeId: communeId,
           photos: List.unmodifiable(_photos),
           agentLogin: agent?.id,
         );
@@ -92,6 +103,7 @@ class _CreateMineSubmissionScreenState
   @override
   Widget build(BuildContext context) {
     final enough = _photos.length >= MineSubmissionRepositoryImpl.minPhotos;
+    final communes = ref.watch(communesProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Proposer une mine')),
       body: ListView(
@@ -110,6 +122,46 @@ class _CreateMineSubmissionScreenState
             decoration: const InputDecoration(
               labelText: 'Nom de la mine',
               prefixIcon: Icon(Icons.landscape_outlined),
+            ),
+          ),
+          const SizedBox(height: 14),
+          communes.when(
+            data: (items) {
+              if (items.isEmpty) {
+                return const _EmptyCommuneCache();
+              }
+              return DropdownMenu<int>(
+                expandedInsets: EdgeInsets.zero,
+                enableFilter: true,
+                enableSearch: true,
+                requestFocusOnTap: true,
+                label: const Text('Commune'),
+                leadingIcon: const Icon(Icons.location_city_outlined),
+                hintText: 'Rechercher une commune',
+                dropdownMenuEntries: [
+                  for (final commune in items)
+                    DropdownMenuEntry<int>(
+                      value: commune.id,
+                      label: commune.district == null
+                          ? commune.nom
+                          : '${commune.nom} — ${commune.district}',
+                    ),
+                ],
+                onSelected: (value) => setState(() => _communeId = value),
+              );
+            },
+            loading: () => const LinearProgressIndicator(),
+            error: (error, stackTrace) => Row(
+              children: [
+                const Expanded(
+                  child: Text('Impossible de lire les communes en cache.'),
+                ),
+                IconButton(
+                  tooltip: 'Réessayer',
+                  onPressed: () => ref.invalidate(communesProvider),
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 28),
@@ -154,13 +206,34 @@ class _CreateMineSubmissionScreenState
         child: BigButton(
           icon: Icons.save_outlined,
           label: _saving ? 'Enregistrement…' : 'Enregistrer localement',
-          onPressed: _saving || !enough || _nameController.text.trim().isEmpty
+          onPressed:
+              _saving ||
+                  !enough ||
+                  _nameController.text.trim().isEmpty ||
+                  _communeId == null
               ? null
               : _save,
         ),
       ),
     );
   }
+}
+
+class _EmptyCommuneCache extends StatelessWidget {
+  const _EmptyCommuneCache();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.errorContainer,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: const Text(
+      'Aucune commune disponible. Connecte-toi une première fois pour '
+      'charger le référentiel.',
+    ),
+  );
 }
 
 class _PhotoPositionTile extends StatelessWidget {
@@ -207,9 +280,19 @@ class _PhotoPositionTile extends StatelessWidget {
               '±${photo.precision.toStringAsFixed(1)} m',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (photo.headingDegrees != null)
+              Text(
+                'Cap ${photo.headingDegrees!.round()}° ${_cardinal(photo.headingDegrees!)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
       ),
     ),
   );
+}
+
+String _cardinal(double degrees) {
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  return directions[((degrees % 360) / 45).round() % directions.length];
 }

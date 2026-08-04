@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../domain/entities/commune.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../../domain/repositories/mine_submission_repository.dart';
 
@@ -26,6 +27,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
   @override
   Future<Either<Failure, MineSubmission>> create({
     required String name,
+    required int communeId,
     required List<CapturedPhoto> photos,
     String? agentLogin,
   }) async {
@@ -34,6 +36,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       return left(
         const Failure.validation('Le nom de la mine est obligatoire'),
       );
+    }
+    if (communeId <= 0) {
+      return left(const Failure.validation('La commune est obligatoire'));
     }
     if (photos.length < minPhotos) {
       return left(
@@ -77,6 +82,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
               lon: original.lon,
               precision: original.precision,
               takenAt: original.takenAt,
+              headingDegrees: original.headingDegrees,
+              headingAccuracy: original.headingAccuracy,
+              headingReference: original.headingReference,
             ),
           ),
         );
@@ -84,6 +92,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       final payload = <String, dynamic>{
         'id': payloadId,
         'name': normalizedName,
+        'commune_id': communeId,
         'created_at': _odooDate(now),
         'positions': [
           for (final part in parts)
@@ -94,6 +103,12 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
               'lon': part.photo.lon,
               'gps_accuracy': part.photo.precision,
               'captured_at': _odooDate(part.photo.takenAt),
+              if (part.photo.headingDegrees != null)
+                'heading_deg': part.photo.headingDegrees,
+              if (part.photo.headingAccuracy != null)
+                'heading_accuracy': part.photo.headingAccuracy,
+              if (part.photo.headingReference != null)
+                'heading_reference': part.photo.headingReference,
             },
         ],
       };
@@ -105,6 +120,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                 payloadId: payloadId,
                 deviceUuid: deviceUuid,
                 nom: normalizedName,
+                communeId: Value(communeId),
                 agentLogin: Value(agentLogin),
                 createdAt: now,
                 updatedAt: now,
@@ -122,6 +138,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                   lat: part.photo.lat,
                   lon: part.photo.lon,
                   gpsAccuracy: part.photo.precision,
+                  headingDegrees: Value(part.photo.headingDegrees),
+                  headingAccuracy: Value(part.photo.headingAccuracy),
+                  headingReference: Value(part.photo.headingReference),
                   capturedAt: part.photo.takenAt,
                 ),
               );
@@ -153,6 +172,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
           payloadId: payloadId,
           deviceUuid: deviceUuid,
           nom: normalizedName,
+          communeId: communeId,
           agentLogin: agentLogin,
           state: MineSubmissionState.localPending,
           createdAt: now,
@@ -185,6 +205,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
           payloadId: row.payloadId,
           deviceUuid: row.deviceUuid,
           nom: row.nom,
+          communeId: row.communeId,
           agentLogin: row.agentLogin,
           state: MineSubmissionState.fromValue(row.state),
           serverId: row.serverId,
@@ -204,6 +225,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                   lon: photo.lon,
                   precision: photo.gpsAccuracy,
                   takenAt: photo.capturedAt,
+                  headingDegrees: photo.headingDegrees,
+                  headingAccuracy: photo.headingAccuracy,
+                  headingReference: photo.headingReference,
                 ),
               ),
           ],
@@ -211,6 +235,24 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       );
     }
     return result;
+  }
+
+  @override
+  Future<List<Commune>> listCommunes() async {
+    final rows =
+        await (db.select(db.communes)
+              ..where((table) => table.actif.equals(true))
+              ..orderBy([(table) => OrderingTerm.asc(table.nom)]))
+            .get();
+    return [
+      for (final row in rows)
+        Commune(
+          id: row.id,
+          nom: row.nom,
+          district: row.district,
+          actif: row.actif,
+        ),
+    ];
   }
 
   static String _odooDate(DateTime date) =>

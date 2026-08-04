@@ -31,6 +31,17 @@ class Mines extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Référentiel des communes chargé après connexion et conservé hors ligne.
+@DataClassName('CommuneRow')
+class Communes extends Table {
+  IntColumn get id => integer()();
+  TextColumn get nom => text()();
+  TextColumn get district => text().nullable()();
+  BoolColumn get actif => boolean().withDefault(const Constant(true))();
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Proposition de mine créée sur le terrain. Elle reste séparée du référentiel
 /// [Mines] tant que le serveur ne l'a pas approuvée.
 @DataClassName('MineSubmissionRow')
@@ -38,6 +49,7 @@ class MineSubmissions extends Table {
   TextColumn get payloadId => text()(); // UUID envoyé dans payload.id
   TextColumn get deviceUuid => text()(); // idempotence submit + photos
   TextColumn get nom => text()();
+  IntColumn get communeId => integer().nullable()();
   TextColumn get agentLogin => text().nullable()();
   TextColumn get state => text().withDefault(const Constant('local_pending'))();
   IntColumn get serverId => integer().nullable()();
@@ -59,6 +71,9 @@ class MineSubmissionPhotos extends Table {
   RealColumn get lat => real()();
   RealColumn get lon => real()();
   RealColumn get gpsAccuracy => real()();
+  RealColumn get headingDegrees => real().nullable()();
+  RealColumn get headingAccuracy => real().nullable()();
+  TextColumn get headingReference => text().nullable()();
   DateTimeColumn get capturedAt => dateTime()();
   BoolColumn get uploaded => boolean().withDefault(const Constant(false))();
   @override
@@ -97,6 +112,9 @@ class Lots extends Table {
   RealColumn get gpsPrecision => real().nullable()();
   TextColumn get photoPath => text().nullable()();
   TextColumn get photoHash => text().nullable()();
+  RealColumn get photoHeadingDegrees => real().nullable()();
+  RealColumn get photoHeadingAccuracy => real().nullable()();
+  TextColumn get photoHeadingReference => text().nullable()();
   DateTimeColumn get dateHeure => dateTime().nullable()();
   TextColumn get statut => text().withDefault(const Constant('en_cours'))();
   TextColumn get deviceUuid =>
@@ -161,7 +179,13 @@ class Transbordements extends Table {
   RealColumn get distanceMetres => real().nullable()();
   BoolColumn get conforme => boolean().withDefault(const Constant(false))();
   TextColumn get photoDechargePath => text().nullable()();
+  RealColumn get photoDechargeHeadingDegrees => real().nullable()();
+  RealColumn get photoDechargeHeadingAccuracy => real().nullable()();
+  TextColumn get photoDechargeHeadingReference => text().nullable()();
   TextColumn get photoRechargePath => text().nullable()();
+  RealColumn get photoRechargeHeadingDegrees => real().nullable()();
+  RealColumn get photoRechargeHeadingAccuracy => real().nullable()();
+  TextColumn get photoRechargeHeadingReference => text().nullable()();
 }
 
 /// Arrivée PAR LOT (un lot arrive en un seul camion).
@@ -172,10 +196,16 @@ class ArriveesDepot extends Table {
   TextColumn get chauffeur => text()();
   TextColumn get numPermis => text()();
   TextColumn get photoPermisPath => text().nullable()();
+  RealColumn get photoPermisHeadingDegrees => real().nullable()();
+  RealColumn get photoPermisHeadingAccuracy => real().nullable()();
+  TextColumn get photoPermisHeadingReference => text().nullable()();
   TextColumn get numLot => text()();
   RealColumn get gpsLat => real()();
   RealColumn get gpsLon => real()();
   TextColumn get photoArriveePath => text().nullable()();
+  RealColumn get photoArriveeHeadingDegrees => real().nullable()();
+  RealColumn get photoArriveeHeadingAccuracy => real().nullable()();
+  TextColumn get photoArriveeHeadingReference => text().nullable()();
   TextColumn get plaqueArrivee => text().nullable()();
   BoolColumn get plaqueCoherente =>
       boolean().withDefault(const Constant(true))();
@@ -212,6 +242,7 @@ class TrajetPoints extends Table {
   tables: [
     Fournisseurs,
     Mines,
+    Communes,
     MineSubmissions,
     MineSubmissionPhotos,
     Chargements,
@@ -227,7 +258,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 18;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -255,6 +286,84 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 15) {
         await m.addColumn(lots, lots.uploadedPhotoKeys);
+      }
+      // Si la table vient d'être créée par la migration v14, elle possède
+      // déjà les colonnes du schéma courant.
+      if (from >= 14 && from < 16) {
+        await m.addColumn(
+          mineSubmissionPhotos,
+          mineSubmissionPhotos.headingDegrees,
+        );
+        await m.addColumn(
+          mineSubmissionPhotos,
+          mineSubmissionPhotos.headingAccuracy,
+        );
+        await m.addColumn(
+          mineSubmissionPhotos,
+          mineSubmissionPhotos.headingReference,
+        );
+      }
+      if (from >= 12 && from < 17) {
+        await m.addColumn(lots, lots.photoHeadingDegrees);
+        await m.addColumn(lots, lots.photoHeadingAccuracy);
+        await m.addColumn(lots, lots.photoHeadingReference);
+        await m.addColumn(
+          transbordements,
+          transbordements.photoDechargeHeadingDegrees,
+        );
+        await m.addColumn(
+          transbordements,
+          transbordements.photoDechargeHeadingAccuracy,
+        );
+        await m.addColumn(
+          transbordements,
+          transbordements.photoDechargeHeadingReference,
+        );
+        await m.addColumn(
+          transbordements,
+          transbordements.photoRechargeHeadingDegrees,
+        );
+        await m.addColumn(
+          transbordements,
+          transbordements.photoRechargeHeadingAccuracy,
+        );
+        await m.addColumn(
+          transbordements,
+          transbordements.photoRechargeHeadingReference,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoPermisHeadingDegrees,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoPermisHeadingAccuracy,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoPermisHeadingReference,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoArriveeHeadingDegrees,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoArriveeHeadingAccuracy,
+        );
+        await m.addColumn(
+          arriveesDepot,
+          arriveesDepot.photoArriveeHeadingReference,
+        );
+      }
+      if (from >= 12 && from < 18) {
+        await m.createTable(communes);
+      }
+      // Une table créée par la migration v14 possède déjà toutes les colonnes
+      // du schéma courant. Seules les installations v14+ ont besoin de cet
+      // ajout explicite.
+      if (from >= 14 && from < 18) {
+        await m.addColumn(mineSubmissions, mineSubmissions.communeId);
       }
     },
   );

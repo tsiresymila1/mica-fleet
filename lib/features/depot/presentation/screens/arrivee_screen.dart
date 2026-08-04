@@ -52,9 +52,10 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     super.dispose();
   }
 
-  Future<CapturedPhoto?> _capture(String titre) => Navigator.of(context)
-      .push<CapturedPhoto>(
-          MaterialPageRoute(builder: (_) => CapturePhotoScreen(titre: titre)));
+  Future<CapturedPhoto?> _capture(String titre) =>
+      Navigator.of(context).push<CapturedPhoto>(
+        MaterialPageRoute(builder: (_) => CapturePhotoScreen(titre: titre)),
+      );
 
   Future<void> _captureArrivee() async {
     final p = await _capture('Photo arrivée');
@@ -72,8 +73,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   Future<void> _save() async {
     final photo = _photo;
     if (photo == null) {
-      await showAppMessage(context, 'Prends d\'abord la photo d\'arrivée',
-          kind: AppMsgKind.warning);
+      await showAppMessage(
+        context,
+        'Prends d\'abord la photo d\'arrivée',
+        kind: AppMsgKind.warning,
+      );
       return;
     }
 
@@ -81,8 +85,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     try {
       final depotRepo = ref.read(depotRepoProvider);
       final resume = await depotRepo.lotResume(widget.lotId);
-      final chaine =
-          await ref.read(transportRepoProvider).chaineFor(widget.lotId);
+      final chaine = await ref
+          .read(transportRepoProvider)
+          .chaineFor(widget.lotId);
 
       final res = ref.read(validateArriveeProvider)(
         lotId: widget.lotId,
@@ -92,22 +97,32 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         chauffeur: _chauffeurCtrl.text.trim(),
         numPermis: _permisCtrl.text.trim(),
         numLot: _numLotCtrl.text.trim(),
-        plaqueArrivee:
-            _plaqueCtrl.text.trim().isEmpty ? null : _plaqueCtrl.text.trim(),
+        plaqueArrivee: _plaqueCtrl.text.trim().isEmpty
+            ? null
+            : _plaqueCtrl.text.trim(),
         // Plaque attendue = fin de la chaîne du lot, sinon sa plaque de départ.
-        plaqueAttendue:
-            chaine.isNotEmpty ? chaine.last.plaqueApres : resume?.plaqueDepart,
+        plaqueAttendue: chaine.isNotEmpty
+            ? chaine.last.plaqueApres
+            : resume?.plaqueDepart,
         photoArriveePath: photo.path,
+        photoArriveeHeadingDegrees: photo.headingDegrees,
+        photoArriveeHeadingAccuracy: photo.headingAccuracy,
+        photoArriveeHeadingReference: photo.headingReference,
         photoPermisPath: _permisPhoto?.path,
+        photoPermisHeadingDegrees: _permisPhoto?.headingDegrees,
+        photoPermisHeadingAccuracy: _permisPhoto?.headingAccuracy,
+        photoPermisHeadingReference: _permisPhoto?.headingReference,
       );
 
       final arrivee = res.getRight().toNullable();
       if (arrivee == null) {
         final f = res.getLeft().toNullable();
         if (mounted) {
-          await showAppMessage(context,
-              f is ValidationFailure ? f.message : 'Données invalides',
-              kind: AppMsgKind.error);
+          await showAppMessage(
+            context,
+            f is ValidationFailure ? f.message : 'Données invalides',
+            kind: AppMsgKind.error,
+          );
         }
         return;
       }
@@ -134,27 +149,32 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       final ratio = resume?.cree == null
           ? 1.0
           : DateTime.now().difference(resume!.cree!).inSeconds /
-              const Duration(hours: 72).inSeconds;
-      final score = ref.read(scoringEngineProvider).evaluate(ScoringInputs(
-            gpsMineDansRayon: true,
-            photoMineValide: true,
-            fournisseurActif: true,
-            mineAutorisee: true,
-            donneesCompletes: true,
-            nombreMines: 1, // un lot = UNE mine
-            depotReconnu: true, // un dépôt a été rattaché
-            gpsNonFalsifie: true,
-            distanceGpsMetres: dist,
-            gpsVerifiable: gpsVerifiable,
-            ratioDelai: ratio <= 0 ? 1.0 : ratio,
-            transportCoherent:
-                arrivee.plaqueCoherente && chaine.every((m) => m.conforme),
-            ecartQuantitePct: 0,
-            tauxConformite90j: 1.0,
-          ));
+                const Duration(hours: 72).inSeconds;
+      final score = ref
+          .read(scoringEngineProvider)
+          .evaluate(
+            ScoringInputs(
+              gpsMineDansRayon: true,
+              photoMineValide: true,
+              fournisseurActif: true,
+              mineAutorisee: true,
+              donneesCompletes: true,
+              nombreMines: 1, // un lot = UNE mine
+              depotReconnu: true, // un dépôt a été rattaché
+              gpsNonFalsifie: true,
+              distanceGpsMetres: dist,
+              gpsVerifiable: gpsVerifiable,
+              ratioDelai: ratio <= 0 ? 1.0 : ratio,
+              transportCoherent:
+                  arrivee.plaqueCoherente && chaine.every((m) => m.conforme),
+              ecartQuantitePct: 0,
+              tauxConformite90j: 1.0,
+            ),
+          );
 
-      await depotRepo
-          .persistArrivee(arrivee.copyWith(scoreTracabilite: score.score));
+      await depotRepo.persistArrivee(
+        arrivee.copyWith(scoreTracabilite: score.score),
+      );
 
       // Plus aucun lot de la session en route → on arrête le suivi GPS.
       if (resume != null) {
@@ -169,8 +189,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         _ => '',
       };
       await showAppMessage(
-          context, '${widget.lotId}\n\nScore : ${score.score}/100$note',
-          kind: AppMsgKind.success, titre: 'Lot arrivé');
+        context,
+        '${widget.lotId}\n\nScore : ${score.score}/100$note',
+        kind: AppMsgKind.success,
+        titre: 'Lot arrivé',
+      );
       if (mounted) context.go('/home');
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -184,7 +207,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
-          StepHeader(numero: 1, titre: 'La photo', sousTitre: 'Camion au dépôt'),
+          StepHeader(
+            numero: 1,
+            titre: 'La photo',
+            sousTitre: 'Camion au dépôt',
+          ),
           const SizedBox(height: 12),
           ActionTile(
             icon: _photo == null ? Icons.camera_alt : Icons.verified,
@@ -197,24 +224,30 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           ),
           const SizedBox(height: 8),
           TextField(
-              controller: _plaqueCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Plaque du camion (arrivée)',
-                  prefixIcon: Icon(Icons.directions_car))),
+            controller: _plaqueCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Plaque du camion (arrivée)',
+              prefixIcon: Icon(Icons.directions_car),
+            ),
+          ),
           const SizedBox(height: 24),
           StepHeader(numero: 2, titre: 'Le chauffeur'),
           const SizedBox(height: 12),
           TextField(
-              controller: _chauffeurCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Nom du chauffeur',
-                  prefixIcon: Icon(Icons.person))),
+            controller: _chauffeurCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Nom du chauffeur',
+              prefixIcon: Icon(Icons.person),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _permisCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Numéro de permis',
-                  prefixIcon: Icon(Icons.badge))),
+            controller: _permisCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Numéro de permis',
+              prefixIcon: Icon(Icons.badge),
+            ),
+          ),
           const SizedBox(height: 12),
           ActionTile(
             icon: _permisPhoto == null ? Icons.add_a_photo : Icons.check_circle,
@@ -228,23 +261,27 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           ),
           const SizedBox(height: 24),
           StepHeader(
-              numero: 3,
-              titre: 'Le numéro de lot',
-              sousTitre: 'Donné par le dépôt'),
+            numero: 3,
+            titre: 'Le numéro de lot',
+            sousTitre: 'Donné par le dépôt',
+          ),
           const SizedBox(height: 12),
           TextField(
-              controller: _numLotCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Numéro de lot',
-                  prefixIcon: Icon(Icons.inventory_2))),
+            controller: _numLotCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Numéro de lot',
+              prefixIcon: Icon(Icons.inventory_2),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
         child: BigButton(
-            icon: Icons.check,
-            label: _saving ? 'Validation…' : 'Valider l\'arrivée',
-            onPressed: _saving ? null : _save),
+          icon: Icons.check,
+          label: _saving ? 'Validation…' : 'Valider l\'arrivée',
+          onPressed: _saving ? null : _save,
+        ),
       ),
     );
   }

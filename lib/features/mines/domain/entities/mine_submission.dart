@@ -32,6 +32,7 @@ class MineSubmission {
   final String payloadId;
   final String deviceUuid;
   final String nom;
+  final int? communeId;
   final String? agentLogin;
   final MineSubmissionState state;
   final int? serverId;
@@ -49,6 +50,7 @@ class MineSubmission {
     required this.createdAt,
     required this.updatedAt,
     required this.photos,
+    this.communeId,
     this.agentLogin,
     this.serverId,
     this.approvedMineId,

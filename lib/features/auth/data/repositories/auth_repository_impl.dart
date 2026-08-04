@@ -19,33 +19,46 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Either<Failure, Fournisseur>> login(
-      String identifiant, String password) async {
+    String identifiant,
+    String password,
+  ) async {
     if (identifiant.trim().isEmpty || password.isEmpty) {
-      return left(const Failure.validation('Identifiant et mot de passe requis'));
+      return left(
+        const Failure.validation('Identifiant et mot de passe requis'),
+      );
     }
     try {
       final r = await remote.login(identifiant.trim(), password);
       await tokenStore.save(r.token);
-      await _upsertReferentiel(r.mines, r.depots);
+      await _upsertReferentiel(r.mines, r.depots, r.communes);
       await local.saveSession(r.agentId, r.agentNom);
       return right(Fournisseur(id: r.agentId, nom: r.agentNom));
     } on DioException catch (e) {
       // 401 = mauvais identifiants : inutile de replier sur le hors ligne.
       if (e.response?.statusCode == 401) {
-        return left(const Failure.auth('Identifiant ou mot de passe incorrect'));
+        return left(
+          const Failure.auth('Identifiant ou mot de passe incorrect'),
+        );
       }
       // Autre erreur serveur/réseau : replie sur une session déjà établie.
       final offline = await _sessionHorsLigne(identifiant.trim());
       if (offline != null) return right(offline);
       final code = e.response?.statusCode;
-      return left(Failure.network(code != null
-          ? 'Serveur injoignable (HTTP $code sur ${e.requestOptions.path})'
-          : 'Serveur injoignable — vérifie l\'adresse et le réseau'));
+      return left(
+        Failure.network(
+          code != null
+              ? 'Serveur injoignable (HTTP $code sur ${e.requestOptions.path})'
+              : 'Serveur injoignable — vérifie l\'adresse et le réseau',
+        ),
+      );
     } catch (e) {
       final offline = await _sessionHorsLigne(identifiant.trim());
       if (offline != null) return right(offline);
-      return left(const Failure.network(
-          'Connexion impossible et aucune session hors ligne'));
+      return left(
+        const Failure.network(
+          'Connexion impossible et aucune session hors ligne',
+        ),
+      );
     }
   }
 
@@ -60,7 +73,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   Future<void> _upsertReferentiel(
-      List<RemoteMine> mines, List<RemoteDepot> depots) async {
+    List<RemoteMine> mines,
+    List<RemoteDepot> depots,
+    List<RemoteCommune> communes,
+  ) async {
     final db = local.db;
     await db.batch((b) {
       for (final m in mines) {
@@ -90,6 +106,18 @@ class AuthRepositoryImpl implements AuthRepository {
             lon: d.lon,
             rayonMetres: Value(d.rayonMetres),
             actif: Value(d.actif),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+      for (final commune in communes) {
+        b.insert(
+          db.communes,
+          CommunesCompanion.insert(
+            id: Value(commune.id),
+            nom: commune.nom,
+            district: Value(commune.district),
+            actif: Value(commune.actif),
           ),
           mode: InsertMode.insertOrReplace,
         );

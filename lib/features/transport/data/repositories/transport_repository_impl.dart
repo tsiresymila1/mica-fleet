@@ -19,13 +19,18 @@ class TransportRepositoryImpl implements TransportRepository {
   /// il suit son propre enchaînement de camions).
   @override
   Future<Either<Failure, Unit>> persistChaine(
-      String lotId, List<Transbordement> chaine) async {
+    String lotId,
+    List<Transbordement> chaine,
+  ) async {
     try {
       await db.transaction(() async {
-        await (db.delete(db.transbordements)..where((t) => t.lotId.equals(lotId)))
-            .go();
+        await (db.delete(
+          db.transbordements,
+        )..where((t) => t.lotId.equals(lotId))).go();
         for (final m in chaine) {
-          await db.into(db.transbordements).insert(
+          await db
+              .into(db.transbordements)
+              .insert(
                 TransbordementsCompanion.insert(
                   lotId: lotId,
                   ordre: m.ordre,
@@ -36,7 +41,25 @@ class TransportRepositoryImpl implements TransportRepository {
                   gpsRechargeLat: Value(m.gpsRechargeLat),
                   gpsRechargeLon: Value(m.gpsRechargeLon),
                   photoDechargePath: Value(m.photoDechargePath),
+                  photoDechargeHeadingDegrees: Value(
+                    m.photoDechargeHeadingDegrees,
+                  ),
+                  photoDechargeHeadingAccuracy: Value(
+                    m.photoDechargeHeadingAccuracy,
+                  ),
+                  photoDechargeHeadingReference: Value(
+                    m.photoDechargeHeadingReference,
+                  ),
                   photoRechargePath: Value(m.photoRechargePath),
+                  photoRechargeHeadingDegrees: Value(
+                    m.photoRechargeHeadingDegrees,
+                  ),
+                  photoRechargeHeadingAccuracy: Value(
+                    m.photoRechargeHeadingAccuracy,
+                  ),
+                  photoRechargeHeadingReference: Value(
+                    m.photoRechargeHeadingReference,
+                  ),
                   distanceMetres: Value(_distance(m)),
                   conforme: Value(m.conforme),
                 ),
@@ -46,15 +69,17 @@ class TransportRepositoryImpl implements TransportRepository {
       final payload = <String, dynamic>{
         'lot_id': lotId,
         'transloads': chaine
-            .map((m) => {
-                  'order': m.ordre,
-                  'plate_before': m.plaqueAvant,
-                  'plate_after': m.plaqueApres,
-                  'gps_unload': [m.gpsDechargeLat, m.gpsDechargeLon],
-                  'gps_reload': [m.gpsRechargeLat, m.gpsRechargeLon],
-                  'distance_m': _distance(m),
-                  'compliant': m.conforme,
-                })
+            .map(
+              (m) => {
+                'order': m.ordre,
+                'plate_before': m.plaqueAvant,
+                'plate_after': m.plaqueApres,
+                'gps_unload': [m.gpsDechargeLat, m.gpsDechargeLon],
+                'gps_reload': [m.gpsRechargeLat, m.gpsRechargeLon],
+                'distance_m': _distance(m),
+                'compliant': m.conforme,
+              },
+            )
             .toList(),
       };
       // Sync unique : envoyée à l'arrivée du lot. Ici on journalise seulement.
@@ -67,29 +92,42 @@ class TransportRepositoryImpl implements TransportRepository {
 
   @override
   Future<List<Transbordement>> chaineFor(String lotId) async {
-    final rows = await (db.select(db.transbordements)
-          ..where((t) => t.lotId.equals(lotId))
-          ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
-        .get();
+    final rows =
+        await (db.select(db.transbordements)
+              ..where((t) => t.lotId.equals(lotId))
+              ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
+            .get();
     return rows
-        .map((r) => Transbordement(
-              ordre: r.ordre,
-              plaqueAvant: r.plaqueAvant,
-              plaqueApres: r.plaqueApres,
-              gpsDechargeLat: r.gpsDechargeLat,
-              gpsDechargeLon: r.gpsDechargeLon,
-              gpsRechargeLat: r.gpsRechargeLat,
-              gpsRechargeLon: r.gpsRechargeLon,
-              photoDechargePath: r.photoDechargePath,
-              photoRechargePath: r.photoRechargePath,
-              conforme: r.conforme,
-            ))
+        .map(
+          (r) => Transbordement(
+            ordre: r.ordre,
+            plaqueAvant: r.plaqueAvant,
+            plaqueApres: r.plaqueApres,
+            gpsDechargeLat: r.gpsDechargeLat,
+            gpsDechargeLon: r.gpsDechargeLon,
+            gpsRechargeLat: r.gpsRechargeLat,
+            gpsRechargeLon: r.gpsRechargeLon,
+            photoDechargePath: r.photoDechargePath,
+            photoDechargeHeadingDegrees: r.photoDechargeHeadingDegrees,
+            photoDechargeHeadingAccuracy: r.photoDechargeHeadingAccuracy,
+            photoDechargeHeadingReference: r.photoDechargeHeadingReference,
+            photoRechargePath: r.photoRechargePath,
+            photoRechargeHeadingDegrees: r.photoRechargeHeadingDegrees,
+            photoRechargeHeadingAccuracy: r.photoRechargeHeadingAccuracy,
+            photoRechargeHeadingReference: r.photoRechargeHeadingReference,
+            conforme: r.conforme,
+          ),
+        )
         .toList();
   }
 
   double? _distance(Transbordement m) {
     if (m.gpsDechargeLat == null || m.gpsRechargeLat == null) return null;
-    return haversineMeters(m.gpsDechargeLat!, m.gpsDechargeLon!,
-        m.gpsRechargeLat!, m.gpsRechargeLon!);
+    return haversineMeters(
+      m.gpsDechargeLat!,
+      m.gpsDechargeLon!,
+      m.gpsRechargeLat!,
+      m.gpsRechargeLon!,
+    );
   }
 }

@@ -1,6 +1,6 @@
 # Base de données — Mica Fleet
 
-Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 7**.
+Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 18**.
 Source de vérité de l'app (offline-first) ; les données remontent ensuite vers Odoo
 via la file de synchronisation.
 
@@ -11,6 +11,7 @@ erDiagram
     FOURNISSEURS ||--o{ CHARGEMENTS : "dépose"
     CHARGEMENTS  ||--o{ MINE_CHARGEMENTS : "contient (1..3)"
     MINES        ||--o{ MINE_CHARGEMENTS : "source"
+    COMMUNES     ||--o{ MINE_SUBMISSIONS : "localise"
     CHARGEMENTS  ||--o{ TRANSBORDEMENTS : "chaîne (0..N)"
     CHARGEMENTS  ||--|| ARRIVEES_DEPOT : "arrive (0..1)"
     DEPOTS       ||--o{ ARRIVEES_DEPOT : "réceptionne"
@@ -31,6 +32,12 @@ erDiagram
         text district
         text commune
         text region
+        bool actif
+    }
+    COMMUNES {
+        int id PK
+        text nom
+        text district
         bool actif
     }
     DEPOTS {
@@ -162,12 +169,25 @@ Propositions créées manuellement sur le terrain. Elles restent séparées de
 | payloadId | text | **PK**, UUID | `payload.id` de la proposition |
 | deviceUuid | text | UUID | Idempotence du submit et des photos |
 | nom | text | non nul | Nom proposé |
+| communeId | int | nullable, FK logique → Communes | Commune choisie ; nullable pour les données historiques |
 | agentLogin | text | nullable | Agent ayant créé la proposition |
 | state | text | défaut `local_pending` | État local/serveur de validation |
 | serverId | int | nullable | Identifiant technique Odoo |
 | approvedMineId | text | nullable | Mine canonique créée après validation |
 | rejectionReason | text | nullable | Motif de refus Odoo |
 | createdAt, updatedAt | datetime | non nul | Suivi local |
+
+### Communes
+
+Référentiel chargé par `GET /api/commune` après connexion et conservé pour la
+création hors ligne d'une proposition de mine.
+
+| Colonne | Type | Contrainte | Rôle |
+|---|---|---|---|
+| id | int | **PK** | Identifiant Odoo envoyé comme `commune_id` |
+| nom | text | non nul | Libellé recherchable dans le formulaire |
+| district | text | nullable | Contexte affiché, non envoyé au submit |
+| actif | bool | défaut true | Commune proposée ou masquée |
 
 ### MineSubmissionPhotos
 Preuves géolocalisées d'une proposition, envoyées une par une.
@@ -180,8 +200,25 @@ Preuves géolocalisées d'une proposition, envoyées une par une.
 | hash | text | non nul | SHA-256 transmis et vérifié |
 | lat, lon | real | non nul | Position de capture |
 | gpsAccuracy | real | non nul | Précision GPS en mètres |
+| headingDegrees | real | nullable | Cap visé par la caméra, de 0° à 360° |
+| headingAccuracy | real | nullable | Incertitude du cap en degrés |
+| headingReference | text | nullable | Référence du cap (`magnetic`) |
 | capturedAt | datetime | non nul | Horodatage de capture |
 | uploaded | bool | défaut false | Confirmation d'upload unitaire |
+
+### Orientation des autres preuves photo
+
+Le schéma v18 conserve également le triplet d'orientation pour chaque photo
+du flux de traçabilité. Toutes ces colonnes sont nullables pour rester
+compatibles avec les captures historiques et les appareils sans boussole.
+
+| Table / photo | Colonnes |
+|---|---|
+| `Lots.photoPath` | `photoHeadingDegrees`, `photoHeadingAccuracy`, `photoHeadingReference` |
+| `Transbordements.photoDechargePath` | `photoDechargeHeadingDegrees`, `photoDechargeHeadingAccuracy`, `photoDechargeHeadingReference` |
+| `Transbordements.photoRechargePath` | `photoRechargeHeadingDegrees`, `photoRechargeHeadingAccuracy`, `photoRechargeHeadingReference` |
+| `ArriveesDepot.photoArriveePath` | `photoArriveeHeadingDegrees`, `photoArriveeHeadingAccuracy`, `photoArriveeHeadingReference` |
+| `ArriveesDepot.photoPermisPath` | `photoPermisHeadingDegrees`, `photoPermisHeadingAccuracy`, `photoPermisHeadingReference` |
 
 ### Depots
 Référentiel des dépôts de destination. Sert au contrôle GPS d'arrivée.

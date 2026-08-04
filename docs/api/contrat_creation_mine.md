@@ -6,9 +6,10 @@ la mine ne devient utilisable dans un chargement qu'après validation côté Odo
 
 ## Principes
 
-- Une proposition contient un nom et au moins **5 photos prises dans l'app**.
+- Une proposition contient une commune, un nom et au moins **5 photos prises
+  dans l'app**.
 - Chaque photo possède sa position GPS, sa précision, son horodatage et son
-  hash SHA-256.
+  hash SHA-256. Son cap magnétique est ajouté lorsque le capteur est disponible.
 - Les métadonnées sont envoyées avant les fichiers binaires.
 - Les photos sont envoyées **une par une** et peuvent être rejouées sans doublon.
 - `payload.id` est un UUID stable propre à la proposition.
@@ -19,7 +20,7 @@ la mine ne devient utilisable dans un chargement qu'après validation côté Odo
 
 ---
 
-## 1. `POST /api/mine/submit`
+## 1. `POST /api/mine`
 
 Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
 
@@ -33,6 +34,7 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
   "payload": {
     "id": "de305d54-75b4-431b-adb2-eb6b9e546014",
     "name": "Mine Antsahabe",
+    "commune_id": 24091,
     "created_at": "2026-07-30 08:00:00",
     "positions": [
       {
@@ -41,6 +43,9 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
         "lat": -18.91001,
         "lon": 47.52001,
         "gps_accuracy": 4.2,
+        "heading_deg": 125.4,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic",
         "captured_at": "2026-07-30 07:55:00"
       },
       {
@@ -49,6 +54,9 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
         "lat": -18.91012,
         "lon": 47.52015,
         "gps_accuracy": 5.1,
+        "heading_deg": 125.4,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic",
         "captured_at": "2026-07-30 07:56:00"
       },
       {
@@ -57,6 +65,9 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
         "lat": -18.91022,
         "lon": 47.52025,
         "gps_accuracy": 3.9,
+        "heading_deg": 125.4,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic",
         "captured_at": "2026-07-30 07:57:00"
       },
       {
@@ -65,6 +76,9 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
         "lat": -18.91031,
         "lon": 47.52009,
         "gps_accuracy": 4.7,
+        "heading_deg": 125.4,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic",
         "captured_at": "2026-07-30 07:58:00"
       },
       {
@@ -73,6 +87,9 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
         "lat": -18.91018,
         "lon": 47.51996,
         "gps_accuracy": 4.4,
+        "heading_deg": 125.4,
+        "heading_accuracy": 3.0,
+        "heading_reference": "magnetic",
         "captured_at": "2026-07-30 07:59:00"
       }
     ]
@@ -82,12 +99,16 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
 
 ### Validation serveur
 
-- `device_uuid`, `payload.id`, `name` et `positions` sont obligatoires.
+- `device_uuid`, `payload.id`, `name`, `commune_id` et `positions` sont
+  obligatoires.
 - `device_uuid` et `payload.id` doivent être des UUID valides.
+- `commune_id` doit référencer une commune connue et active. Le district est
+  déduit de cette commune par Odoo et n'est pas envoyé dans le payload.
 - `positions` doit contenir au moins 5 entrées.
 - Les `key` doivent être uniques dans le payload.
 - Chaque position doit contenir `key`, `hash`, `lat`, `lon`, `gps_accuracy` et
-  `captured_at`.
+  `captured_at`. Quand l'appareil possède une boussole, elle contient aussi
+  `heading_deg`, `heading_accuracy` et `heading_reference=magnetic`.
 - Le serveur ne fait pas confiance à une coordonnée centrale calculée par le
   mobile. La position canonique et le rayon de la mine sont définis lors de la
   validation Odoo à partir des preuves reçues.
@@ -292,4 +313,3 @@ exploitable dans le rapport de synchronisation mobile.
 4. Une proposition rejetée peut-elle être corrigée et renvoyée avec le même
    `payload.id`, ou faut-il créer un nouveau payload ?
 5. Quelle durée de conservation appliquer aux photos des propositions rejetées ?
-

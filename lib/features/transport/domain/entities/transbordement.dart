@@ -13,7 +13,13 @@ abstract class Transbordement with _$Transbordement {
     double? gpsRechargeLat,
     double? gpsRechargeLon,
     String? photoDechargePath,
+    double? photoDechargeHeadingDegrees,
+    double? photoDechargeHeadingAccuracy,
+    String? photoDechargeHeadingReference,
     String? photoRechargePath,
+    double? photoRechargeHeadingDegrees,
+    double? photoRechargeHeadingAccuracy,
+    String? photoRechargeHeadingReference,
     @Default(false) bool conforme,
   }) = _Transbordement;
 }

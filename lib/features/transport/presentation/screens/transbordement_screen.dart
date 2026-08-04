@@ -29,7 +29,13 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   CapturedPhoto? _recharge;
   // En édition : photo/GPS déjà enregistrés, réutilisés si non repris.
   String? _dechargePathInit, _rechargePathInit;
-  double? _dechargeLatInit, _dechargeLonInit, _rechargeLatInit, _rechargeLonInit;
+  double? _dechargeLatInit,
+      _dechargeLonInit,
+      _rechargeLatInit,
+      _rechargeLonInit;
+  double? _dechargeHeadingInit, _dechargeHeadingAccuracyInit;
+  double? _rechargeHeadingInit, _rechargeHeadingAccuracyInit;
+  String? _dechargeHeadingReferenceInit, _rechargeHeadingReferenceInit;
   bool _saving = false;
   bool _loading = false;
 
@@ -43,7 +49,9 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
 
   Future<void> _chargerMaillon() async {
     setState(() => _loading = true);
-    final chaine = await ref.read(transportRepoProvider).chaineFor(widget.lotId);
+    final chaine = await ref
+        .read(transportRepoProvider)
+        .chaineFor(widget.lotId);
     final m = chaine.where((x) => x.ordre == widget.ordre).firstOrNull;
     if (m != null && mounted) {
       _avantCtrl.text = m.plaqueAvant ?? '';
@@ -54,6 +62,12 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       _dechargeLonInit = m.gpsDechargeLon;
       _rechargeLatInit = m.gpsRechargeLat;
       _rechargeLonInit = m.gpsRechargeLon;
+      _dechargeHeadingInit = m.photoDechargeHeadingDegrees;
+      _dechargeHeadingAccuracyInit = m.photoDechargeHeadingAccuracy;
+      _dechargeHeadingReferenceInit = m.photoDechargeHeadingReference;
+      _rechargeHeadingInit = m.photoRechargeHeadingDegrees;
+      _rechargeHeadingAccuracyInit = m.photoRechargeHeadingAccuracy;
+      _rechargeHeadingReferenceInit = m.photoRechargeHeadingReference;
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -65,9 +79,10 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     super.dispose();
   }
 
-  Future<CapturedPhoto?> _capture(String titre) => Navigator.of(context)
-      .push<CapturedPhoto>(
-          MaterialPageRoute(builder: (_) => CapturePhotoScreen(titre: titre)));
+  Future<CapturedPhoto?> _capture(String titre) =>
+      Navigator.of(context).push<CapturedPhoto>(
+        MaterialPageRoute(builder: (_) => CapturePhotoScreen(titre: titre)),
+      );
 
   Future<void> _fillAvant(String path) async {
     if (_avantCtrl.text.trim().isNotEmpty) return;
@@ -87,22 +102,69 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     if (p != null && mounted) _apresCtrl.text = p;
   }
 
-  // Path/GPS effectifs d'un côté : la nouvelle photo si reprise, sinon l'init.
-  ({String? path, double? lat, double? lon}) _cote(
-      CapturedPhoto? neuve, String? pathInit, double? latInit, double? lonInit) {
-    if (neuve != null) return (path: neuve.path, lat: neuve.lat, lon: neuve.lon);
-    return (path: pathInit, lat: latInit, lon: lonInit);
+  // Métadonnées effectives : nouvelle photo, ou valeurs persistées en édition.
+  ({
+    String? path,
+    double? lat,
+    double? lon,
+    double? heading,
+    double? headingAccuracy,
+    String? headingReference,
+  })
+  _cote(
+    CapturedPhoto? neuve,
+    String? pathInit,
+    double? latInit,
+    double? lonInit,
+    double? headingInit,
+    double? headingAccuracyInit,
+    String? headingReferenceInit,
+  ) {
+    if (neuve != null) {
+      return (
+        path: neuve.path,
+        lat: neuve.lat,
+        lon: neuve.lon,
+        heading: neuve.headingDegrees,
+        headingAccuracy: neuve.headingAccuracy,
+        headingReference: neuve.headingReference,
+      );
+    }
+    return (
+      path: pathInit,
+      lat: latInit,
+      lon: lonInit,
+      heading: headingInit,
+      headingAccuracy: headingAccuracyInit,
+      headingReference: headingReferenceInit,
+    );
   }
 
   Future<void> _save() async {
-    final d = _cote(_decharge, _dechargePathInit, _dechargeLatInit,
-        _dechargeLonInit);
-    final r = _cote(_recharge, _rechargePathInit, _rechargeLatInit,
-        _rechargeLonInit);
+    final d = _cote(
+      _decharge,
+      _dechargePathInit,
+      _dechargeLatInit,
+      _dechargeLonInit,
+      _dechargeHeadingInit,
+      _dechargeHeadingAccuracyInit,
+      _dechargeHeadingReferenceInit,
+    );
+    final r = _cote(
+      _recharge,
+      _rechargePathInit,
+      _rechargeLatInit,
+      _rechargeLonInit,
+      _rechargeHeadingInit,
+      _rechargeHeadingAccuracyInit,
+      _rechargeHeadingReferenceInit,
+    );
     if (d.path == null || r.path == null) {
       await showAppMessage(
-          context, 'Photos déchargement et rechargement obligatoires',
-          kind: AppMsgKind.warning);
+        context,
+        'Photos déchargement et rechargement obligatoires',
+        kind: AppMsgKind.warning,
+      );
       return;
     }
     setState(() => _saving = true);
@@ -111,28 +173,40 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       final chaine = await repo.chaineFor(widget.lotId);
       final maillon = Transbordement(
         ordre: widget.ordre ?? chaine.length + 1,
-        plaqueAvant:
-            _avantCtrl.text.trim().isEmpty ? null : _avantCtrl.text.trim(),
-        plaqueApres:
-            _apresCtrl.text.trim().isEmpty ? null : _apresCtrl.text.trim(),
+        plaqueAvant: _avantCtrl.text.trim().isEmpty
+            ? null
+            : _avantCtrl.text.trim(),
+        plaqueApres: _apresCtrl.text.trim().isEmpty
+            ? null
+            : _apresCtrl.text.trim(),
         gpsDechargeLat: d.lat,
         gpsDechargeLon: d.lon,
         gpsRechargeLat: r.lat,
         gpsRechargeLon: r.lon,
         photoDechargePath: d.path,
+        photoDechargeHeadingDegrees: d.heading,
+        photoDechargeHeadingAccuracy: d.headingAccuracy,
+        photoDechargeHeadingReference: d.headingReference,
         photoRechargePath: r.path,
+        photoRechargeHeadingDegrees: r.heading,
+        photoRechargeHeadingAccuracy: r.headingAccuracy,
+        photoRechargeHeadingReference: r.headingReference,
       );
       // Édition : on remplace le maillon de même ordre ; création : on ajoute.
       final nouvelleChaine = _edition
           ? chaine.map((m) => m.ordre == widget.ordre ? maillon : m).toList()
           : [...chaine, maillon];
       final validee = ref.read(validateTransbordementProvider)(
-          nouvelleChaine, kRayonTransbordementMetres);
+        nouvelleChaine,
+        kRayonTransbordementMetres,
+      );
       await repo.persistChaine(widget.lotId, validee);
       if (!mounted) return;
       await showAppMessage(
-          context, _edition ? 'Changement corrigé' : 'Changement enregistré',
-          kind: AppMsgKind.success);
+        context,
+        _edition ? 'Changement corrigé' : 'Changement enregistré',
+        kind: AppMsgKind.success,
+      );
       if (mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -146,16 +220,20 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-          title: Text(_edition
+        title: Text(
+          _edition
               ? 'Corriger le camion ${widget.ordre}'
-              : 'Camion — ${widget.lotId}')),
+              : 'Camion — ${widget.lotId}',
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
         children: [
           StepHeader(
-              numero: 1,
-              titre: 'Le déchargement',
-              sousTitre: 'Camion qui portait ce lot'),
+            numero: 1,
+            titre: 'Le déchargement',
+            sousTitre: 'Camion qui portait ce lot',
+          ),
           const SizedBox(height: 12),
           _PhotoTile(
             fait: _decharge != null || _dechargePathInit != null,
@@ -172,15 +250,18 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
           ),
           const SizedBox(height: 8),
           TextField(
-              controller: _avantCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Plaque camion avant',
-                  prefixIcon: Icon(Icons.directions_car))),
+            controller: _avantCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Plaque camion avant',
+              prefixIcon: Icon(Icons.directions_car),
+            ),
+          ),
           const SizedBox(height: 24),
           StepHeader(
-              numero: 2,
-              titre: 'Le rechargement',
-              sousTitre: 'Nouveau camion pour ce lot'),
+            numero: 2,
+            titre: 'Le rechargement',
+            sousTitre: 'Nouveau camion pour ce lot',
+          ),
           const SizedBox(height: 12),
           _PhotoTile(
             fait: _recharge != null || _rechargePathInit != null,
@@ -197,18 +278,21 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
           ),
           const SizedBox(height: 8),
           TextField(
-              controller: _apresCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Plaque camion après',
-                  prefixIcon: Icon(Icons.directions_car))),
+            controller: _apresCtrl,
+            decoration: const InputDecoration(
+              labelText: 'Plaque camion après',
+              prefixIcon: Icon(Icons.directions_car),
+            ),
+          ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
         child: BigButton(
-            icon: Icons.save,
-            label: _saving ? 'Enregistrement…' : 'Enregistrer',
-            onPressed: _saving ? null : _save),
+          icon: Icons.save,
+          label: _saving ? 'Enregistrement…' : 'Enregistrer',
+          onPressed: _saving ? null : _save,
+        ),
       ),
     );
   }
@@ -240,12 +324,17 @@ class _PhotoTile extends StatelessWidget {
       titre: fait ? '$titreVide ✓' : titreVide,
       sousTitre: sous,
       onTap: onTap,
-      trailing: (photo?.path ?? pathInit) != null &&
+      trailing:
+          (photo?.path ?? pathInit) != null &&
               File(photo?.path ?? pathInit!).existsSync()
           ? ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: Image.file(File(photo?.path ?? pathInit!),
-                  width: 40, height: 40, fit: BoxFit.cover),
+              child: Image.file(
+                File(photo?.path ?? pathInit!),
+                width: 40,
+                height: 40,
+                fit: BoxFit.cover,
+              ),
             )
           : null,
     );
