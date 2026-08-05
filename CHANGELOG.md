@@ -1,3 +1,8 @@
+## v1.2.5 - 2026-08-05
+
+- feat: implement soft-deletion sync for mines, depots, and communes and refresh associated providers
+- feat: implement commune selection for mine submissions with associated local caching and testing
+
 ## v1.2.4 - 2026-07-31
 
 - refactor: harden validation logic, improve sync photo handling, and update scoring criteria
