@@ -1,5 +1,6 @@
 ## v1.2.5 - 2026-08-05
 
+- chore(release): v1.2.5
 - feat: implement soft-deletion sync for mines, depots, and communes and refresh associated providers
 - feat: implement commune selection for mine submissions with associated local caching and testing
 
