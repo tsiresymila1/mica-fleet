@@ -1,32 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:retrofit/retrofit.dart';
-import '../../sync/domain/repositories/remote_data_source.dart' show RemoteMine;
+import '../../sync/domain/repositories/remote_data_source.dart'
+    show RemoteCommune, RemoteDepot, RemoteMine;
 
 part 'auth_remote_data_source.g.dart';
-
-class RemoteDepot {
-  final String id, nom;
-  final double lat, lon, rayonMetres;
-  final bool actif;
-  RemoteDepot(
-    this.id,
-    this.nom,
-    this.lat,
-    this.lon,
-    this.rayonMetres,
-    this.actif,
-  );
-}
-
-class RemoteCommune {
-  final int id;
-  final String nom;
-  final String? district;
-  final bool actif;
-
-  const RemoteCommune(this.id, this.nom, this.district, this.actif);
-}
 
 /// Résultat du login distant : token + agent + référentiels locaux.
 class LoginResult {

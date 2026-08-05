@@ -5,12 +5,29 @@ import '../domain/repositories/remote_data_source.dart';
 /// mines factice. Permet de tester le flux de synchronisation sans Odoo réel.
 class MockRemoteDataSource implements RemoteDataSource {
   final List<SyncOperation> recus = [];
+  final List<RemoteMine> _validatedSubmissions = [];
   int _seq = 1000;
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
     recus.add(op); // accepté (idempotent côté serveur réel via opId)
-    return ++_seq; // faux odoo_id
+    final id = ++_seq;
+    if (op.entityType == 'mine_submission') {
+      _validatedSubmissions.add(
+        RemoteMine(
+          '$id',
+          op.payload['name']?.toString() ?? 'Mine proposée (démo)',
+          -18.91,
+          47.52,
+          20,
+          null,
+          null,
+          null,
+          true,
+        ),
+      );
+    }
+    return id; // faux odoo_id
   }
 
   @override
@@ -30,25 +47,6 @@ class MockRemoteDataSource implements RemoteDataSource {
   ) async {
     // Démo : accepté sans rien envoyer.
   }
-
-  @override
-  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
-    String payloadId,
-  ) async => RemoteMineSubmissionStatus(
-    payloadId: payloadId,
-    state: 'approved',
-    mine: RemoteMine(
-      'DEMO-${payloadId.substring(0, 8)}',
-      'Mine proposée (démo)',
-      -18.91,
-      47.52,
-      20,
-      null,
-      null,
-      null,
-      true,
-    ),
-  );
 
   @override
   Future<List<RemoteMine>> fetchMines() async => [
@@ -85,5 +83,18 @@ class MockRemoteDataSource implements RemoteDataSource {
       'Vakinankaratra',
       true,
     ),
+    ..._validatedSubmissions,
+  ];
+
+  @override
+  Future<List<RemoteDepot>> fetchDepots() async => const [
+    RemoteDepot('D001', 'Dépôt Antananarivo', -18.879, 47.5079, 20, true),
+    RemoteDepot('D002', 'Dépôt Antsirabe', -19.8659, 47.0334, 20, true),
+  ];
+
+  @override
+  Future<List<RemoteCommune>> fetchCommunes() async => const [
+    RemoteCommune(24091, 'Andilana', 'Ambohidratrimo', true),
+    RemoteCommune(24092, 'Ambatomena', 'Manjakandriana', true),
   ];
 }

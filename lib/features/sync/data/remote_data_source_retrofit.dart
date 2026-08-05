@@ -16,11 +16,14 @@ abstract class OdooApi {
   @POST('/api/mine')
   Future<dynamic> submitMine(@Body() Map<String, dynamic> body);
 
-  @GET('/api/mine/submissions/{payloadId}')
-  Future<dynamic> mineSubmissionStatus(@Path('payloadId') String payloadId);
-
   @GET('/api/mine')
   Future<dynamic> mines();
+
+  @GET('/api/storage')
+  Future<dynamic> storages();
+
+  @GET('/api/commune')
+  Future<dynamic> communes();
 }
 
 class RetrofitRemoteDataSource implements RemoteDataSource {
@@ -105,42 +108,69 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
-    String payloadId,
-  ) async {
-    final resp = await api.mineSubmissionStatus(payloadId);
-    if (resp is Map && resp['status'] == 'error') {
-      throw Exception(resp['message'] ?? 'Erreur de validation de la mine');
-    }
-    final data = resp is Map ? resp['data'] : null;
-    if (data is! Map) {
-      throw const FormatException('Réponse de validation mine invalide');
-    }
-    final mineData = data['mine'];
-    return RemoteMineSubmissionStatus(
-      payloadId: (data['payload_id'] ?? payloadId).toString(),
-      state: (data['state'] ?? 'pending_validation').toString(),
-      rejectionReason: data['rejection_reason']?.toString(),
-      mine: mineData is Map ? _mineFromMap(mineData) : null,
-    );
+  Future<List<RemoteMine>> fetchMines() async {
+    final mines = _requiredList(await api.mines(), 'mines');
+    return mines.map((entry) => _mineFromMap(entry as Map)).toList();
   }
 
   @override
-  Future<List<RemoteMine>> fetchMines() async {
-    final resp = await api.mines();
-    List? mines;
-    if (resp is List) {
-      mines = resp;
-    } else if (resp is Map) {
-      final data = resp['data'];
-      mines = data is List
-          ? data
-          : (data is Map ? data['mines'] as List? : null);
-    }
-    if (mines == null) return [];
-    return mines.map((e) {
-      return _mineFromMap(e as Map);
+  Future<List<RemoteDepot>> fetchDepots() async {
+    final depots = _requiredList(await api.storages(), 'depots');
+    return depots.map((entry) {
+      final depot = entry as Map;
+      return RemoteDepot(
+        depot['id'].toString(),
+        depot['name'].toString(),
+        (depot['lat'] as num).toDouble(),
+        (depot['lon'] as num).toDouble(),
+        (depot['radius_m'] as num?)?.toDouble() ?? 20,
+        depot['active'] as bool? ?? true,
+      );
     }).toList();
+  }
+
+  @override
+  Future<List<RemoteCommune>> fetchCommunes() async {
+    final communes = _requiredList(await api.communes(), 'communes');
+    final result = <RemoteCommune>[];
+    for (final entry in communes) {
+      if (entry is! Map) continue;
+      final id = entry['id'] is int
+          ? entry['id'] as int
+          : int.tryParse(entry['id']?.toString() ?? '');
+      final nom = entry['name']?.toString().trim();
+      if (id == null || nom == null || nom.isEmpty) continue;
+      result.add(
+        RemoteCommune(
+          id,
+          nom,
+          entry['district']?.toString(),
+          entry['active'] as bool? ?? true,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// Tolère une liste nue, `{data: [...]}` et `{data: {<key>: [...]}}`.
+  static List? _list(dynamic response, String key) {
+    if (response is List) return response;
+    if (response is! Map) return null;
+    final data = response['data'];
+    if (data is List) return data;
+    if (data is Map && data[key] is List) return data[key] as List;
+    return null;
+  }
+
+  static List _requiredList(dynamic response, String key) {
+    if (response is Map && response['status'] == 'error') {
+      throw Exception(response['message'] ?? 'Référentiel $key indisponible');
+    }
+    final result = _list(response, key);
+    if (result == null) {
+      throw FormatException('Format du référentiel $key invalide');
+    }
+    return result;
   }
 
   static RemoteMine _mineFromMap(Map m) => RemoteMine(

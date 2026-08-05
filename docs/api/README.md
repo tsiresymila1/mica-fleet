@@ -39,11 +39,10 @@ deuxième pièce jointe.
 | `POST` | `/api/login` | Non | Authentifier l’agent |
 | `GET` | `/api/mine` | Bearer | Charger les mines autorisées |
 | `GET` | `/api/storage` | Bearer | Charger les dépôts autorisés |
-| `GET` | `/api/commune` | Bearer | Charger les communes |
+| `GET` | `/api/commune` | Non | Charger les communes |
 | `POST` | `/api/tracking/submit` | Bearer | Envoyer un lot complet |
 | `POST` | `/api/mine` | Bearer | Proposer une nouvelle mine |
 | `POST` | `/api/attachments` | Bearer | Envoyer une photo, une requête par fichier |
-| `GET` | `/api/mine/submissions/{payload_id}` | Bearer | Lire la validation d’une mine |
 | `POST` | `/api/logout` | Bearer | Invalider une session côté serveur |
 
 ## 3. Authentification
@@ -431,7 +430,7 @@ Réponse HTTP 201 :
   "data": {
     "id": 84,
     "payload_id": "23ae4cc8-e017-46ca-8606-d93a39ae5684",
-    "state": "awaiting_attachments",
+    "state": "draft",
     "required_attachments": 5,
     "received_attachments": 0
   }
@@ -456,8 +455,8 @@ file              : <binaire JPEG>
 
 Le `payload_id` et le `device_uuid` sont strictement identiques à ceux de
 `POST /api/mine`. `key` et `hash` correspondent à une entrée de
-`payload.positions`. Après cinq fichiers valides, la proposition passe de
-`awaiting_attachments` à `pending_validation`.
+`payload.positions`. Après cinq fichiers valides, Odoo peut faire passer la
+proposition de `draft` à `waiting_validation`.
 
 ```json
 {
@@ -466,84 +465,40 @@ Le `payload_id` et le `device_uuid` sont strictement identiques à ceux de
     "payload_id": "23ae4cc8-e017-46ca-8606-d93a39ae5684",
     "key": "position_1",
     "attachment_id": 813,
-    "state": "awaiting_attachments",
+    "state": "draft",
     "required_attachments": 5,
     "received_attachments": 1
   }
 }
 ```
 
-## 10. Lire la validation d’une mine
+## 10. Détecter la validation d’une mine
 
-### `GET /api/mine/submissions/{payload_id}`
+Aucun endpoint de statut supplémentaire n’est requis. `POST /api/mine`
+renvoie `data.id`, que l’application conserve comme `serverId` de la
+proposition locale.
 
-En attente :
+À chaque ouverture, retour au premier plan, retour du réseau et
+synchronisation périodique, l’application recharge :
 
-```json
-{
-  "status": "ok",
-  "data": {
-    "payload_id": "23ae4cc8-e017-46ca-8606-d93a39ae5684",
-    "state": "pending_validation",
-    "required_attachments": 5,
-    "received_attachments": 5,
-    "rejection_reason": null,
-    "mine": null
-  }
-}
-```
+1. `GET /api/mine` ;
+2. `GET /api/storage` ;
+3. `GET /api/commune`.
 
-Validée :
+Les lignes sont mises à jour par leur clé primaire : relancer ces GET ne crée
+aucun doublon. Les anciennes références absentes de la nouvelle réponse sont
+conservées mais rendues inactives afin de préserver l’historique hors ligne.
 
-```json
-{
-  "status": "ok",
-  "data": {
-    "payload_id": "23ae4cc8-e017-46ca-8606-d93a39ae5684",
-    "state": "approved",
-    "required_attachments": 5,
-    "received_attachments": 5,
-    "rejection_reason": null,
-    "mine": {
-      "id": 42,
-      "name": "Mine Antsahabe",
-      "lat": -18.91017,
-      "lon": 47.52009,
-      "radius_m": 20,
-      "district": "Ambohidratrimo",
-      "commune": "Andilana",
-      "region": "Analamanga",
-      "active": true
-    }
-  }
-}
-```
+`GET /api/mine` ne renvoie que les mines validées. Quand une mine distante
+possède le même `id` que le `serverId` d’une proposition mobile, l’application :
 
-Rejetée :
+- marque la proposition locale comme approuvée ;
+- lie `approvedMineId` à cet identifiant ;
+- rend la mine sélectionnable dans un nouveau chargement.
 
-```json
-{
-  "status": "ok",
-  "data": {
-    "payload_id": "23ae4cc8-e017-46ca-8606-d93a39ae5684",
-    "state": "rejected",
-    "required_attachments": 5,
-    "received_attachments": 5,
-    "rejection_reason": "Les positions sont trop éloignées",
-    "mine": null
-  }
-}
-```
-
-| État | Utilisable dans l’application |
-|---|---|
-| `awaiting_attachments` | Non |
-| `pending_validation` | Non |
-| `approved` | Oui |
-| `rejected` | Non |
-
-Après approbation, `data.mine` est ajouté au référentiel local. La mine doit
-également apparaître dans les prochains résultats de `GET /api/mine`.
+Si l’identifiant n’apparaît pas, la proposition reste en attente. Sans champ
+supplémentaire dans `GET /api/mine`, l’application ne peut pas distinguer une
+proposition rejetée d’une proposition encore en cours de validation.
 
 ## 11. Déconnexion
 

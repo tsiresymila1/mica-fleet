@@ -28,14 +28,35 @@ class _FakeRemote implements RemoteDataSource {
   final bool alwaysFail;
   final String? failPhotoKey;
   final Object? pushError;
-  final String mineSubmissionState;
+  final List<RemoteMine> mines;
+  final List<RemoteDepot> depots;
+  final List<RemoteCommune> communes;
   _FakeRemote({
     this.failTimes = 0,
     this.alwaysFail = false,
     this.failPhotoKey,
     this.pushError,
-    this.mineSubmissionState = 'approved',
-  });
+    List<RemoteMine>? mines,
+    List<RemoteDepot>? depots,
+    List<RemoteCommune>? communes,
+  }) : mines =
+           mines ??
+           [
+             RemoteMine(
+               'm1',
+               'Mine 1',
+               -18.9,
+               47.5,
+               20,
+               null,
+               null,
+               null,
+               true,
+             ),
+           ],
+       depots = depots ?? [RemoteDepot('d1', 'Dépôt 1', -18.8, 47.4, 20, true)],
+       communes =
+           communes ?? [const RemoteCommune(24091, 'Andilana', null, true)];
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
@@ -78,33 +99,13 @@ class _FakeRemote implements RemoteDataSource {
   }
 
   @override
-  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
-    String payloadId,
-  ) async => RemoteMineSubmissionStatus(
-    payloadId: payloadId,
-    state: mineSubmissionState,
-    rejectionReason: mineSubmissionState == 'rejected'
-        ? 'Positions incohérentes'
-        : null,
-    mine: mineSubmissionState == 'approved'
-        ? RemoteMine(
-            'M-APPROVED',
-            'Mine approuvée',
-            -18.91,
-            47.52,
-            20,
-            null,
-            null,
-            null,
-            true,
-          )
-        : null,
-  );
+  Future<List<RemoteMine>> fetchMines() async => mines;
 
   @override
-  Future<List<RemoteMine>> fetchMines() async => [
-    RemoteMine('m1', 'Mine 1', -18.9, 47.5, 20, null, null, null, true),
-  ];
+  Future<List<RemoteDepot>> fetchDepots() async => depots;
+
+  @override
+  Future<List<RemoteCommune>> fetchCommunes() async => communes;
 }
 
 void main() {
@@ -563,10 +564,57 @@ void main() {
       expect(op.lastError, isNull);
     });
 
-    test('pull insère les mines en local', () async {
-      await SyncEngine(store, _FakeRemote(), db).sync();
+    test('pull rafraîchit les trois référentiels sans doublon', () async {
+      await db
+          .into(db.mines)
+          .insert(
+            MinesCompanion.insert(
+              id: 'ancienne-mine',
+              nom: 'Ancienne mine',
+              lat: -18,
+              lon: 47,
+            ),
+          );
+      await db
+          .into(db.depots)
+          .insert(
+            DepotsCompanion.insert(
+              id: 'ancien-depot',
+              nom: 'Ancien dépôt',
+              lat: -18,
+              lon: 47,
+            ),
+          );
+      await db
+          .into(db.communes)
+          .insert(
+            CommunesCompanion.insert(
+              id: const Value(1),
+              nom: 'Ancienne commune',
+            ),
+          );
+      final engine = SyncEngine(store, _FakeRemote(), db);
+      await engine.sync();
+      await engine.sync();
+
       final mines = await db.select(db.mines).get();
-      expect(mines.single.id, 'm1');
+      expect(mines, hasLength(2));
+      expect(mines.singleWhere((row) => row.id == 'm1').actif, isTrue);
+      expect(
+        mines.singleWhere((row) => row.id == 'ancienne-mine').actif,
+        isFalse,
+      );
+      final depots = await db.select(db.depots).get();
+      expect(depots, hasLength(2));
+      expect(depots.singleWhere((row) => row.id == 'd1').actif, isTrue);
+      expect(
+        depots.singleWhere((row) => row.id == 'ancien-depot').actif,
+        isFalse,
+      );
+      final communes = await db.select(db.communes).get();
+      expect(communes, hasLength(2));
+      expect(communes.singleWhere((row) => row.id == 24091).actif, isTrue);
+      expect(communes.singleWhere((row) => row.id == 1).actif, isFalse);
     });
 
     test(
@@ -611,7 +659,21 @@ void main() {
             );
         expect(created.isRight(), isTrue);
 
-        final remote = _FakeRemote();
+        final remote = _FakeRemote(
+          mines: [
+            RemoteMine(
+              '42',
+              'Mine approuvée',
+              -18.91,
+              47.52,
+              20,
+              null,
+              'Andilana',
+              null,
+              true,
+            ),
+          ],
+        );
         await SyncEngine(store, remote, db).sync();
 
         expect(remote.pushedOperations.single.entityType, 'mine_submission');
@@ -625,10 +687,10 @@ void main() {
         ]);
         final submission = (await db.select(db.mineSubmissions).get()).single;
         expect(submission.state, 'approved');
-        expect(submission.approvedMineId, 'M-APPROVED');
+        expect(submission.approvedMineId, '42');
         final approved = await (db.select(
           db.mines,
-        )..where((t) => t.id.equals('M-APPROVED'))).getSingle();
+        )..where((t) => t.id.equals('42'))).getSingle();
         expect(approved.nom, 'Mine approuvée');
         expect(files.every((file) => !file.existsSync()), isTrue);
       },
@@ -691,7 +753,21 @@ void main() {
           false,
         ]);
 
-        final retryRemote = _FakeRemote();
+        final retryRemote = _FakeRemote(
+          mines: [
+            RemoteMine(
+              '42',
+              'Mine reprise validée',
+              -18.91,
+              47.52,
+              20,
+              null,
+              'Andilana',
+              null,
+              true,
+            ),
+          ],
+        );
         await SyncEngine(store, retryRemote, db).sync();
         expect(retryRemote.uploadedMinePhotos.map((photo) => photo.key), [
           'position_3',
@@ -703,7 +779,7 @@ void main() {
       },
     );
 
-    test('une proposition rejetée ne devient jamais utilisable', () async {
+    test('une proposition absente du GET mine reste en attente', () async {
       final now = DateTime.utc(2026, 7, 30);
       await db
           .into(db.mineSubmissions)
@@ -711,8 +787,9 @@ void main() {
             MineSubmissionsCompanion.insert(
               payloadId: 'rejected-payload',
               deviceUuid: 'rejected-device',
-              nom: 'Mine refusée',
+              nom: 'Mine en attente',
               state: const Value('pending_validation'),
+              serverId: const Value(99),
               createdAt: now,
               updatedAt: now,
             ),
@@ -729,19 +806,15 @@ void main() {
       );
       await store.updateStatus('rejected-device', SyncStatus.synced);
 
-      await SyncEngine(
-        store,
-        _FakeRemote(mineSubmissionState: 'rejected'),
-        db,
-      ).sync();
+      await SyncEngine(store, _FakeRemote(), db).sync();
 
       final submission = (await db.select(db.mineSubmissions).get()).single;
-      expect(submission.state, 'rejected');
-      expect(submission.rejectionReason, 'Positions incohérentes');
+      expect(submission.state, 'pending_validation');
+      expect(submission.rejectionReason, isNull);
       expect(
         await (db.select(
           db.mines,
-        )..where((t) => t.id.equals('M-APPROVED'))).getSingleOrNull(),
+        )..where((t) => t.id.equals('99'))).getSingleOrNull(),
         isNull,
       );
     });

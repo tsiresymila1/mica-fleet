@@ -84,14 +84,20 @@ class SyncEngine {
         // Les preuves restantes seront reprises au prochain passage.
       }
       try {
-        await _pollMineSubmissionStatuses();
-      } catch (_) {
-        // Le statut de validation sera relu au prochain passage.
-      }
-      try {
         await _pullMines();
       } catch (_) {
         // Réseau indisponible : le référentiel local reste, on réessaiera.
+      }
+      try {
+        await _pullDepots();
+      } catch (_) {
+        // Chaque référentiel est indépendant : un endpoint en panne ne bloque
+        // pas les deux autres ni le cache déjà disponible.
+      }
+      try {
+        await _pullCommunes();
+      } catch (_) {
+        // Réseau indisponible : le dernier cache communes reste utilisable.
       }
     } finally {
       _running = false;
@@ -342,88 +348,105 @@ class SyncEngine {
     }
   }
 
-  /// Récupère la décision Odoo. Seule une réponse `approved` contenant une mine
-  /// canonique alimente le référentiel sélectionnable par les chargements.
-  Future<void> _pollMineSubmissionStatuses() async {
-    final submissions = await (db.select(
-      db.mineSubmissions,
-    )..where((t) => t.state.equals('pending_validation'))).get();
-    for (final submission in submissions) {
-      try {
-        final status = await remote.fetchMineSubmissionStatus(
-          submission.payloadId,
-        );
-        if (status.state == 'approved' && status.mine == null) {
-          throw const FormatException(
-            'Une proposition approuvée doit contenir la mine validée',
-          );
-        }
-        await db.transaction(() async {
-          final mine = status.mine;
-          if (status.state == 'approved' && mine != null) {
-            await db
-                .into(db.mines)
-                .insert(
-                  MinesCompanion.insert(
-                    id: mine.id,
-                    nom: mine.nom,
-                    lat: mine.lat,
-                    lon: mine.lon,
-                    rayonMetres: Value(mine.rayonMetres),
-                    district: Value(mine.district),
-                    commune: Value(mine.commune),
-                    region: Value(mine.region),
-                    actif: Value(mine.actif),
-                  ),
-                  mode: InsertMode.insertOrReplace,
-                );
-          }
-          await (db.update(
-            db.mineSubmissions,
-          )..where((t) => t.payloadId.equals(submission.payloadId))).write(
-            MineSubmissionsCompanion(
-              state: Value(status.state),
-              approvedMineId: Value(mine?.id),
-              rejectionReason: Value(status.rejectionReason),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
-        });
-        await store.updateStatus(
-          submission.deviceUuid,
-          SyncStatus.synced,
-          lastError: null,
-        );
-      } catch (error) {
-        await store.updateStatus(
-          submission.deviceUuid,
-          SyncStatus.synced,
-          lastError: 'Validation de la mine\n${apiErrorDetails(error)}',
-        );
-      }
-    }
-  }
-
   Future<void> _pullMines() async {
     final mines = await remote.fetchMines();
-    await db.batch((b) {
-      for (final m in mines) {
-        b.insert(
-          db.mines,
-          MinesCompanion.insert(
-            id: m.id,
-            nom: m.nom,
-            lat: m.lat,
-            lon: m.lon,
-            rayonMetres: Value(m.rayonMetres),
-            district: Value(m.district),
-            commune: Value(m.commune),
-            region: Value(m.region),
-            actif: Value(m.actif),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
+    await db.transaction(() async {
+      await db
+          .update(db.mines)
+          .write(const MinesCompanion(actif: Value(false)));
+      await db.batch((batch) {
+        for (final mine in mines) {
+          batch.insert(
+            db.mines,
+            MinesCompanion.insert(
+              id: mine.id,
+              nom: mine.nom,
+              lat: mine.lat,
+              lon: mine.lon,
+              rayonMetres: Value(mine.rayonMetres),
+              district: Value(mine.district),
+              commune: Value(mine.commune),
+              region: Value(mine.region),
+              actif: Value(mine.actif),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+
+      // POST /api/mine renvoie l'id serveur de la proposition. GET /api/mine
+      // ne contient que les mines validées : le même id qui réapparaît est
+      // donc la confirmation de validation, sans endpoint de statut dédié.
+      final submissions =
+          await (db.select(db.mineSubmissions)..where(
+                (table) =>
+                    table.serverId.isNotNull() &
+                    table.state.equals('approved').not(),
+              ))
+              .get();
+      final minesById = {for (final mine in mines) mine.id: mine};
+      for (final submission in submissions) {
+        final mine = minesById[submission.serverId.toString()];
+        if (mine == null) continue;
+        await (db.update(db.mineSubmissions)
+              ..where((table) => table.payloadId.equals(submission.payloadId)))
+            .write(
+              MineSubmissionsCompanion(
+                state: const Value('approved'),
+                approvedMineId: Value(mine.id),
+                rejectionReason: const Value(null),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
       }
+    });
+  }
+
+  Future<void> _pullDepots() async {
+    final depots = await remote.fetchDepots();
+    await db.transaction(() async {
+      await db
+          .update(db.depots)
+          .write(const DepotsCompanion(actif: Value(false)));
+      await db.batch((batch) {
+        for (final depot in depots) {
+          batch.insert(
+            db.depots,
+            DepotsCompanion.insert(
+              id: depot.id,
+              nom: depot.nom,
+              lat: depot.lat,
+              lon: depot.lon,
+              rayonMetres: Value(depot.rayonMetres),
+              actif: Value(depot.actif),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+    });
+  }
+
+  Future<void> _pullCommunes() async {
+    final communes = await remote.fetchCommunes();
+    await db.transaction(() async {
+      await db
+          .update(db.communes)
+          .write(const CommunesCompanion(actif: Value(false)));
+      await db.batch((batch) {
+        for (final commune in communes) {
+          batch.insert(
+            db.communes,
+            CommunesCompanion.insert(
+              id: Value(commune.id),
+              nom: commune.nom,
+              district: Value(commune.district),
+              actif: Value(commune.actif),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
     });
   }
 

@@ -6,7 +6,7 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/network/token_store.dart';
 import '../../domain/entities/fournisseur.dart';
 import '../../../sync/domain/repositories/remote_data_source.dart'
-    show RemoteMine;
+    show RemoteCommune, RemoteDepot, RemoteMine;
 import '../../domain/repositories/auth_repository.dart';
 import '../auth_remote_data_source.dart';
 import '../datasources/auth_local_ds.dart';

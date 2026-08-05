@@ -18,26 +18,36 @@ class RemoteMine {
   );
 }
 
+class RemoteDepot {
+  final String id, nom;
+  final double lat, lon, rayonMetres;
+  final bool actif;
+
+  const RemoteDepot(
+    this.id,
+    this.nom,
+    this.lat,
+    this.lon,
+    this.rayonMetres,
+    this.actif,
+  );
+}
+
+class RemoteCommune {
+  final int id;
+  final String nom;
+  final String? district;
+  final bool actif;
+
+  const RemoteCommune(this.id, this.nom, this.district, this.actif);
+}
+
 /// Une photo à uploader : clé (slot), fichier local, hash (idempotence).
 class PhotoPart {
   final String key;
   final String path;
   final String hash;
   PhotoPart(this.key, this.path, this.hash);
-}
-
-class RemoteMineSubmissionStatus {
-  final String payloadId;
-  final String state;
-  final String? rejectionReason;
-  final RemoteMine? mine;
-
-  const RemoteMineSubmissionStatus({
-    required this.payloadId,
-    required this.state,
-    this.rejectionReason,
-    this.mine,
-  });
 }
 
 abstract class RemoteDataSource {
@@ -61,11 +71,12 @@ abstract class RemoteDataSource {
     PhotoPart photo,
   );
 
-  /// État de validation Odoo d'une proposition de mine.
-  Future<RemoteMineSubmissionStatus> fetchMineSubmissionStatus(
-    String payloadId,
-  );
-
   /// Pull du référentiel mines.
   Future<List<RemoteMine>> fetchMines();
+
+  /// Pull du référentiel dépôts.
+  Future<List<RemoteDepot>> fetchDepots();
+
+  /// Pull du référentiel communes.
+  Future<List<RemoteCommune>> fetchCommunes();
 }

@@ -4,6 +4,7 @@ import 'package:mica_fleet/core/network/token_store.dart';
 import 'package:mica_fleet/features/auth/data/auth_remote_data_source.dart';
 import 'package:mica_fleet/features/auth/data/datasources/auth_local_ds.dart';
 import 'package:mica_fleet/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
 
 class _Remote implements AuthRemoteDataSource {
   @override

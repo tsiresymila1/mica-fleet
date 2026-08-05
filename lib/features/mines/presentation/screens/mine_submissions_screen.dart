@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
-import '../../../../core/di/providers.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../providers/mine_submissions_provider.dart';
 import '../providers/mines_provider.dart';
@@ -14,7 +14,7 @@ class MineSubmissionsScreen extends ConsumerWidget {
   const MineSubmissionsScreen({super.key});
 
   Future<void> _refresh(WidgetRef ref) async {
-    await ref.read(syncEngineProvider).sync();
+    await ref.read(triggerSyncProvider).sync();
     ref.invalidate(mineSubmissionsProvider);
     ref.invalidate(minesProvider);
   }

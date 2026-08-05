@@ -10,13 +10,15 @@ import 'core/di/providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/sync/presentation/sync_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = await AppDatabase.open();
   if (AppConfig.demo) await DevSeeder(db).seedIfEmpty();
-  final container =
-      ProviderContainer(overrides: [dbProvider.overrideWithValue(db)]);
+  final container = ProviderContainer(
+    overrides: [dbProvider.overrideWithValue(db)],
+  );
 
   // Restaure la session existante (garde du routeur).
   final session = await container.read(authRepositoryProvider).currentSession();
@@ -25,16 +27,16 @@ Future<void> main() async {
   final router = container.read(routerProvider);
 
   // Tap sur une notification de rappel → ouvre le détail du chargement.
-  await container.read(notificationServiceProvider).init(
-        onTap: (chargementId) => router.go('/detail/$chargementId'),
-      );
+  await container
+      .read(notificationServiceProvider)
+      .init(onTap: (chargementId) => router.go('/detail/$chargementId'));
 
   // Reprend les opérations bloquées (app tuée en plein push).
   await container.read(localSyncStoreProvider).resetInFlight();
 
   // Sync initiale au démarrage : charge le référentiel + pousse les en-attente.
   // (onConnectivityChanged ne se déclenche pas à froid si déjà en ligne.)
-  container.read(syncEngineProvider).sync();
+  container.read(triggerSyncProvider).sync();
 
   // Sync périodique garantie en arrière-plan (même app tuée).
   await registerBackgroundSync();
@@ -42,22 +44,52 @@ Future<void> main() async {
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {
     if (status.any((s) => s != ConnectivityResult.none)) {
-      container.read(syncEngineProvider).sync();
+      container.read(triggerSyncProvider).sync();
     }
   });
 
-  runApp(UncontrolledProviderScope(
-      container: container, child: MicaFleetApp(router: router)));
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: MicaFleetApp(router: router),
+    ),
+  );
 }
 
-class MicaFleetApp extends StatelessWidget {
+class MicaFleetApp extends ConsumerStatefulWidget {
   final GoRouter router;
   const MicaFleetApp({super.key, required this.router});
+
+  @override
+  ConsumerState<MicaFleetApp> createState() => _MicaFleetAppState();
+}
+
+class _MicaFleetAppState extends ConsumerState<MicaFleetApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        // Le réseau peut être resté connecté pendant que l'app était fermée :
+        // on rafraîchit les trois référentiels à chaque retour au premier plan.
+        ref.read(triggerSyncProvider).sync();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycleListener.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp.router(
-        title: 'Mica Fleet',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.build(),
-        routerConfig: router,
-      );
+    title: 'Mica Fleet',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.build(),
+    routerConfig: widget.router,
+  );
 }

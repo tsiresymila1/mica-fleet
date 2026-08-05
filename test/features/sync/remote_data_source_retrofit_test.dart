@@ -124,22 +124,15 @@ void main() {
     expect(body.containsKey('collect_type'), isFalse);
   });
 
-  test('lit le statut approved et la mine canonique', () async {
+  test('lit les dépôts dans data.depots', () async {
     final adapter = _CaptureAdapter('''
       {
         "status": "ok",
         "data": {
-          "payload_id": "payload-uuid",
-          "state": "approved",
-          "rejection_reason": null,
-          "mine": {
-            "id": 42,
-            "name": "Mine validée",
-            "lat": -18.91,
-            "lon": 47.52,
-            "radius_m": 20,
-            "active": true
-          }
+          "depots": [
+            {"id": 7, "name": "Dépôt Sud", "lat": -19.1,
+             "lon": 47.3, "radius_m": 80}
+          ]
         }
       }
     ''');
@@ -147,11 +140,41 @@ void main() {
       ..httpClientAdapter = adapter;
     final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
 
-    final status = await remote.fetchMineSubmissionStatus('payload-uuid');
+    final depots = await remote.fetchDepots();
 
-    expect(adapter.request!.path, '/api/mine/submissions/payload-uuid');
-    expect(status.state, 'approved');
-    expect(status.mine?.id, '42');
-    expect(status.mine?.nom, 'Mine validée');
+    expect(adapter.request!.path, '/api/storage');
+    expect(depots.single.id, '7');
+    expect(depots.single.nom, 'Dépôt Sud');
+  });
+
+  test('lit les communes dans data.communes', () async {
+    final adapter = _CaptureAdapter('''
+      {
+        "status": "ok",
+        "data": {
+          "communes": [{"id": 24091, "name": "Andilana"}]
+        }
+      }
+    ''');
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = adapter;
+    final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+
+    final communes = await remote.fetchCommunes();
+
+    expect(adapter.request!.path, '/api/commune');
+    expect(communes.single.id, 24091);
+    expect(communes.single.nom, 'Andilana');
+  });
+
+  test('un status error ne doit pas vider le cache référentiel', () async {
+    final adapter = _CaptureAdapter(
+      '{"status":"error","message":"service indisponible","data":{}}',
+    );
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = adapter;
+    final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+
+    expect(remote.fetchMines(), throwsException);
   });
 }
