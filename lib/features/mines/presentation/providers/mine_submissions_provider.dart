@@ -10,6 +10,7 @@ import '../../data/repositories/mine_submission_repository_impl.dart';
 import '../../domain/entities/commune.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../../domain/repositories/mine_submission_repository.dart';
+import '../../../sync/data/sync_engine.dart';
 import 'mines_provider.dart';
 
 final mineSubmissionRepositoryProvider = Provider<MineSubmissionRepository>(
@@ -26,6 +27,10 @@ final communesProvider = FutureProvider<List<Commune>>(
 
 final createMineSubmissionProvider = Provider<CreateMineSubmissionController>(
   (ref) => CreateMineSubmissionController(ref),
+);
+
+final mineSubmissionActionsProvider = Provider<MineSubmissionActionsController>(
+  MineSubmissionActionsController.new,
 );
 
 class CreateMineSubmissionController {
@@ -56,6 +61,28 @@ class CreateMineSubmissionController {
         }),
       );
     }
+    return result;
+  }
+}
+
+class MineSubmissionActionsController {
+  final Ref ref;
+  MineSubmissionActionsController(this.ref);
+
+  Future<Either<Failure, Unit>> delete(String payloadId) async {
+    final result = await ref
+        .read(mineSubmissionRepositoryProvider)
+        .delete(payloadId);
+    if (result.isRight()) ref.invalidate(mineSubmissionsProvider);
+    return result;
+  }
+
+  Future<MineSubmissionSendResult> sendNow(String payloadId) async {
+    final result = await ref
+        .read(syncEngineProvider)
+        .sendMineSubmissionNow(payloadId);
+    ref.invalidate(mineSubmissionsProvider);
+    ref.invalidate(minesProvider);
     return result;
   }
 }

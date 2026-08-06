@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -253,6 +254,59 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
           actif: row.actif,
         ),
     ];
+  }
+
+  @override
+  Future<Either<Failure, Unit>> delete(String payloadId) async {
+    try {
+      final photos = await (db.select(
+        db.mineSubmissionPhotos,
+      )..where((table) => table.payloadId.equals(payloadId))).get();
+      await db.transaction(() async {
+        await (db.delete(
+          db.mineSubmissionPhotos,
+        )..where((table) => table.payloadId.equals(payloadId))).go();
+        await (db.delete(db.syncQueue)..where(
+              (table) =>
+                  table.entityType.equals('mine_submission') &
+                  table.entityId.equals(payloadId),
+            ))
+            .go();
+        await (db.delete(
+          db.mineSubmissions,
+        )..where((table) => table.payloadId.equals(payloadId))).go();
+      });
+      // La base est la source de vérité pour l'interface. Le nettoyage des
+      // fichiers est volontairement non bloquant afin que la fiche se ferme
+      // immédiatement, même sur un stockage Android lent.
+      unawaited(_deleteLocalPhotos(photos));
+      return right(unit);
+    } catch (error) {
+      return left(Failure.database(error.toString()));
+    }
+  }
+
+  Future<void> _deleteLocalPhotos(List<MineSubmissionPhotoRow> photos) async {
+    final directories = <String>{};
+    for (final photo in photos) {
+      final file = File(photo.path);
+      directories.add(file.parent.path);
+      try {
+        if (await file.exists()) await file.delete();
+      } catch (_) {
+        // Un fichier orphelin ne doit pas faire réapparaitre la proposition.
+      }
+    }
+    for (final path in directories) {
+      try {
+        final directory = Directory(path);
+        if (await directory.exists() && await directory.list().isEmpty) {
+          await directory.delete();
+        }
+      } catch (_) {
+        // Un dossier non vide ou verrouillé sera nettoyé ultérieurement.
+      }
+    }
   }
 
   static String _odooDate(DateTime date) =>

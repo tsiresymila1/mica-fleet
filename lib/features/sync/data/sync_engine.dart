@@ -9,6 +9,18 @@ import '../domain/entities/sync_operation.dart';
 import '../domain/repositories/local_sync_store.dart';
 import '../domain/repositories/remote_data_source.dart';
 
+class MineSubmissionSendResult {
+  final bool success;
+  final String? error;
+
+  const MineSubmissionSendResult._({required this.success, this.error});
+
+  const MineSubmissionSendResult.sent() : this._(success: true);
+
+  const MineSubmissionSendResult.failed(String message)
+    : this._(success: false, error: message);
+}
+
 class SyncEngine {
   final LocalSyncStore store;
   final RemoteDataSource remote;
@@ -18,91 +30,197 @@ class SyncEngine {
 
   static const int maxAttempts = 5; // au-delà → statut failed (terminal)
 
-  bool _running = false;
+  Future<void>? _activeSync;
 
   /// Push FIFO des pending (backoff respecté) puis pull du référentiel.
   /// Ne lève jamais : les erreurs réseau laissent les opérations en attente.
   /// Réentrance protégée (déclenché à la fois par le réseau et le bouton).
-  Future<void> sync() async {
-    if (_running) return;
-    _running = true;
+  Future<void> sync() {
+    final active = _activeSync;
+    if (active != null) return active;
+    late final Future<void> task;
+    task = _syncOnce().whenComplete(() {
+      if (identical(_activeSync, task)) _activeSync = null;
+    });
+    _activeSync = task;
+    return task;
+  }
+
+  Future<void> _syncOnce() async {
+    final ops = await store.pending(); // batch max 10
+    for (final op in ops) {
+      await _pushPendingOperation(op);
+    }
     try {
-      final ops = await store.pending(); // batch max 10
-      for (final op in ops) {
-        // Réservation atomique : si un autre process (sync en arrière-plan) l'a
-        // déjà prise, on saute — pas de double envoi.
-        if (!await store.claim(op.opId)) continue;
-        try {
-          final operation = await _normalizePendingLotIdentifiers(op);
-          final odooId = await remote.pushOperation(operation);
-          await store.updateStatus(
-            op.opId,
-            SyncStatus.synced,
-            odooId: odooId,
-            syncedAt: DateTime.now(),
-          );
-          if (op.entityType == 'mine_submission') {
-            await (db.update(
-              db.mineSubmissions,
-            )..where((t) => t.payloadId.equals(op.entityId))).write(
-              MineSubmissionsCompanion(
-                state: const Value('awaiting_attachments'),
-                serverId: Value(odooId),
-                updatedAt: Value(DateTime.now()),
-              ),
-            );
-          }
-        } catch (e) {
-          final attempts = op.attempts + 1;
-          if (attempts >= maxAttempts) {
-            // Échec terminal après N tentatives → intervention manuelle.
-            await store.updateStatus(
-              op.opId,
-              SyncStatus.failed,
-              attempts: attempts,
-              lastError: apiErrorDetails(e),
-            );
-          } else {
-            await store.updateStatus(
-              op.opId,
-              SyncStatus.pending,
-              attempts: attempts,
-              lastError: apiErrorDetails(e),
-              nextRetryAt: _backoff(attempts),
-            );
-          }
-        }
-      }
-      try {
-        await _uploadPendingPhotos();
-      } catch (_) {
-        // Réseau indisponible : réessai au prochain sync.
-      }
-      try {
-        await _uploadPendingMinePhotos();
-      } catch (_) {
-        // Les preuves restantes seront reprises au prochain passage.
-      }
-      try {
-        await _pullMines();
-      } catch (_) {
-        // Réseau indisponible : le référentiel local reste, on réessaiera.
-      }
-      try {
-        await _pullDepots();
-      } catch (_) {
-        // Chaque référentiel est indépendant : un endpoint en panne ne bloque
-        // pas les deux autres ni le cache déjà disponible.
-      }
-      try {
-        await _pullCommunes();
-      } catch (_) {
-        // Réseau indisponible : le dernier cache communes reste utilisable.
-      }
-    } finally {
-      _running = false;
+      await _uploadPendingPhotos();
+    } catch (_) {
+      // Réseau indisponible : réessai au prochain sync.
+    }
+    try {
+      await _uploadPendingMinePhotos();
+    } catch (_) {
+      // Les preuves restantes seront reprises au prochain passage.
+    }
+    try {
+      await _pullMines();
+    } catch (_) {
+      // Réseau indisponible : le référentiel local reste, on réessaiera.
+    }
+    try {
+      await _pullDepots();
+    } catch (_) {
+      // Chaque référentiel est indépendant : un endpoint en panne ne bloque
+      // pas les deux autres ni le cache déjà disponible.
+    }
+    try {
+      await _pullCommunes();
+    } catch (_) {
+      // Réseau indisponible : le dernier cache communes reste utilisable.
     }
   }
+
+  /// Force immédiatement l'envoi d'une proposition précise, même si son
+  /// backoff n'est pas échu ou si elle est passée en échec terminal.
+  Future<MineSubmissionSendResult> sendMineSubmissionNow(
+    String payloadId,
+  ) async {
+    final active = _activeSync;
+    if (active != null) await active;
+    final submission = await (db.select(
+      db.mineSubmissions,
+    )..where((table) => table.payloadId.equals(payloadId))).getSingleOrNull();
+    if (submission == null) {
+      return const MineSubmissionSendResult.failed(
+        'Proposition locale introuvable.',
+      );
+    }
+    final operation =
+        await (db.select(db.syncQueue)..where(
+              (table) =>
+                  table.entityType.equals('mine_submission') &
+                  table.entityId.equals(payloadId),
+            ))
+            .getSingleOrNull();
+    if (operation == null) {
+      return const MineSubmissionSendResult.failed(
+        'Opération d’envoi locale introuvable.',
+      );
+    }
+
+    if (operation.status != 'synced') {
+      await store.updateStatus(
+        operation.opId,
+        SyncStatus.pending,
+        attempts: operation.status == 'failed' ? 0 : null,
+        lastError: null,
+        nextRetryAt: null,
+      );
+      final refreshedOperation = await (db.select(
+        db.syncQueue,
+      )..where((table) => table.opId.equals(operation.opId))).getSingle();
+      await _pushPendingOperation(_operationFromRow(refreshedOperation));
+    }
+    try {
+      await _uploadPendingMinePhotos(payloadId: payloadId);
+    } catch (_) {
+      // Le détail de la photo en échec est déjà enregistré dans sync_queue.
+    }
+    try {
+      await _pullMines();
+    } catch (_) {
+      // Le POST et les pièces jointes peuvent réussir même si le GET échoue.
+    }
+
+    final updatedSubmission = await (db.select(
+      db.mineSubmissions,
+    )..where((table) => table.payloadId.equals(payloadId))).getSingleOrNull();
+    final updatedOperation = await (db.select(
+      db.syncQueue,
+    )..where((table) => table.opId.equals(operation.opId))).getSingleOrNull();
+    final remainingPhotos =
+        await (db.select(db.mineSubmissionPhotos)..where(
+              (table) =>
+                  table.payloadId.equals(payloadId) &
+                  table.uploaded.equals(false),
+            ))
+            .get();
+    final state = updatedSubmission?.state;
+    if ((state == 'pending_validation' || state == 'approved') &&
+        remainingPhotos.isEmpty) {
+      return const MineSubmissionSendResult.sent();
+    }
+    return MineSubmissionSendResult.failed(
+      updatedOperation?.lastError ??
+          (state == 'awaiting_attachments'
+              ? 'La mine a été créée, mais certaines photos restent à envoyer.'
+              : 'Envoi impossible. Vérifiez la connexion puis réessayez.'),
+    );
+  }
+
+  Future<void> _pushPendingOperation(SyncOperation op) async {
+    // Réservation atomique : si un autre process (sync en arrière-plan) l'a
+    // déjà prise, on saute — pas de double envoi.
+    if (!await store.claim(op.opId)) return;
+    try {
+      final operation = await _normalizePendingLotIdentifiers(op);
+      final odooId = await remote.pushOperation(operation);
+      await store.updateStatus(
+        op.opId,
+        SyncStatus.synced,
+        odooId: odooId,
+        syncedAt: DateTime.now(),
+      );
+      if (op.entityType == 'mine_submission') {
+        await (db.update(
+          db.mineSubmissions,
+        )..where((t) => t.payloadId.equals(op.entityId))).write(
+          MineSubmissionsCompanion(
+            state: const Value('awaiting_attachments'),
+            serverId: Value(odooId),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    } catch (error) {
+      final attempts = op.attempts + 1;
+      if (attempts >= maxAttempts) {
+        // Échec terminal après N tentatives → intervention manuelle.
+        await store.updateStatus(
+          op.opId,
+          SyncStatus.failed,
+          attempts: attempts,
+          lastError: apiErrorDetails(error),
+        );
+      } else {
+        await store.updateStatus(
+          op.opId,
+          SyncStatus.pending,
+          attempts: attempts,
+          lastError: apiErrorDetails(error),
+          nextRetryAt: _backoff(attempts),
+        );
+      }
+    }
+  }
+
+  SyncOperation _operationFromRow(SyncQueueRow row) => SyncOperation(
+    opId: row.opId,
+    entityType: row.entityType,
+    entityId: row.entityId,
+    opType: SyncOpType.values.byName(row.opType),
+    payload: jsonDecode(row.payload) as Map<String, dynamic>,
+    status: SyncStatus.values.byName(row.status),
+    attempts: row.attempts,
+    lastError: row.lastError,
+    createdAt: row.createdAt,
+    nextRetryAt: row.nextRetryAt,
+    odooId: row.odooId,
+    syncedAt: row.syncedAt,
+    agentLogin: row.agentLogin,
+    gpsLat: row.gpsLat,
+    gpsLon: row.gpsLon,
+    gpsAccuracy: row.gpsAccuracy,
+  );
 
   /// Met à niveau une opération qui aurait été créée sans UUID API. Une op
   /// encore pending n'a pas été confirmée par Odoo : on peut donc lui affecter
@@ -265,14 +383,17 @@ class SyncEngine {
 
   /// Après le submit d'une proposition, envoie ses preuves une par une. Le
   /// booléen `uploaded` garantit qu'un échec partiel ne rejoue que le reliquat.
-  Future<void> _uploadPendingMinePhotos() async {
-    final submissions =
-        await (db.select(db.mineSubmissions)..where(
-              (t) =>
-                  t.state.equals('awaiting_attachments') |
-                  t.state.equals('pending_validation'),
-            ))
-            .get();
+  Future<void> _uploadPendingMinePhotos({String? payloadId}) async {
+    final query = db.select(db.mineSubmissions)
+      ..where(
+        (table) =>
+            table.state.equals('awaiting_attachments') |
+            table.state.equals('pending_validation'),
+      );
+    if (payloadId != null) {
+      query.where((table) => table.payloadId.equals(payloadId));
+    }
+    final submissions = await query.get();
     for (final submission in submissions) {
       final op =
           await (db.select(db.syncQueue)..where(
@@ -309,11 +430,6 @@ class SyncEngine {
               .write(
                 const MineSubmissionPhotosCompanion(uploaded: Value(true)),
               );
-          try {
-            await File(photo.path).delete();
-          } catch (_) {
-            // L'upload confirmé ne doit jamais être rejoué pour un souci local.
-          }
         } catch (error) {
           await store.updateStatus(
             op.opId,

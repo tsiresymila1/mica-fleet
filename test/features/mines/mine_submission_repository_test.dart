@@ -115,4 +115,29 @@ void main() {
     expect(await db.select(db.mineSubmissions).get(), isEmpty);
     expect(await db.select(db.syncQueue).get(), isEmpty);
   });
+
+  test('supprime la proposition, sa file et ses photos locales', () async {
+    final created = await repository.create(
+      name: 'Mine à supprimer',
+      communeId: 24091,
+      photos: [for (var i = 1; i <= 5; i++) _photo(i, storage)],
+      agentLogin: 'eddy',
+    );
+    final submission = created.getOrElse((_) => throw StateError('création'));
+    final storedPaths = submission.photos
+        .map((part) => part.photo.path)
+        .toList();
+
+    final deleted = await repository.delete(submission.payloadId);
+
+    expect(deleted.isRight(), isTrue);
+    expect(await db.select(db.mineSubmissions).get(), isEmpty);
+    expect(await db.select(db.mineSubmissionPhotos).get(), isEmpty);
+    expect(await db.select(db.syncQueue).get(), isEmpty);
+    for (var attempt = 0; attempt < 50; attempt++) {
+      if (storedPaths.every((path) => !File(path).existsSync())) break;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(storedPaths.every((path) => !File(path).existsSync()), isTrue);
+  });
 }

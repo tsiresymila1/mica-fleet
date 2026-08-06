@@ -658,6 +658,9 @@ void main() {
               agentLogin: 'eddy',
             );
         expect(created.isRight(), isTrue);
+        final storedPaths = (await db.select(db.mineSubmissionPhotos).get())
+            .map((row) => row.path)
+            .toList();
 
         final remote = _FakeRemote(
           mines: [
@@ -692,6 +695,7 @@ void main() {
           db.mines,
         )..where((t) => t.id.equals('42'))).getSingle();
         expect(approved.nom, 'Mine approuvée');
+        expect(storedPaths.every((path) => File(path).existsSync()), isTrue);
         expect(files.every((file) => !file.existsSync()), isTrue);
       },
     );
@@ -817,6 +821,77 @@ void main() {
         )..where((t) => t.id.equals('99'))).getSingleOrNull(),
         isNull,
       );
+    });
+
+    test('envoi manuel force une proposition en échec et ses photos', () async {
+      final photo = File(
+        '${Directory.systemTemp.path}/mica_manual_mine_send.jpg',
+      )..writeAsBytesSync([1, 2, 3]);
+      addTearDown(() {
+        if (photo.existsSync()) photo.deleteSync();
+      });
+      final now = DateTime.utc(2026, 8, 5);
+      await db
+          .into(db.mineSubmissions)
+          .insert(
+            MineSubmissionsCompanion.insert(
+              payloadId: 'manual-payload',
+              deviceUuid: 'manual-device',
+              nom: 'Mine manuelle',
+              state: const Value('local_pending'),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+      await db
+          .into(db.mineSubmissionPhotos)
+          .insert(
+            MineSubmissionPhotosCompanion.insert(
+              payloadId: 'manual-payload',
+              key: 'position_1',
+              path: photo.path,
+              hash: 'manual-hash',
+              lat: -18.91,
+              lon: 47.52,
+              gpsAccuracy: 4,
+              capturedAt: now,
+            ),
+          );
+      await store.enqueue(
+        SyncOperation(
+          opId: 'manual-device',
+          entityType: 'mine_submission',
+          entityId: 'manual-payload',
+          opType: SyncOpType.create,
+          payload: const {'id': 'manual-payload', 'name': 'Mine manuelle'},
+          createdAt: now,
+        ),
+      );
+      await store.updateStatus(
+        'manual-device',
+        SyncStatus.failed,
+        attempts: 5,
+        lastError: 'ancien échec',
+        nextRetryAt: now.add(const Duration(days: 1)),
+      );
+      final remote = _FakeRemote();
+
+      final result = await SyncEngine(
+        store,
+        remote,
+        db,
+      ).sendMineSubmissionNow('manual-payload');
+
+      expect(result.success, isTrue);
+      expect(result.error, isNull);
+      expect(remote.pushed, ['manual-device']);
+      expect(remote.uploadedMinePhotos.map((part) => part.key), ['position_1']);
+      final submission = (await db.select(db.mineSubmissions).get()).single;
+      expect(submission.state, 'pending_validation');
+      final op = (await db.select(db.syncQueue).get()).single;
+      expect(op.status, 'synced');
+      expect(op.attempts, 0);
+      expect(op.lastError, isNull);
     });
   });
 }

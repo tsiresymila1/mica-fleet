@@ -11,6 +11,7 @@ import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../data/repositories/mine_submission_repository_impl.dart';
+import '../../domain/entities/commune.dart';
 import '../providers/mine_submissions_provider.dart';
 
 class CreateMineSubmissionScreen extends ConsumerStatefulWidget {
@@ -25,7 +26,7 @@ class _CreateMineSubmissionScreenState
     extends ConsumerState<CreateMineSubmissionScreen> {
   final _nameController = TextEditingController();
   final List<CapturedPhoto> _photos = [];
-  int? _communeId;
+  Commune? _selectedCommune;
   bool _saving = false;
 
   @override
@@ -60,7 +61,7 @@ class _CreateMineSubmissionScreenState
 
   Future<void> _save() async {
     if (_saving) return;
-    final communeId = _communeId;
+    final communeId = _selectedCommune?.id;
     if (communeId == null) {
       await showAppMessage(
         context,
@@ -100,6 +101,22 @@ class _CreateMineSubmissionScreenState
     if (mounted) setState(() => _saving = false);
   }
 
+  Future<void> _selectCommune(List<Commune> communes) async {
+    final selected = await showModalBottomSheet<Commune>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _CommunePickerSheet(
+        communes: communes,
+        selectedId: _selectedCommune?.id,
+      ),
+    );
+    if (selected != null && mounted) {
+      setState(() => _selectedCommune = selected);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final enough = _photos.length >= MineSubmissionRepositoryImpl.minPhotos;
@@ -130,24 +147,26 @@ class _CreateMineSubmissionScreenState
               if (items.isEmpty) {
                 return const _EmptyCommuneCache();
               }
-              return DropdownMenu<int>(
-                expandedInsets: EdgeInsets.zero,
-                enableFilter: true,
-                enableSearch: true,
-                requestFocusOnTap: true,
-                label: const Text('Commune'),
-                leadingIcon: const Icon(Icons.location_city_outlined),
-                hintText: 'Rechercher une commune',
-                dropdownMenuEntries: [
-                  for (final commune in items)
-                    DropdownMenuEntry<int>(
-                      value: commune.id,
-                      label: commune.district == null
-                          ? commune.nom
-                          : '${commune.nom} — ${commune.district}',
-                    ),
-                ],
-                onSelected: (value) => setState(() => _communeId = value),
+              return InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _selectCommune(items),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Commune',
+                    prefixIcon: Icon(Icons.location_city_outlined),
+                    suffixIcon: Icon(Icons.keyboard_arrow_down),
+                  ),
+                  child: Text(
+                    _selectedCommune == null
+                        ? 'Sélectionner une commune'
+                        : _selectedCommune!.nom,
+                    style: _selectedCommune == null
+                        ? Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: AppColors.inkSoft,
+                          )
+                        : null,
+                  ),
+                ),
               );
             },
             loading: () => const LinearProgressIndicator(),
@@ -210,9 +229,86 @@ class _CreateMineSubmissionScreenState
               _saving ||
                   !enough ||
                   _nameController.text.trim().isEmpty ||
-                  _communeId == null
+                  _selectedCommune == null
               ? null
               : _save,
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunePickerSheet extends StatefulWidget {
+  final List<Commune> communes;
+  final int? selectedId;
+
+  const _CommunePickerSheet({required this.communes, this.selectedId});
+
+  @override
+  State<_CommunePickerSheet> createState() => _CommunePickerSheetState();
+}
+
+class _CommunePickerSheetState extends State<_CommunePickerSheet> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final query = _query.trim().toLowerCase();
+    final filtered = widget.communes.where((commune) {
+      if (query.isEmpty) return true;
+      return commune.nom.toLowerCase().contains(query) ||
+          (commune.district?.toLowerCase().contains(query) ?? false);
+    }).toList();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
+      ),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choisir une commune',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              autofocus: true,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                hintText: 'Rechercher une commune',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('Aucune commune trouvée'))
+                  : ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final commune = filtered[index];
+                        final selected = commune.id == widget.selectedId;
+                        return ListTile(
+                          leading: const Icon(Icons.location_on_outlined),
+                          title: Text(commune.nom),
+                          subtitle: commune.district == null
+                              ? null
+                              : Text(commune.district!),
+                          trailing: selected
+                              ? const Icon(Icons.check, color: AppColors.ok)
+                              : null,
+                          onTap: () => Navigator.of(context).pop(commune),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );
