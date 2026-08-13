@@ -1,5 +1,6 @@
 ## v1.2.6 - 2026-08-13
 
+- chore(release): v1.2.6
 - feat: add TraceabilityPhotoStore and extend loading/depot entities to support multi-photo tracking
 - feat: add manual submission retry and deletion capabilities to mine submissions
 - chore(release): v1.2.5
