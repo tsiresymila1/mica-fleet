@@ -17,6 +17,7 @@ class ValidateArrivee {
     required String chauffeur,
     required String numPermis,
     required String numLot,
+    String? depotId,
     String? plaqueArrivee,
     String? plaqueAttendue, // dernière plaque connue de CE lot
     TraceabilityPhotos? photosDecharge,
@@ -36,11 +37,19 @@ class ValidateArrivee {
         const Failure.validation('Chauffeur, permis et lot obligatoires'),
       );
     }
-    // On rattache au dépôt le plus proche sans exiger d'être dans la zone :
-    // hors zone ou coords serveur absentes n'empêchent plus de valider — le
-    // statutGps le reflète et le score en tient compte. Seul un référentiel
-    // sans aucun dépôt bloque (rien à rattacher).
-    final proche = detect.nearest(depots, lat, lon);
+    // Le dépôt peut être confirmé/corrigé manuellement. Sans sélection
+    // explicite (anciens appels), on conserve la détection du plus proche.
+    final selected = depotId == null
+        ? null
+        : depots.where((d) => d.actif && d.id == depotId).firstOrNull;
+    if (depotId != null && selected == null) {
+      return left(
+        const Failure.validation('Le dépôt sélectionné est indisponible'),
+      );
+    }
+    final proche = selected == null
+        ? detect.nearest(depots, lat, lon)
+        : detect.evaluate(selected, lat, lon);
     if (proche == null) {
       return left(const Failure.validation('Aucun dépôt dans le référentiel'));
     }

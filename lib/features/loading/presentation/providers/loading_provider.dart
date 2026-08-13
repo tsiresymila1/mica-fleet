@@ -12,18 +12,26 @@ import '../../domain/entities/lot.dart';
 import '../../domain/repositories/loading_repository.dart';
 import '../../domain/usecases/add_lot_to_chargement.dart';
 import '../../domain/usecases/validate_chargement.dart';
+import 'chargements_list_provider.dart';
 
-final loadingRepoProvider = Provider<LoadingRepository>((ref) =>
-    LoadingRepositoryImpl(ref.watch(dbProvider),
-        ref.watch(localSyncStoreProvider), ref.watch(journalServiceProvider)));
+final loadingRepoProvider = Provider<LoadingRepository>(
+  (ref) => LoadingRepositoryImpl(
+    ref.watch(dbProvider),
+    ref.watch(localSyncStoreProvider),
+    ref.watch(journalServiceProvider),
+  ),
+);
 
 final addLotUsecaseProvider = Provider((ref) => AddLotToChargement());
-final validateChargementUsecaseProvider =
-    Provider((ref) => ValidateChargement());
+final validateChargementUsecaseProvider = Provider(
+  (ref) => ValidateChargement(),
+);
 
 /// Session en cours de saisie (en mémoire jusqu'à validation).
 final chargementControllerProvider =
-    NotifierProvider<ChargementController, Chargement?>(ChargementController.new);
+    NotifierProvider<ChargementController, Chargement?>(
+      ChargementController.new,
+    );
 
 class ChargementController extends Notifier<Chargement?> {
   @override
@@ -45,7 +53,8 @@ class ChargementController extends Notifier<Chargement?> {
     final current = state;
     if (current == null) return;
     state = current.copyWith(
-        lotReference: v == null || v.trim().isEmpty ? null : v.trim());
+      lotReference: v == null || v.trim().isEmpty ? null : v.trim(),
+    );
   }
 
   /// Ajoute un LOT (chargement d'UNE mine, indivisible).
@@ -69,23 +78,29 @@ class ChargementController extends Notifier<Chargement?> {
       return left(const Failure.validation('Aucun chargement en cours'));
     }
     final validated = ref.read(validateChargementUsecaseProvider)(current);
-    return validated.match(
-      (f) => Future.value(left(f)),
-      (c) async {
-        final saved = await ref.read(loadingRepoProvider).persist(c);
-        await saved.match((_) async {}, (persisted) async {
-          state = null;
-          const config = DelaiConfig();
-          final rappels = DelaiAlertPlanner().planifier(
-              persisted.dateCreation, config.directVersDepot,
-              seuil: config.seuilAlerteAvant);
-          await ref.read(notificationServiceProvider).scheduleRappels(
-              persisted.id.hashCode & 0x7ff0, rappels,
-              payload: persisted.id);
-          await ref.read(tripTrackerProvider).start(persisted.id);
-        });
-        return saved;
-      },
-    );
+    return validated.match((f) => Future.value(left(f)), (c) async {
+      final saved = await ref.read(loadingRepoProvider).persist(c);
+      await saved.match((_) async {}, (persisted) async {
+        state = null;
+        // La liste générale peut rester montée sous l'écran de création.
+        // On force sa prochaine lecture dès que les lots sont persistés.
+        ref.invalidate(lotsListProvider);
+        const config = DelaiConfig();
+        final rappels = DelaiAlertPlanner().planifier(
+          persisted.dateCreation,
+          config.directVersDepot,
+          seuil: config.seuilAlerteAvant,
+        );
+        await ref
+            .read(notificationServiceProvider)
+            .scheduleRappels(
+              persisted.id.hashCode & 0x7ff0,
+              rappels,
+              payload: persisted.id,
+            );
+        await ref.read(tripTrackerProvider).start(persisted.id);
+      });
+      return saved;
+    });
   }
 }

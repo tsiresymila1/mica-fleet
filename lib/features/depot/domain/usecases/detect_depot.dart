@@ -8,7 +8,8 @@ class DetectDepot {
   /// Retourne le dépôt actif dont la zone contient la position, ou null.
   Depot? call(List<Depot> depots, double lat, double lon) {
     for (final d in depots.where((d) => d.actif)) {
-      if (_coordsValides(d) && isWithinRadius(lat, lon, d.lat, d.lon, d.rayonMetres)) {
+      if (_coordsValides(d) &&
+          isWithinRadius(lat, lon, d.lat, d.lon, d.rayonMetres)) {
         return d;
       }
     }
@@ -24,15 +25,28 @@ class DetectDepot {
   DepotProche? nearest(List<Depot> depots, double lat, double lon) {
     final actifs = depots.where((d) => d.actif).toList();
     if (actifs.isEmpty) return null;
-    actifs.sort((a, b) => haversineMeters(lat, lon, a.lat, a.lon)
-        .compareTo(haversineMeters(lat, lon, b.lat, b.lon)));
-    final d = actifs.first;
+    actifs.sort(
+      (a, b) => haversineMeters(
+        lat,
+        lon,
+        a.lat,
+        a.lon,
+      ).compareTo(haversineMeters(lat, lon, b.lat, b.lon)),
+    );
+    return evaluate(actifs.first, lat, lon);
+  }
+
+  /// Calcule le statut GPS par rapport au dépôt choisi par l'utilisateur.
+  /// Utilisé quand la sélection automatique du dépôt le plus proche a été
+  /// corrigée manuellement dans l'écran d'arrivée.
+  DepotProche evaluate(Depot depot, double lat, double lon) {
+    final d = depot;
     final dist = haversineMeters(lat, lon, d.lat, d.lon);
     final statut = !_coordsValides(d)
         ? 'non_verifiable'
         : dist <= d.rayonMetres
-            ? 'valide'
-            : 'hors_zone';
+        ? 'valide'
+        : 'hors_zone';
     return (depot: d, distanceMetres: dist, statutGps: statut);
   }
 

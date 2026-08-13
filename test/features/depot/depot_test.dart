@@ -88,6 +88,36 @@ void main() {
     expect(r.getRight().toNullable()!.depotId, 'D1');
   });
 
+  test('validate utilise le dépôt sélectionné au lieu du plus proche', () {
+    final r = ValidateArrivee(DetectDepot())(
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      depotId: 'D2',
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: 'P1',
+      numLot: 'L1',
+    );
+    final arrivee = r.getRight().toNullable()!;
+    expect(arrivee.depotId, 'D2');
+    expect(arrivee.statutGps, 'hors_zone');
+  });
+
+  test('validate refuse un dépôt sélectionné absent du cache actif', () {
+    final r = ValidateArrivee(DetectDepot())(
+      lotId: 'MICA-2026-0001-L1',
+      depots: depots,
+      depotId: 'INCONNU',
+      lat: -18.90005,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: 'P1',
+      numLot: 'L1',
+    );
+    expect(r.isLeft(), isTrue);
+  });
+
   test('plaque cohérente si arrivée == attendue (normalisée)', () {
     final r = ValidateArrivee(DetectDepot())(
       lotId: 'MICA-2026-0001-L1',
