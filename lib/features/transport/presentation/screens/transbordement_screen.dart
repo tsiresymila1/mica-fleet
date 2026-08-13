@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/capture_photo_screen.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/transbordement.dart';
@@ -27,6 +28,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   final _apresCtrl = TextEditingController();
   CapturedPhoto? _decharge;
   CapturedPhoto? _recharge;
+  CapturedPhoto? _dechargePlaque, _dechargeMica, _dechargeCamion;
+  CapturedPhoto? _rechargePlaque, _rechargeMica, _rechargeCamion;
   // En édition : photo/GPS déjà enregistrés, réutilisés si non repris.
   String? _dechargePathInit, _rechargePathInit;
   double? _dechargeLatInit,
@@ -37,21 +40,23 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   double? _rechargeHeadingInit, _rechargeHeadingAccuracyInit;
   String? _dechargeHeadingReferenceInit, _rechargeHeadingReferenceInit;
   bool _saving = false;
-  bool _loading = false;
+  bool _loading = true;
+  bool _v2 = false;
 
   bool get _edition => widget.ordre != null;
 
   @override
   void initState() {
     super.initState();
-    if (_edition) _chargerMaillon();
+    _initialize();
   }
 
-  Future<void> _chargerMaillon() async {
-    setState(() => _loading = true);
-    final chaine = await ref
-        .read(transportRepoProvider)
-        .chaineFor(widget.lotId);
+  Future<void> _initialize() async {
+    final repo = ref.read(transportRepoProvider);
+    _v2 = await repo.photoSchemaVersionForLot(widget.lotId) >= 2;
+    final chaine = _edition
+        ? await repo.chaineFor(widget.lotId)
+        : <Transbordement>[];
     final m = chaine.where((x) => x.ordre == widget.ordre).firstOrNull;
     if (m != null && mounted) {
       _avantCtrl.text = m.plaqueAvant ?? '';
@@ -68,6 +73,12 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       _rechargeHeadingInit = m.photoRechargeHeadingDegrees;
       _rechargeHeadingAccuracyInit = m.photoRechargeHeadingAccuracy;
       _rechargeHeadingReferenceInit = m.photoRechargeHeadingReference;
+      _dechargePlaque = m.photosDecharge?.plate;
+      _dechargeMica = m.photosDecharge?.mica;
+      _dechargeCamion = m.photosDecharge?.truckWithMica;
+      _rechargePlaque = m.photosRecharge?.plate;
+      _rechargeMica = m.photosRecharge?.mica;
+      _rechargeCamion = m.photosRecharge?.truckWithMica;
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -141,8 +152,18 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   }
 
   Future<void> _save() async {
+    final photosDecharge = _photoSet(
+      _dechargePlaque,
+      _dechargeMica,
+      _dechargeCamion,
+    );
+    final photosRecharge = _photoSet(
+      _rechargePlaque,
+      _rechargeMica,
+      _rechargeCamion,
+    );
     final d = _cote(
-      _decharge,
+      _dechargePlaque ?? _decharge,
       _dechargePathInit,
       _dechargeLatInit,
       _dechargeLonInit,
@@ -151,7 +172,7 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       _dechargeHeadingReferenceInit,
     );
     final r = _cote(
-      _recharge,
+      _rechargePlaque ?? _recharge,
       _rechargePathInit,
       _rechargeLatInit,
       _rechargeLonInit,
@@ -159,10 +180,13 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       _rechargeHeadingAccuracyInit,
       _rechargeHeadingReferenceInit,
     );
-    if (d.path == null || r.path == null) {
+    final incomplete = _v2
+        ? photosDecharge == null || photosRecharge == null
+        : d.path == null || r.path == null;
+    if (incomplete) {
       await showAppMessage(
         context,
-        'Photos déchargement et rechargement obligatoires',
+        'Les 3 photos du déchargement et les 3 photos du rechargement sont obligatoires',
         kind: AppMsgKind.warning,
       );
       return;
@@ -191,6 +215,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
         photoRechargeHeadingDegrees: r.heading,
         photoRechargeHeadingAccuracy: r.headingAccuracy,
         photoRechargeHeadingReference: r.headingReference,
+        photosDecharge: _v2 ? photosDecharge : null,
+        photosRecharge: _v2 ? photosRecharge : null,
       );
       // Édition : on remplace le maillon de même ordre ; création : on ajoute.
       final nouvelleChaine = _edition
@@ -211,6 +237,15 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  TraceabilityPhotos? _photoSet(
+    CapturedPhoto? plate,
+    CapturedPhoto? mica,
+    CapturedPhoto? truck,
+  ) {
+    if (plate == null || mica == null || truck == null) return null;
+    return TraceabilityPhotos(plate: plate, mica: mica, truckWithMica: truck);
   }
 
   @override
@@ -235,19 +270,57 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             sousTitre: 'Camion qui portait ce lot',
           ),
           const SizedBox(height: 12),
-          _PhotoTile(
-            fait: _decharge != null || _dechargePathInit != null,
-            titreVide: 'Photo déchargement',
-            photo: _decharge,
-            pathInit: _dechargePathInit,
-            onTap: () async {
-              final p = await _capture('Déchargement');
-              if (p != null) {
-                setState(() => _decharge = p);
-                await _fillAvant(p.path);
-              }
-            },
-          ),
+          if (!_v2)
+            _PhotoTile(
+              fait: _decharge != null || _dechargePathInit != null,
+              titreVide: 'Photo déchargement',
+              photo: _decharge,
+              pathInit: _dechargePathInit,
+              onTap: () async {
+                final p = await _capture('Déchargement');
+                if (p != null) {
+                  setState(() => _decharge = p);
+                  await _fillAvant(p.path);
+                }
+              },
+            )
+          else ...[
+            _PhotoTile(
+              fait: _dechargePlaque != null,
+              titreVide: 'Photo de la plaque',
+              photo: _dechargePlaque,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Déchargement — plaque');
+                if (p != null) {
+                  setState(() => _dechargePlaque = p);
+                  await _fillAvant(p.path);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            _PhotoTile(
+              fait: _dechargeMica != null,
+              titreVide: 'Photo du mica',
+              photo: _dechargeMica,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Déchargement — mica');
+                if (p != null) setState(() => _dechargeMica = p);
+              },
+            ),
+            const SizedBox(height: 8),
+            _PhotoTile(
+              fait: _dechargeCamion != null,
+              titreVide: 'Photo du camion avec mica',
+              photo: _dechargeCamion,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Déchargement — camion avec mica');
+                if (p != null) setState(() => _dechargeCamion = p);
+              },
+            ),
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: _avantCtrl,
@@ -263,19 +336,57 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             sousTitre: 'Nouveau camion pour ce lot',
           ),
           const SizedBox(height: 12),
-          _PhotoTile(
-            fait: _recharge != null || _rechargePathInit != null,
-            titreVide: 'Photo rechargement',
-            photo: _recharge,
-            pathInit: _rechargePathInit,
-            onTap: () async {
-              final p = await _capture('Rechargement');
-              if (p != null) {
-                setState(() => _recharge = p);
-                await _fillApres(p.path);
-              }
-            },
-          ),
+          if (!_v2)
+            _PhotoTile(
+              fait: _recharge != null || _rechargePathInit != null,
+              titreVide: 'Photo rechargement',
+              photo: _recharge,
+              pathInit: _rechargePathInit,
+              onTap: () async {
+                final p = await _capture('Rechargement');
+                if (p != null) {
+                  setState(() => _recharge = p);
+                  await _fillApres(p.path);
+                }
+              },
+            )
+          else ...[
+            _PhotoTile(
+              fait: _rechargePlaque != null,
+              titreVide: 'Photo de la plaque',
+              photo: _rechargePlaque,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Rechargement — plaque');
+                if (p != null) {
+                  setState(() => _rechargePlaque = p);
+                  await _fillApres(p.path);
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            _PhotoTile(
+              fait: _rechargeMica != null,
+              titreVide: 'Photo du mica',
+              photo: _rechargeMica,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Rechargement — mica');
+                if (p != null) setState(() => _rechargeMica = p);
+              },
+            ),
+            const SizedBox(height: 8),
+            _PhotoTile(
+              fait: _rechargeCamion != null,
+              titreVide: 'Photo du camion avec mica',
+              photo: _rechargeCamion,
+              pathInit: null,
+              onTap: () async {
+                final p = await _capture('Rechargement — camion avec mica');
+                if (p != null) setState(() => _rechargeCamion = p);
+              },
+            ),
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: _apresCtrl,

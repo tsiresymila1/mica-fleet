@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
+import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
+import 'package:mica_fleet/features/capture/domain/entities/traceability_photos.dart';
 import 'package:mica_fleet/features/journal/data/journal_service.dart';
 import 'package:mica_fleet/features/sync/data/local_sync_store_impl.dart';
 import 'package:mica_fleet/features/transport/data/repositories/transport_repository_impl.dart';
@@ -86,6 +88,35 @@ void main() {
     expect(back.single.photoRechargeHeadingDegrees, 225);
     expect(back.single.photoRechargeHeadingAccuracy, 4);
     expect(back.single.photoRechargeHeadingReference, 'magnetic');
+  });
+
+  test('persiste et relit les six preuves photo v2', () async {
+    CapturedPhoto photo(String name) => CapturedPhoto(
+      path: '/tmp/$name.jpg',
+      sha256: 'hash-$name',
+      lat: -18.9,
+      lon: 47.5,
+      precision: 3,
+      takenAt: DateTime.utc(2026, 8, 13),
+    );
+    TraceabilityPhotos set(String prefix) => TraceabilityPhotos(
+      plate: photo('${prefix}_plate'),
+      mica: photo('${prefix}_mica'),
+      truckWithMica: photo('${prefix}_truck'),
+    );
+    await repo.persistChaine('MICA-2026-0001', [
+      Transbordement(
+        ordre: 1,
+        photosDecharge: set('unload'),
+        photosRecharge: set('reload'),
+      ),
+    ]);
+
+    final rows = await db.select(db.lotTraceabilityPhotos).get();
+    expect(rows, hasLength(6));
+    final back = (await repo.chaineFor('MICA-2026-0001')).single;
+    expect(back.photosDecharge?.plate.sha256, 'hash-unload_plate');
+    expect(back.photosRecharge?.truckWithMica.sha256, 'hash-reload_truck');
   });
 
   test('corriger un maillon ne perd pas les photos des autres', () async {

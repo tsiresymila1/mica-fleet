@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 part 'transbordement.freezed.dart';
 
 @freezed
@@ -8,6 +9,8 @@ abstract class Transbordement with _$Transbordement {
     required int ordre,
     String? plaqueAvant,
     String? plaqueApres,
+    TraceabilityPhotos? photosDecharge,
+    TraceabilityPhotos? photosRecharge,
     double? gpsDechargeLat,
     double? gpsDechargeLon,
     double? gpsRechargeLat,

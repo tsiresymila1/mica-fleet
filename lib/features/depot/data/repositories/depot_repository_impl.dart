@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
+import '../../../capture/data/traceability_photo_store.dart';
 import '../../../journal/data/journal_service.dart';
 import '../../../sync/data/chargement_snapshot_builder.dart';
 import '../../../sync/domain/entities/sync_operation.dart';
@@ -18,6 +19,7 @@ class DepotRepositoryImpl implements DepotRepository {
   DepotRepositoryImpl(this.db, this.syncStore, this.journal);
 
   LotSnapshotBuilder get _snapshot => LotSnapshotBuilder(db);
+  TraceabilityPhotoStore get _photos => TraceabilityPhotoStore(db);
 
   @override
   Future<List<Depot>> activeDepots() async {
@@ -73,6 +75,14 @@ class DepotRepositoryImpl implements DepotRepository {
                 scoreTracabilite: Value(a.scoreTracabilite),
               ),
             );
+        if (a.photosDecharge != null) {
+          await _photos.replace(
+            lotId: a.lotId,
+            stage: TraceabilityPhotoStage.depotUnload,
+            stageOrder: 0,
+            photos: a.photosDecharge!,
+          );
+        }
         // Le lot est arrivé : statut + score figés sur le lot.
         await (db.update(db.lots)..where((t) => t.id.equals(a.lotId))).write(
           LotsCompanion(
@@ -128,6 +138,14 @@ class DepotRepositoryImpl implements DepotRepository {
       plaqueDepart: l.plaqueDepart,
       couleur: l.couleur,
     );
+  }
+
+  @override
+  Future<int> photoSchemaVersionForLot(String lotId) async {
+    final lot = await (db.select(
+      db.lots,
+    )..where((table) => table.id.equals(lotId))).getSingleOrNull();
+    return lot?.photoSchemaVersion ?? 1;
   }
 
   @override

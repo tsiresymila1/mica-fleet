@@ -1,5 +1,6 @@
 import 'package:fpdart/fpdart.dart';
 import '../../../../core/error/failure.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 import '../entities/arrivee_depot.dart';
 import '../entities/depot.dart';
 import 'detect_depot.dart';
@@ -18,6 +19,7 @@ class ValidateArrivee {
     required String numLot,
     String? plaqueArrivee,
     String? plaqueAttendue, // dernière plaque connue de CE lot
+    TraceabilityPhotos? photosDecharge,
     String? photoArriveePath,
     double? photoArriveeHeadingDegrees,
     double? photoArriveeHeadingAccuracy,
@@ -54,6 +56,7 @@ class ValidateArrivee {
         statutGps: proche.statutGps,
         plaqueArrivee: plaqueArrivee,
         plaqueCoherente: _coherente(plaqueArrivee, plaqueAttendue),
+        photosDecharge: photosDecharge,
         photoArriveePath: photoArriveePath,
         photoArriveeHeadingDegrees: photoArriveeHeadingDegrees,
         photoArriveeHeadingAccuracy: photoArriveeHeadingAccuracy,

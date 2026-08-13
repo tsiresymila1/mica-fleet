@@ -408,6 +408,82 @@ void main() {
       },
     );
 
+    test('upload v2 envoie les six clés mine et dépôt une par une', () async {
+      final directory = Directory.systemTemp.createTempSync('mica_v2_upload_');
+      addTearDown(() {
+        if (directory.existsSync()) directory.deleteSync(recursive: true);
+      });
+      await db
+          .into(db.chargements)
+          .insert(
+            ChargementsCompanion.insert(
+              id: 'V2',
+              fournisseurId: 'F001',
+              dateCreation: DateTime(2026),
+            ),
+          );
+      await db
+          .into(db.lots)
+          .insert(
+            LotsCompanion.insert(
+              id: 'V2-L1',
+              sessionId: 'V2',
+              mineId: 'M001',
+              deviceUuid: const Value('v2-device'),
+              photoSchemaVersion: const Value(2),
+            ),
+          );
+      for (final stage in ['mine', 'depot_unload']) {
+        for (final role in ['plate', 'mica', 'truck_with_mica']) {
+          final file = File('${directory.path}/${stage}_$role.jpg')
+            ..writeAsBytesSync([stage.length, role.length]);
+          await db
+              .into(db.lotTraceabilityPhotos)
+              .insert(
+                LotTraceabilityPhotosCompanion.insert(
+                  lotId: 'V2-L1',
+                  stage: stage,
+                  role: role,
+                  path: file.path,
+                  hash: 'hash-$stage-$role',
+                  lat: -18.9,
+                  lon: 47.5,
+                  gpsAccuracy: 3,
+                  capturedAt: DateTime.utc(2026, 8, 13),
+                ),
+              );
+        }
+      }
+      await store.enqueue(
+        SyncOperation(
+          opId: 'v2-device',
+          entityType: 'lot',
+          entityId: 'V2-L1',
+          opType: SyncOpType.create,
+          payload: const {
+            'id': '44444444-4444-4444-8444-444444444444',
+            'session_id': 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+            'photo_schema_version': 2,
+          },
+          createdAt: DateTime(2026),
+        ),
+      );
+
+      final remote = _FakeRemote();
+      await SyncEngine(store, remote, db).sync();
+
+      expect(remote.uploadedPhotos.map((photo) => photo.key).toSet(), {
+        'mine_plate',
+        'mine_mica',
+        'mine_truck_with_mica',
+        'depot_unload_plate',
+        'depot_unload_mica',
+        'depot_unload_truck_with_mica',
+      });
+      expect(remote.uploadedPhotos, hasLength(6));
+      expect(directory.listSync().whereType<File>(), hasLength(6));
+    });
+
     test('calcule le hash manquant avant un upload unitaire', () async {
       final tmp = File('${Directory.systemTemp.path}/mica_test_arrival.jpg')
         ..writeAsBytesSync([1, 2, 3]);

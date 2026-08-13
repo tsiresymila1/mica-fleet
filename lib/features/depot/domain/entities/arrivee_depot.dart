@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 part 'arrivee_depot.freezed.dart';
 
 /// Arrivée d'UN lot au dépôt (un lot arrive en un seul camion).
@@ -16,6 +17,7 @@ abstract class ArriveeDepot with _$ArriveeDepot {
     String? plaqueArrivee,
     @Default(true) bool plaqueCoherente,
     int? scoreTracabilite,
+    TraceabilityPhotos? photosDecharge,
     String? photoPermisPath,
     double? photoPermisHeadingDegrees,
     double? photoPermisHeadingAccuracy,

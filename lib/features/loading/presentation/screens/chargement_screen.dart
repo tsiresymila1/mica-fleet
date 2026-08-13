@@ -142,10 +142,14 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                                   '${l.quantiteEstimee} kg',
                               ].whereType<String>().join('  •  '),
                               trailing: StatusPill(
-                                kind: l.photo != null
+                                kind: l.photos != null || l.photo != null
                                     ? PillKind.ok
                                     : PillKind.warn,
-                                label: l.photo != null ? 'Photo' : 'Manque',
+                                label: l.photos != null || l.photo != null
+                                    ? (l.photos != null
+                                          ? '3 photos'
+                                          : 'Photo v1')
+                                    : 'Manque',
                               ),
                             );
                           },

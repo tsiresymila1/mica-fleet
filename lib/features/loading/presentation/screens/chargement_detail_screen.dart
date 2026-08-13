@@ -82,6 +82,10 @@ class ChargementDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            if (d.minePhotos.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _photoLines(context, d.minePhotos),
+            ],
             const SizedBox(height: 16),
             StepHeader(numero: 1, titre: 'Origine (1 mine)'),
             const SizedBox(height: 8),
@@ -180,7 +184,28 @@ class ChargementDetailScreen extends ConsumerWidget {
                               )
                             : null,
                       ),
-                      if (t.photoDecharge != null || t.photoRecharge != null)
+                      if (t.photosDecharge.isNotEmpty ||
+                          t.photosRecharge.isNotEmpty) ...[
+                        if (t.photosDecharge.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                            child: _labeledPhotoLines(
+                              context,
+                              'Déchargement',
+                              t.photosDecharge,
+                            ),
+                          ),
+                        if (t.photosRecharge.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            child: _labeledPhotoLines(
+                              context,
+                              'Rechargement',
+                              t.photosRecharge,
+                            ),
+                          ),
+                      ] else if (t.photoDecharge != null ||
+                          t.photoRecharge != null)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                           child: Row(
@@ -258,6 +283,14 @@ class ChargementDetailScreen extends ConsumerWidget {
                                 d.arrivee!.photoPermis,
                               ),
                           ],
+                        ),
+                      ],
+                      if (d.arrivee!.photosDecharge.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _labeledPhotoLines(
+                          context,
+                          'Déchargement dépôt',
+                          d.arrivee!.photosDecharge,
                         ),
                       ],
                     ],
@@ -467,6 +500,27 @@ Widget _thumbLabel(BuildContext context, String label, String? path) => Column(
     _thumb(context, path, size: 72),
     const SizedBox(height: 4),
     Text(label, style: Theme.of(context).textTheme.bodyMedium),
+  ],
+);
+
+Widget _photoLines(BuildContext context, List<PhotoLine> photos) => Wrap(
+  spacing: 12,
+  runSpacing: 12,
+  children: [
+    for (final photo in photos) _thumbLabel(context, photo.label, photo.path),
+  ],
+);
+
+Widget _labeledPhotoLines(
+  BuildContext context,
+  String label,
+  List<PhotoLine> photos,
+) => Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text(label, style: Theme.of(context).textTheme.titleSmall),
+    const SizedBox(height: 6),
+    _photoLines(context, photos),
   ],
 );
 

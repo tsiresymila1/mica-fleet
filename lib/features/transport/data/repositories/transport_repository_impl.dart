@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/utils/geo.dart';
+import '../../../capture/data/traceability_photo_store.dart';
 import '../../../journal/data/journal_service.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/transbordement.dart';
@@ -14,6 +15,7 @@ class TransportRepositoryImpl implements TransportRepository {
   final LocalSyncStore syncStore;
   final JournalService journal;
   TransportRepositoryImpl(this.db, this.syncStore, this.journal);
+  TraceabilityPhotoStore get _photos => TraceabilityPhotoStore(db);
 
   /// Remplace la chaîne de transbordements d'UN lot (le lot est indivisible :
   /// il suit son propre enchaînement de camions).
@@ -24,6 +26,13 @@ class TransportRepositoryImpl implements TransportRepository {
   ) async {
     try {
       await db.transaction(() async {
+        await (db.delete(db.lotTraceabilityPhotos)..where(
+              (t) =>
+                  t.lotId.equals(lotId) &
+                  (t.stage.equals(TraceabilityPhotoStage.transloadUnload) |
+                      t.stage.equals(TraceabilityPhotoStage.transloadReload)),
+            ))
+            .go();
         await (db.delete(
           db.transbordements,
         )..where((t) => t.lotId.equals(lotId))).go();
@@ -64,6 +73,22 @@ class TransportRepositoryImpl implements TransportRepository {
                   conforme: Value(m.conforme),
                 ),
               );
+          if (m.photosDecharge != null) {
+            await _photos.replace(
+              lotId: lotId,
+              stage: TraceabilityPhotoStage.transloadUnload,
+              stageOrder: m.ordre,
+              photos: m.photosDecharge!,
+            );
+          }
+          if (m.photosRecharge != null) {
+            await _photos.replace(
+              lotId: lotId,
+              stage: TraceabilityPhotoStage.transloadReload,
+              stageOrder: m.ordre,
+              photos: m.photosRecharge!,
+            );
+          }
         }
       });
       final payload = <String, dynamic>{
@@ -97,28 +122,48 @@ class TransportRepositoryImpl implements TransportRepository {
               ..where((t) => t.lotId.equals(lotId))
               ..orderBy([(t) => OrderingTerm.asc(t.ordre)]))
             .get();
-    return rows
-        .map(
-          (r) => Transbordement(
-            ordre: r.ordre,
-            plaqueAvant: r.plaqueAvant,
-            plaqueApres: r.plaqueApres,
-            gpsDechargeLat: r.gpsDechargeLat,
-            gpsDechargeLon: r.gpsDechargeLon,
-            gpsRechargeLat: r.gpsRechargeLat,
-            gpsRechargeLon: r.gpsRechargeLon,
-            photoDechargePath: r.photoDechargePath,
-            photoDechargeHeadingDegrees: r.photoDechargeHeadingDegrees,
-            photoDechargeHeadingAccuracy: r.photoDechargeHeadingAccuracy,
-            photoDechargeHeadingReference: r.photoDechargeHeadingReference,
-            photoRechargePath: r.photoRechargePath,
-            photoRechargeHeadingDegrees: r.photoRechargeHeadingDegrees,
-            photoRechargeHeadingAccuracy: r.photoRechargeHeadingAccuracy,
-            photoRechargeHeadingReference: r.photoRechargeHeadingReference,
-            conforme: r.conforme,
+    final result = <Transbordement>[];
+    for (final r in rows) {
+      result.add(
+        Transbordement(
+          ordre: r.ordre,
+          plaqueAvant: r.plaqueAvant,
+          plaqueApres: r.plaqueApres,
+          gpsDechargeLat: r.gpsDechargeLat,
+          gpsDechargeLon: r.gpsDechargeLon,
+          gpsRechargeLat: r.gpsRechargeLat,
+          gpsRechargeLon: r.gpsRechargeLon,
+          photoDechargePath: r.photoDechargePath,
+          photoDechargeHeadingDegrees: r.photoDechargeHeadingDegrees,
+          photoDechargeHeadingAccuracy: r.photoDechargeHeadingAccuracy,
+          photoDechargeHeadingReference: r.photoDechargeHeadingReference,
+          photoRechargePath: r.photoRechargePath,
+          photoRechargeHeadingDegrees: r.photoRechargeHeadingDegrees,
+          photoRechargeHeadingAccuracy: r.photoRechargeHeadingAccuracy,
+          photoRechargeHeadingReference: r.photoRechargeHeadingReference,
+          conforme: r.conforme,
+          photosDecharge: await _photos.read(
+            lotId: lotId,
+            stage: TraceabilityPhotoStage.transloadUnload,
+            stageOrder: r.ordre,
           ),
-        )
-        .toList();
+          photosRecharge: await _photos.read(
+            lotId: lotId,
+            stage: TraceabilityPhotoStage.transloadReload,
+            stageOrder: r.ordre,
+          ),
+        ),
+      );
+    }
+    return result;
+  }
+
+  @override
+  Future<int> photoSchemaVersionForLot(String lotId) async {
+    final lot = await (db.select(
+      db.lots,
+    )..where((table) => table.id.equals(lotId))).getSingleOrNull();
+    return lot?.photoSchemaVersion ?? 1;
   }
 
   double? _distance(Transbordement m) {

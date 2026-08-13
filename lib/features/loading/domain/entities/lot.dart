@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 part 'lot.freezed.dart';
 
 /// LOT = chargement d'UNE mine. Indivisible : la quantité de départ prime.
@@ -13,6 +14,8 @@ abstract class Lot with _$Lot {
     String? couleur,
     double? quantiteEstimee,
     String? plaqueDepart,
+    TraceabilityPhotos? photos,
+    @Deprecated('Utiliser photos. Conservé pour les captures v1.')
     CapturedPhoto? photo,
     @Default('en_cours') String statut,
     String? deviceUuid,

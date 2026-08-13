@@ -3,7 +3,7 @@ import '../../../../core/error/failure.dart';
 import '../entities/chargement.dart';
 
 class ValidateChargement {
-  /// Éligibilité : 1 à 3 lots, chacun avec sa photo (preuve d'origine).
+  /// Éligibilité : 1 à 3 lots, chacun avec ses preuves d'origine.
   Either<Failure, Chargement> call(Chargement c) {
     if (c.lots.isEmpty) {
       return left(const Failure.validation('Au moins une mine requise'));
@@ -12,9 +12,10 @@ class ValidateChargement {
       return left(const Failure.validation('Maximum 3 mines'));
     }
     for (final l in c.lots) {
-      if (l.photo == null) {
+      if (l.photos == null && l.photo == null) {
         return left(
-            Failure.validation('Photo manquante pour la mine ${l.mineId}'));
+          Failure.validation('Photos manquantes pour la mine ${l.mineId}'),
+        );
       }
     }
     return right(c.copyWith(statut: 'valide'));

@@ -21,7 +21,10 @@ abstract class DepotRepository {
   /// Infos du lot : session, mine, date, plaque de départ, couleur.
   Future<LotResume?> lotResume(String lotId);
 
+  Future<int> photoSchemaVersionForLot(String lotId);
+
   /// Lots d'une session encore en cours (non arrivés).
   Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
-      String sessionId);
+    String sessionId,
+  );
 }

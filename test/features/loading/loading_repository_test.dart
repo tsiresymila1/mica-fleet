@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
+import 'package:mica_fleet/features/capture/domain/entities/traceability_photos.dart';
 import 'package:mica_fleet/features/journal/data/journal_service.dart';
 import 'package:mica_fleet/features/loading/data/repositories/loading_repository_impl.dart';
 import 'package:mica_fleet/features/loading/domain/entities/chargement.dart';
@@ -77,6 +78,49 @@ void main() {
     expect(lot.photoHeadingDegrees, 15);
     expect(lot.photoHeadingAccuracy, 1.5);
     expect(lot.photoHeadingReference, 'magnetic');
+  });
+
+  test('persiste les trois preuves v2 du chargement mine', () async {
+    CapturedPhoto photo(String name, double heading) => CapturedPhoto(
+      path: '/tmp/$name.jpg',
+      sha256: 'hash-$name',
+      lat: -18.9,
+      lon: 47.5,
+      precision: 3,
+      takenAt: DateTime.utc(2026, 8, 13),
+      headingDegrees: heading,
+      headingReference: 'magnetic',
+    );
+    final result = await repo.persist(
+      Chargement(
+        id: 'MICA-2026-0001',
+        fournisseurId: 'F001',
+        dateCreation: DateTime(2026),
+        lots: [
+          Lot(
+            id: 'MICA-2026-0001-L1',
+            mineId: 'M001',
+            photos: TraceabilityPhotos(
+              plate: photo('plate', 10),
+              mica: photo('mica', 20),
+              truckWithMica: photo('truck', 30),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    expect(result.isRight(), isTrue);
+    final lot = (await db.select(db.lots).get()).single;
+    expect(lot.photoSchemaVersion, 2);
+    final photos = await db.select(db.lotTraceabilityPhotos).get();
+    expect(photos, hasLength(3));
+    expect(photos.map((row) => row.role).toSet(), {
+      'plate',
+      'mica',
+      'truck_with_mica',
+    });
+    expect(photos.singleWhere((row) => row.role == 'plate').headingDegrees, 10);
   });
 
   test('refuse la suppression si un lot est arrivé au dépôt', () async {

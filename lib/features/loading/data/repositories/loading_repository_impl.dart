@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
+import '../../../capture/data/traceability_photo_store.dart';
 import '../../../journal/data/journal_service.dart';
 import '../../../sync/domain/repositories/local_sync_store.dart';
 import '../../domain/entities/chargement.dart';
@@ -14,6 +15,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
   final LocalSyncStore syncStore;
   final JournalService journal;
   final _uuid = const Uuid();
+  TraceabilityPhotoStore get _photos => TraceabilityPhotoStore(db);
   LoadingRepositoryImpl(this.db, this.syncStore, this.journal);
 
   @override
@@ -43,6 +45,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
               ),
             );
         for (final l in c.lots) {
+          final primaryPhoto = l.photos?.plate ?? l.photo;
           final existingLot = await (db.select(
             db.lots,
           )..where((t) => t.id.equals(l.id))).getSingleOrNull();
@@ -58,20 +61,33 @@ class LoadingRepositoryImpl implements LoadingRepository {
                   couleur: Value(l.couleur),
                   quantiteEstimee: Value(l.quantiteEstimee),
                   plaqueDepart: Value(l.plaqueDepart),
-                  gpsLat: Value(l.photo?.lat),
-                  gpsLon: Value(l.photo?.lon),
-                  gpsPrecision: Value(l.photo?.precision),
-                  photoPath: Value(l.photo?.path),
-                  photoHash: Value(l.photo?.sha256),
-                  photoHeadingDegrees: Value(l.photo?.headingDegrees),
-                  photoHeadingAccuracy: Value(l.photo?.headingAccuracy),
-                  photoHeadingReference: Value(l.photo?.headingReference),
-                  dateHeure: Value(l.photo?.takenAt),
+                  gpsLat: Value(primaryPhoto?.lat),
+                  gpsLon: Value(primaryPhoto?.lon),
+                  gpsPrecision: Value(primaryPhoto?.precision),
+                  photoPath: Value(primaryPhoto?.path),
+                  photoHash: Value(primaryPhoto?.sha256),
+                  photoHeadingDegrees: Value(primaryPhoto?.headingDegrees),
+                  photoHeadingAccuracy: Value(primaryPhoto?.headingAccuracy),
+                  photoHeadingReference: Value(primaryPhoto?.headingReference),
+                  dateHeure: Value(primaryPhoto?.takenAt),
+                  photoSchemaVersion: Value(
+                    l.photos == null
+                        ? (existingLot?.photoSchemaVersion ?? 1)
+                        : 2,
+                  ),
                   statut: const Value('en_cours'),
                   // Idempotence sync : un device_uuid stable PAR LOT.
                   deviceUuid: Value(l.deviceUuid ?? _uuid.v4()),
                 ),
               );
+          if (l.photos != null) {
+            await _photos.replace(
+              lotId: l.id,
+              stage: TraceabilityPhotoStage.mine,
+              stageOrder: 0,
+              photos: l.photos!,
+            );
+          }
         }
       });
       final payload = <String, dynamic>{
@@ -86,7 +102,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
                 'color': l.couleur,
                 'estimated_quantity': l.quantiteEstimee,
                 'plate': l.plaqueDepart,
-                'hash': l.photo?.sha256,
+                'hash': l.photos?.plate.sha256 ?? l.photo?.sha256,
               },
             )
             .toList(),
@@ -121,6 +137,9 @@ class LoadingRepositoryImpl implements LoadingRepository {
       }
       await db.transaction(() async {
         for (final id in lotIds) {
+          await (db.delete(
+            db.lotTraceabilityPhotos,
+          )..where((t) => t.lotId.equals(id))).go();
           await (db.delete(
             db.transbordements,
           )..where((t) => t.lotId.equals(id))).go();

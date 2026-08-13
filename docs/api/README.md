@@ -5,6 +5,10 @@ Flutter Android et l’API Radoran/Odoo. Il couvre l’authentification, les
 référentiels, la traçabilité des lots, les pièces jointes et la proposition
 manuelle d’une mine.
 
+**Version du contrat photo : 2 — mise à jour du 13 août 2026.** Cette version
+remplace la photo unique des étapes de traçabilité par trois preuves
+obligatoires : plaque, mica et camion contenant le mica.
+
 ## 1. Conventions générales
 
 - Base URL : `https://<serveur>` configurée par `MICA_ODOO_URL`.
@@ -178,6 +182,7 @@ le même `session_id`, mais chacun possède son propre `payload.id` et son propr
     "session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
     "supplier_id": "eddy",
     "lot_reference": "LOT-A-2026-06-22",
+    "photo_schema_version": 2,
     "status": "arrive",
     "created_at": "2026-06-22 08:00:00",
     "mine": {
@@ -190,12 +195,40 @@ le même `session_id`, mais chacun possède son propre `payload.id` et son propr
       "lon": 47.52000,
       "gps_accuracy": 5.0,
       "captured_at": "2026-06-22 08:00:00",
-      "photo": {
-        "key": "mine",
-        "hash": "9f2c...e7",
-        "heading_deg": 15.0,
-        "heading_accuracy": 1.5,
-        "heading_reference": "magnetic"
+      "photos": {
+        "plate": {
+          "key": "mine_plate",
+          "hash": "9f2c...e7",
+          "lat": -18.91001,
+          "lon": 47.52001,
+          "gps_accuracy": 4.2,
+          "captured_at": "2026-06-22 07:58:00",
+          "heading_deg": 15.0,
+          "heading_accuracy": 1.5,
+          "heading_reference": "magnetic"
+        },
+        "mica": {
+          "key": "mine_mica",
+          "hash": "82ad...11",
+          "lat": -18.91002,
+          "lon": 47.52002,
+          "gps_accuracy": 4.6,
+          "captured_at": "2026-06-22 07:59:00",
+          "heading_deg": 25.0,
+          "heading_accuracy": 2.0,
+          "heading_reference": "magnetic"
+        },
+        "truck_with_mica": {
+          "key": "mine_truck_with_mica",
+          "hash": "35bc...a9",
+          "lat": -18.91000,
+          "lon": 47.52000,
+          "gps_accuracy": 5.0,
+          "captured_at": "2026-06-22 08:00:00",
+          "heading_deg": 35.0,
+          "heading_accuracy": 2.5,
+          "heading_reference": "magnetic"
+        }
       }
     },
     "transloads": [
@@ -207,17 +240,75 @@ le même `session_id`, mais chacun possède son propre `payload.id` et son propr
         "gps_reload": [-18.92010, 47.53000],
         "distance_m": 11.4,
         "compliant": true,
-        "photo_unload": {
-          "key": "transload_1_unload",
-          "heading_deg": 90.0,
-          "heading_accuracy": 2.0,
-          "heading_reference": "magnetic"
+        "photos_unload": {
+          "plate": {
+            "key": "transload_1_unload_plate",
+            "hash": "44bd...10",
+            "lat": -18.92000,
+            "lon": 47.53000,
+            "gps_accuracy": 5.1,
+            "captured_at": "2026-06-22 08:20:00",
+            "heading_deg": 90.0,
+            "heading_accuracy": 2.0,
+            "heading_reference": "magnetic"
+          },
+          "mica": {
+            "key": "transload_1_unload_mica",
+            "hash": "55ce...21",
+            "lat": -18.92001,
+            "lon": 47.53001,
+            "gps_accuracy": 5.0,
+            "captured_at": "2026-06-22 08:21:00",
+            "heading_deg": 100.0,
+            "heading_accuracy": 2.2,
+            "heading_reference": "magnetic"
+          },
+          "truck_with_mica": {
+            "key": "transload_1_unload_truck_with_mica",
+            "hash": "66df...32",
+            "lat": -18.92002,
+            "lon": 47.53002,
+            "gps_accuracy": 5.3,
+            "captured_at": "2026-06-22 08:22:00",
+            "heading_deg": 110.0,
+            "heading_accuracy": 2.4,
+            "heading_reference": "magnetic"
+          }
         },
-        "photo_reload": {
-          "key": "transload_1_reload",
-          "heading_deg": 180.0,
-          "heading_accuracy": 3.0,
-          "heading_reference": "magnetic"
+        "photos_reload": {
+          "plate": {
+            "key": "transload_1_reload_plate",
+            "hash": "77e0...43",
+            "lat": -18.92010,
+            "lon": 47.53000,
+            "gps_accuracy": 4.8,
+            "captured_at": "2026-06-22 08:30:00",
+            "heading_deg": 180.0,
+            "heading_accuracy": 3.0,
+            "heading_reference": "magnetic"
+          },
+          "mica": {
+            "key": "transload_1_reload_mica",
+            "hash": "88f1...54",
+            "lat": -18.92011,
+            "lon": 47.53001,
+            "gps_accuracy": 4.9,
+            "captured_at": "2026-06-22 08:31:00",
+            "heading_deg": 190.0,
+            "heading_accuracy": 3.1,
+            "heading_reference": "magnetic"
+          },
+          "truck_with_mica": {
+            "key": "transload_1_reload_truck_with_mica",
+            "hash": "99a2...65",
+            "lat": -18.92012,
+            "lon": 47.53002,
+            "gps_accuracy": 5.0,
+            "captured_at": "2026-06-22 08:32:00",
+            "heading_deg": 200.0,
+            "heading_accuracy": 3.2,
+            "heading_reference": "magnetic"
+          }
         }
       }
     ],
@@ -232,11 +323,40 @@ le même `session_id`, mais chacun possède son propre `payload.id` et son propr
       "plate_arrival": "5678 ABC",
       "plate_consistent": true,
       "traceability_score": 100,
-      "photo_arrival": {
-        "key": "arrival",
-        "heading_deg": 270.0,
-        "heading_accuracy": 4.0,
-        "heading_reference": "magnetic"
+      "photos_unload": {
+        "plate": {
+          "key": "depot_unload_plate",
+          "hash": "aab3...76",
+          "lat": -18.87900,
+          "lon": 47.50800,
+          "gps_accuracy": 4.0,
+          "captured_at": "2026-06-22 10:30:00",
+          "heading_deg": 270.0,
+          "heading_accuracy": 4.0,
+          "heading_reference": "magnetic"
+        },
+        "mica": {
+          "key": "depot_unload_mica",
+          "hash": "bbc4...87",
+          "lat": -18.87901,
+          "lon": 47.50801,
+          "gps_accuracy": 4.2,
+          "captured_at": "2026-06-22 10:31:00",
+          "heading_deg": 280.0,
+          "heading_accuracy": 4.1,
+          "heading_reference": "magnetic"
+        },
+        "truck_with_mica": {
+          "key": "depot_unload_truck_with_mica",
+          "hash": "ccd5...98",
+          "lat": -18.87902,
+          "lon": 47.50802,
+          "gps_accuracy": 4.3,
+          "captured_at": "2026-06-22 10:32:00",
+          "heading_deg": 290.0,
+          "heading_accuracy": 4.2,
+          "heading_reference": "magnetic"
+        }
       },
       "photo_license": {
         "key": "license",
@@ -254,6 +374,9 @@ le même `session_id`, mais chacun possède son propre `payload.id` et son propr
 }
 ```
 
+Les valeurs de `hash` sont abrégées dans cet exemple pour rester lisibles. Une
+requête réelle transmet toujours les 64 caractères hexadécimaux du SHA-256.
+
 Règles métier principales :
 
 - `mine` est un objet unique, jamais une liste.
@@ -263,6 +386,15 @@ Règles métier principales :
   arrivée.
 - `mine_id` et `depot_id` sont les identifiants renvoyés par les référentiels.
 - `traceability_score` est calculé par lot.
+- `photo_schema_version=2` rend obligatoires les trois rôles photo à chaque
+  étape opérationnelle : `plate`, `mica` et `truck_with_mica`.
+- Un transbordement comprend deux étapes distinctes, déchargement et
+  rechargement : il exige donc six photos au total.
+- La photo `plate` est la seule source destinée à la reconnaissance OCR. Le
+  résultat OCR reste transmis dans `mine.plate`, `plate_before`, `plate_after`
+  ou `arrival.plate_arrival` selon l’étape.
+- `photo_license` reste une preuve administrative distincte. Elle ne remplace
+  aucune des trois photos de déchargement au dépôt.
 - Les photos binaires ne sont pas intégrées au JSON ; elles sont envoyées
   après le submit.
 
@@ -271,9 +403,19 @@ Réponse de création HTTP 201 :
 ```json
 {
   "status": "created",
-  "data": { "id": 42, "state": "draft" }
+  "data": {
+    "id": 42,
+    "state": "draft",
+    "photo_schema_version": 2,
+    "required_attachments": 13,
+    "received_attachments": 0
+  }
 }
 ```
+
+Dans cet exemple avec un transbordement, 12 photos métier sont obligatoires et
+la photo de permis déclarée porte le total à 13. `required_attachments` doit
+être calculé depuis le payload, et non fixé à une constante.
 
 Rejeu idempotent HTTP 200 :
 
@@ -287,14 +429,27 @@ Rejeu idempotent HTTP 200 :
 
 L’application conserve `data.id` comme identifiant technique Odoo.
 
-## 6. Orientation des photos
+## 6. Métadonnées des photos de traçabilité
 
-Tous les objets photo utilisent les mêmes métadonnées :
+Chaque étape contient exactement trois rôles dans un objet `photos`,
+`photos_unload` ou `photos_reload` :
+
+| Rôle | Requis | Usage backend |
+|---|---|---|
+| `plate` | Oui | Reconnaissance et contrôle de la plaque du camion |
+| `mica` | Oui | Preuve visuelle rapprochée du mica |
+| `truck_with_mica` | Oui | Vue d’ensemble montrant le camion et son chargement |
+
+Chaque objet des trois rôles métier utilise le même schéma :
 
 | Champ | Type | Requis | Description |
 |---|---|---|---|
 | `key` | string | Oui | Clé identique à l’upload multipart |
-| `hash` | string | Non | SHA-256 si déjà calculé |
+| `hash` | string | Oui | SHA-256 en hexadécimal, 64 caractères |
+| `lat` | number | Oui | Latitude GPS propre à cette capture |
+| `lon` | number | Oui | Longitude GPS propre à cette capture |
+| `gps_accuracy` | number | Oui | Précision GPS de la capture, en mètres |
+| `captured_at` | string | Oui | Date UTC `YYYY-MM-DD HH:mm:ss` |
 | `heading_deg` | number | Non | Cap visé, compris entre 0 et moins de 360 |
 | `heading_accuracy` | number | Non | Incertitude du cap en degrés |
 | `heading_reference` | string | Non | `magnetic` dans l’application actuelle |
@@ -302,6 +457,42 @@ Tous les objets photo utilisent les mêmes métadonnées :
 `0°` indique le nord magnétique, `90°` l’est, `180°` le sud et `270°`
 l’ouest. Les champs `heading_*` sont absents si l’appareil ne possède pas de
 magnétomètre. Leur absence ne doit jamais invalider un submit.
+
+Les coordonnées générales de l’étape (`mine.lat/lon`, `gps_unload`,
+`gps_reload`, `arrival.gps`) sont conservées pour les règles métier. Elles ne
+remplacent pas les coordonnées de chaque photo, car les trois captures peuvent
+être prises à quelques mètres et quelques secondes d’intervalle.
+
+Correspondance entre la photo OCR et la plaque attendue :
+
+| Photo OCR | Champ texte associé |
+|---|---|
+| `mine.photos.plate` | `mine.plate` |
+| `transloads[n].photos_unload.plate` | `transloads[n].plate_before` |
+| `transloads[n].photos_reload.plate` | `transloads[n].plate_after` |
+| `arrival.photos_unload.plate` | `arrival.plate_arrival` |
+
+Le backend peut recalculer la plaque depuis l’image, mais doit conserver la
+valeur envoyée et le résultat OCR séparément afin de permettre un audit des
+écarts. Une mauvaise reconnaissance ne doit pas modifier silencieusement le
+payload original.
+
+### Nombre de photos obligatoires par lot
+
+Pour `T` transbordements, le nombre minimal de photos de traçabilité est :
+
+```text
+3 au chargement mine + (T × 6) aux transbordements + 3 au dépôt
+= 6 × T + 6 photos
+```
+
+La photo de permis éventuelle s’ajoute à ce total. Exemples :
+
+| Transbordements | Photos métier requises | Avec permis |
+|---:|---:|---:|
+| 0 | 6 | 7 |
+| 1 | 12 | 13 |
+| 2 | 18 | 19 |
 
 ## 7. Envoyer les photos d’un lot
 
@@ -313,20 +504,42 @@ Une requête multipart est envoyée par photo, après le succès de
 ```text
 payload_id        : de305d54-75b4-431b-adb2-eb6b9e546014
 device_uuid       : 550e8400-e29b-41d4-a716-446655440000
-key               : mine
+key               : mine_plate
 hash              : 9f2c...e7
 file              : <binaire JPEG>
 ```
 
-Clés admises pour un lot :
+Clés admises pour un lot en `photo_schema_version=2` :
 
-| Photo | `key` |
-|---|---|
-| Mine d’origine | `mine` |
-| Décharge du transbordement N | `transload_<n>_unload` |
-| Recharge du transbordement N | `transload_<n>_reload` |
-| Arrivée au dépôt | `arrival` |
-| Permis du chauffeur | `license` |
+| Étape | Rôle | `key` |
+|---|---|---|
+| Chargement mine | Plaque | `mine_plate` |
+| Chargement mine | Mica | `mine_mica` |
+| Chargement mine | Camion avec mica | `mine_truck_with_mica` |
+| Déchargement transbordement N | Plaque | `transload_<n>_unload_plate` |
+| Déchargement transbordement N | Mica | `transload_<n>_unload_mica` |
+| Déchargement transbordement N | Camion avec mica | `transload_<n>_unload_truck_with_mica` |
+| Rechargement transbordement N | Plaque | `transload_<n>_reload_plate` |
+| Rechargement transbordement N | Mica | `transload_<n>_reload_mica` |
+| Rechargement transbordement N | Camion avec mica | `transload_<n>_reload_truck_with_mica` |
+| Déchargement dépôt | Plaque | `depot_unload_plate` |
+| Déchargement dépôt | Mica | `depot_unload_mica` |
+| Déchargement dépôt | Camion avec mica | `depot_unload_truck_with_mica` |
+| Permis du chauffeur | Preuve administrative séparée | `license` |
+
+`<n>` reprend la valeur entière de `transloads[].order`, à partir de 1.
+
+Le serveur doit vérifier avant de considérer les pièces jointes complètes :
+
+1. que chaque clé multipart est déclarée une seule fois dans le JSON ;
+2. que le SHA-256 recalculé du fichier correspond au `hash` déclaré ;
+3. que les trois rôles sont présents pour chaque étape ;
+4. que seules les images `*_plate` alimentent la reconnaissance de plaque ;
+5. que le rejeu de `payload_id + key + hash` ne crée aucun doublon.
+
+Les métadonnées GPS, date et orientation ne sont pas répétées dans le
+multipart. Le backend les retrouve dans le payload JSON grâce à `key` et doit
+refuser un fichier dont la clé ou le hash n’a pas été déclaré au submit.
 
 Réponse HTTP 200 :
 
@@ -335,14 +548,51 @@ Réponse HTTP 200 :
   "status": "ok",
   "data": {
     "payload_id": "de305d54-75b4-431b-adb2-eb6b9e546014",
-    "photo_key": "mine",
-    "attachment_id": 812
+    "photo_key": "mine_plate",
+    "attachment_id": 812,
+    "required_attachments": 13,
+    "received_attachments": 1,
+    "attachments_complete": false
+  }
+}
+```
+
+Quand `received_attachments == required_attachments`, la réponse renvoie
+`attachments_complete: true`. Le comptage porte sur les clés uniques reçues,
+pas sur le nombre brut de requêtes, afin qu’un rejeu idempotent n’augmente pas
+le compteur.
+
+Exemple d’erreur HTTP 422 si le JSON v2 ne déclare pas les trois rôles :
+
+```json
+{
+  "status": "error",
+  "message": "Trois photos sont requises pour chaque étape",
+  "errors": {
+    "payload.mine.photos.mica": ["required"],
+    "payload.transloads.0.photos_reload.truck_with_mica": ["required"]
   }
 }
 ```
 
 Le fichier local est conservé après confirmation pour rester consultable dans
 le détail du lot. L’application mémorise la clé confirmée et ne la renvoie pas.
+
+### Compatibilité avec les payloads photo v1
+
+Des lots créés hors ligne avant la mise à jour peuvent encore contenir les
+anciennes clés `mine`, `transload_<n>_unload`,
+`transload_<n>_reload` et `arrival`. Pour ne pas perdre ces envois en attente :
+
+- `photo_schema_version` absent ou égal à `1` : accepter l’ancien format ;
+- `photo_schema_version=2` : exiger strictement les trois rôles de chaque
+  étape et les nouvelles clés ;
+- ne jamais mélanger les clés v1 et v2 dans un même payload ;
+- conserver le support v1 jusqu’à confirmation qu’aucune file mobile ancienne
+  ne reste à synchroniser.
+
+Cette compatibilité concerne uniquement les données déjà capturées. Toute
+nouvelle capture effectuée par la version mobile correspondante utilisera v2.
 
 ## 8. Proposer une nouvelle mine
 
@@ -558,3 +808,11 @@ ou un corps vide en cas d’erreur métier.
    `heading_reference=magnetic`.
 7. Définir le nombre maximal et la durée de conservation des photos d’une
    proposition rejetée.
+8. Confirmer `photo_schema_version=2`, les objets `photos`, `photos_unload` et
+   `photos_reload`, ainsi que les douze familles de clés décrites au §7.
+9. Confirmer que le backend calcule `required_attachments` selon le nombre de
+   transbordements et la présence éventuelle de `photo_license`.
+10. Confirmer que l’OCR utilise uniquement les clés terminées par `_plate` et
+    conserve séparément la plaque déclarée et la plaque reconnue.
+11. Confirmer la période de compatibilité pendant laquelle les payloads photo
+    v1 déjà stockés hors ligne restent acceptés.

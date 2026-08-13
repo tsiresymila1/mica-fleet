@@ -351,19 +351,44 @@ class SyncEngine {
     final lot = await (db.select(
       db.lots,
     )..where((t) => t.id.equals(lotId))).getSingleOrNull();
-    await add('mine', lot?.photoPath, lot?.photoHash);
+    if (lot?.photoSchemaVersion == 2) {
+      final rows =
+          await (db.select(db.lotTraceabilityPhotos)
+                ..where((table) => table.lotId.equals(lotId))
+                ..orderBy([
+                  (table) => OrderingTerm.asc(table.stageOrder),
+                  (table) => OrderingTerm.asc(table.role),
+                ]))
+              .get();
+      for (final row in rows) {
+        final prefix = switch (row.stage) {
+          'mine' => 'mine',
+          'transload_unload' => 'transload_${row.stageOrder}_unload',
+          'transload_reload' => 'transload_${row.stageOrder}_reload',
+          'depot_unload' => 'depot_unload',
+          _ => row.stage,
+        };
+        await add('${prefix}_${row.role}', row.path, row.hash);
+      }
+    } else {
+      await add('mine', lot?.photoPath, lot?.photoHash);
+    }
     final trans = await (db.select(
       db.transbordements,
     )..where((t) => t.lotId.equals(lotId))).get();
-    for (final t in trans) {
-      await add('transload_${t.ordre}_unload', t.photoDechargePath, null);
-      await add('transload_${t.ordre}_reload', t.photoRechargePath, null);
+    if (lot?.photoSchemaVersion != 2) {
+      for (final t in trans) {
+        await add('transload_${t.ordre}_unload', t.photoDechargePath, null);
+        await add('transload_${t.ordre}_reload', t.photoRechargePath, null);
+      }
     }
     final arr = await (db.select(
       db.arriveesDepot,
     )..where((t) => t.lotId.equals(lotId))).getSingleOrNull();
     if (arr != null) {
-      await add('arrival', arr.photoArriveePath, null);
+      if (lot?.photoSchemaVersion != 2) {
+        await add('arrival', arr.photoArriveePath, null);
+      }
       await add('license', arr.photoPermisPath, null);
     }
     return parts;

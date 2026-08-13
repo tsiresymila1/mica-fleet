@@ -7,6 +7,7 @@ import '../../../../core/utils/geo.dart';
 import '../../../../shared/capture_photo_screen.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../scoring/domain/entities/scoring_inputs.dart';
 import '../../../scoring/presentation/scoring_provider.dart';
@@ -30,9 +31,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _permisCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
   final _numLotCtrl = TextEditingController();
-  CapturedPhoto? _photo;
+  CapturedPhoto? _platePhoto;
+  CapturedPhoto? _micaPhoto;
+  CapturedPhoto? _truckPhoto;
   CapturedPhoto? _permisPhoto;
   bool _saving = false;
+  bool _loadingSchema = true;
+  bool _v2 = false;
 
   @override
   void initState() {
@@ -41,6 +46,16 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       _chauffeurCtrl.text = 'Chauffeur Sim';
       _permisCtrl.text = 'SIM-PERMIS';
     }
+    _loadSchema();
+  }
+
+  Future<void> _loadSchema() async {
+    _v2 =
+        await ref
+            .read(depotRepoProvider)
+            .photoSchemaVersionForLot(widget.lotId) >=
+        2;
+    if (mounted) setState(() => _loadingSchema = false);
   }
 
   @override
@@ -58,9 +73,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       );
 
   Future<void> _captureArrivee() async {
-    final p = await _capture('Photo arrivée');
+    final p = await _capture('Déchargement dépôt — plaque');
     if (p == null) return;
-    setState(() => _photo = p);
+    setState(() => _platePhoto = p);
     if (_plaqueCtrl.text.trim().isEmpty) {
       final sim = ref.read(simSessionProvider);
       final plaque = sim != null
@@ -71,11 +86,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   }
 
   Future<void> _save() async {
-    final photo = _photo;
-    if (photo == null) {
+    final photo = _platePhoto;
+    if (photo == null || (_v2 && (_micaPhoto == null || _truckPhoto == null))) {
       await showAppMessage(
         context,
-        'Prends d\'abord la photo d\'arrivée',
+        'Les 3 photos du déchargement au dépôt sont obligatoires',
         kind: AppMsgKind.warning,
       );
       return;
@@ -104,6 +119,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         plaqueAttendue: chaine.isNotEmpty
             ? chaine.last.plaqueApres
             : resume?.plaqueDepart,
+        photosDecharge: _v2
+            ? TraceabilityPhotos(
+                plate: photo,
+                mica: _micaPhoto!,
+                truckWithMica: _truckPhoto!,
+              )
+            : null,
         photoArriveePath: photo.path,
         photoArriveeHeadingDegrees: photo.headingDegrees,
         photoArriveeHeadingAccuracy: photo.headingAccuracy,
@@ -202,6 +224,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loadingSchema) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return Scaffold(
       appBar: AppBar(title: Text('Arrivée — ${widget.lotId}')),
       body: ListView(
@@ -209,19 +234,55 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         children: [
           StepHeader(
             numero: 1,
-            titre: 'La photo',
-            sousTitre: 'Camion au dépôt',
+            titre: _v2 ? 'Les 3 photos du déchargement' : 'La photo d’arrivée',
+            sousTitre: _v2
+                ? 'Plaque, mica et camion avec mica'
+                : 'Capture historique v1',
           ),
           const SizedBox(height: 12),
           ActionTile(
-            icon: _photo == null ? Icons.camera_alt : Icons.verified,
-            color: _photo == null ? AppColors.primary : AppColors.ok,
-            titre: _photo == null ? 'Prendre la photo' : 'Photo prise',
-            sousTitre: _photo == null
-                ? 'Avec position GPS'
-                : 'GPS ${_photo!.lat.toStringAsFixed(4)}, ${_photo!.lon.toStringAsFixed(4)}',
+            icon: _platePhoto == null ? Icons.camera_alt : Icons.verified,
+            color: _platePhoto == null ? AppColors.primary : AppColors.ok,
+            titre: _platePhoto == null
+                ? 'Photo de la plaque'
+                : 'Photo de la plaque ✓',
+            sousTitre: _platePhoto == null
+                ? 'Utilisée pour la reconnaissance de plaque'
+                : 'GPS ${_platePhoto!.lat.toStringAsFixed(4)}, ${_platePhoto!.lon.toStringAsFixed(4)}',
             onTap: _captureArrivee,
           ),
+          if (_v2) ...[
+            const SizedBox(height: 8),
+            ActionTile(
+              icon: _micaPhoto == null ? Icons.camera_alt : Icons.verified,
+              color: _micaPhoto == null ? AppColors.primary : AppColors.ok,
+              titre: _micaPhoto == null ? 'Photo du mica' : 'Photo du mica ✓',
+              sousTitre: _micaPhoto == null
+                  ? 'Vue rapprochée du produit'
+                  : 'GPS ${_micaPhoto!.lat.toStringAsFixed(4)}, ${_micaPhoto!.lon.toStringAsFixed(4)}',
+              onTap: () async {
+                final p = await _capture('Déchargement dépôt — mica');
+                if (p != null) setState(() => _micaPhoto = p);
+              },
+            ),
+            const SizedBox(height: 8),
+            ActionTile(
+              icon: _truckPhoto == null ? Icons.camera_alt : Icons.verified,
+              color: _truckPhoto == null ? AppColors.primary : AppColors.ok,
+              titre: _truckPhoto == null
+                  ? 'Photo du camion avec mica'
+                  : 'Photo du camion avec mica ✓',
+              sousTitre: _truckPhoto == null
+                  ? 'Vue d’ensemble du camion chargé'
+                  : 'GPS ${_truckPhoto!.lat.toStringAsFixed(4)}, ${_truckPhoto!.lon.toStringAsFixed(4)}',
+              onTap: () async {
+                final p = await _capture(
+                  'Déchargement dépôt — camion avec mica',
+                );
+                if (p != null) setState(() => _truckPhoto = p);
+              },
+            ),
+          ],
           const SizedBox(height: 8),
           TextField(
             controller: _plaqueCtrl,

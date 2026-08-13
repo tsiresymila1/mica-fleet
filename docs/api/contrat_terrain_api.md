@@ -1,8 +1,13 @@
 # Contrat API — Application Mica ↔ API Radoran (Odoo)
 
-Document de référence pour l'équipe Odoo (Technarea) et l'équipe mobile. Décrit
-les endpoints appelés par l'app Android, les données envoyées et les réponses
-attendues. Aligné sur la collection Postman **RADORAN API**.
+> **Document historique (schéma photo v1).** Pour toute nouvelle intégration,
+> utiliser la référence consolidée [`README.md`](README.md), notamment les
+> sections 5 à 7 qui définissent `photo_schema_version=2` et les trois photos
+> obligatoires par étape. Le présent fichier reste conservé uniquement pour la
+> lecture des payloads mobiles déjà créés hors ligne avant cette évolution.
+
+Ancienne version du contrat pour l'équipe Odoo (Technarea) et l'équipe mobile,
+alignée sur la collection Postman **RADORAN API** d’origine.
 
 La proposition manuelle d'une nouvelle mine et son workflow de validation sont
 décrits dans [`contrat_creation_mine.md`](contrat_creation_mine.md).

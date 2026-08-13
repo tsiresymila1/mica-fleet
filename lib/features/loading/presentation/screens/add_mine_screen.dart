@@ -5,6 +5,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/data/capture_service_impl.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
+import '../../../capture/domain/entities/traceability_photos.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
@@ -24,7 +25,9 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   String? _initError;
 
   Mine? _mine;
-  CapturedPhoto? _photo;
+  CapturedPhoto? _platePhoto;
+  CapturedPhoto? _micaPhoto;
+  CapturedPhoto? _truckPhoto;
   bool _capturing = false;
   final _couleurCtrl = TextEditingController();
   final _qteCtrl = TextEditingController();
@@ -74,7 +77,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     super.dispose();
   }
 
-  Future<void> _capture() async {
+  Future<void> _capture(TraceabilityPhotoRole role) async {
     final cam = _cam;
     if (cam == null) return;
     setState(() => _capturing = true);
@@ -97,14 +100,27 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         ref.read(locationSourceProvider),
         ref.read(headingSourceProvider),
       ).capture();
-      // Simulation : la plaque est « lue » après la photo (comme l'OCR).
-      final sim = ref.read(simSessionProvider);
-      final plaque = sim != null
-          ? ref.read(simSessionProvider.notifier).plate
-          : await ref.read(plateOcrServiceProvider).readPlate(photo.path);
+      String? plaque;
+      if (role == TraceabilityPhotoRole.plate) {
+        // Seule la preuve plaque alimente l'OCR.
+        final sim = ref.read(simSessionProvider);
+        plaque = sim != null
+            ? ref.read(simSessionProvider.notifier).plate
+            : await ref.read(plateOcrServiceProvider).readPlate(photo.path);
+      }
       if (!mounted) return;
       setState(() {
-        _photo = photo;
+        switch (role) {
+          case TraceabilityPhotoRole.plate:
+            _platePhoto = photo;
+            break;
+          case TraceabilityPhotoRole.mica:
+            _micaPhoto = photo;
+            break;
+          case TraceabilityPhotoRole.truckWithMica:
+            _truckPhoto = photo;
+            break;
+        }
         if (plaque != null) _plaqueCtrl.text = plaque;
       });
     } catch (e) {
@@ -121,10 +137,13 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   }
 
   void _save() {
-    if (_mine == null || _photo == null) {
+    if (_mine == null ||
+        _platePhoto == null ||
+        _micaPhoto == null ||
+        _truckPhoto == null) {
       showAppMessage(
         context,
-        'Choisis la mine et prends la photo',
+        'Choisis la mine et prends les 3 photos obligatoires',
         kind: AppMsgKind.warning,
       );
       return;
@@ -142,7 +161,11 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         plaqueDepart: _plaqueCtrl.text.trim().isEmpty
             ? null
             : _plaqueCtrl.text.trim(),
-        photo: _photo,
+        photos: TraceabilityPhotos(
+          plate: _platePhoto!,
+          mica: _micaPhoto!,
+          truckWithMica: _truckPhoto!,
+        ),
       ),
     );
   }
@@ -159,32 +182,43 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
               children: [
                 StepHeader(
                   numero: 1,
-                  titre: 'La photo',
-                  sousTitre: 'Camion + plaque + mica visibles',
+                  titre: 'Les 3 photos obligatoires',
+                  sousTitre: 'Chaque photo conserve GPS, hash et orientation',
                 ),
                 const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AspectRatio(
-                    aspectRatio: 3 / 4,
-                    child: _photo != null
-                        ? _PhotoInfo(photo: _photo!)
-                        : _initError != null
-                        ? Container(
-                            color: AppColors.line,
-                            child: Center(child: Text(_initError!)),
-                          )
-                        : (_cam != null
-                              ? CameraPreview(_cam!)
-                              : const SizedBox.shrink()),
+                if (_initError != null) Text(_initError!),
+                if (_cam != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: AspectRatio(
+                      aspectRatio: 3 / 4,
+                      child: CameraPreview(_cam!),
+                    ),
                   ),
+                  const SizedBox(height: 12),
+                ],
+                _CaptureTile(
+                  title: 'Photo de la plaque',
+                  subtitle: 'Utilisée pour la reconnaissance de plaque',
+                  photo: _platePhoto,
+                  onTap: () => _capture(TraceabilityPhotoRole.plate),
+                  enabled: !_capturing && _cam != null,
                 ),
-                const SizedBox(height: 12),
-                BigButton(
-                  icon: _photo == null ? Icons.camera_alt : Icons.refresh,
-                  label: _photo == null ? 'Prendre la photo' : 'Reprendre',
-                  color: _photo == null ? null : AppColors.gold,
-                  onPressed: (_capturing || _cam == null) ? null : _capture,
+                const SizedBox(height: 10),
+                _CaptureTile(
+                  title: 'Photo du mica',
+                  subtitle: 'Vue rapprochée du produit',
+                  photo: _micaPhoto,
+                  onTap: () => _capture(TraceabilityPhotoRole.mica),
+                  enabled: !_capturing && _cam != null,
+                ),
+                const SizedBox(height: 10),
+                _CaptureTile(
+                  title: 'Photo du camion avec mica',
+                  subtitle: 'Vue d’ensemble du camion chargé',
+                  photo: _truckPhoto,
+                  onTap: () => _capture(TraceabilityPhotoRole.truckWithMica),
+                  enabled: !_capturing && _cam != null,
                 ),
                 const SizedBox(height: 24),
                 StepHeader(numero: 2, titre: 'La mine'),
@@ -261,26 +295,30 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   }
 }
 
-class _PhotoInfo extends StatelessWidget {
-  final CapturedPhoto photo;
-  const _PhotoInfo({required this.photo});
+class _CaptureTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final CapturedPhoto? photo;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  const _CaptureTile({
+    required this.title,
+    required this.subtitle,
+    required this.photo,
+    required this.onTap,
+    required this.enabled,
+  });
+
   @override
-  Widget build(BuildContext context) => Container(
-    color: AppColors.primary.withValues(alpha: 0.06),
-    padding: const EdgeInsets.all(20),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Icon(Icons.verified, color: AppColors.ok, size: 64),
-        const SizedBox(height: 12),
-        const StatusPill(kind: PillKind.ok, label: 'Photo prise'),
-        const SizedBox(height: 12),
-        Text(
-          'GPS ${photo.lat.toStringAsFixed(4)}, '
-          '${photo.lon.toStringAsFixed(4)}',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ],
-    ),
+  Widget build(BuildContext context) => ActionTile(
+    icon: photo == null ? Icons.camera_alt_outlined : Icons.check_circle,
+    color: photo == null ? AppColors.primary : AppColors.ok,
+    titre: title,
+    sousTitre: photo == null
+        ? subtitle
+        : 'GPS ${photo!.lat.toStringAsFixed(4)}, '
+              '${photo!.lon.toStringAsFixed(4)}',
+    onTap: enabled ? onTap : null,
   );
 }

@@ -1,6 +1,6 @@
 # Base de données — Mica Fleet
 
-Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 18**.
+Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 19**.
 Source de vérité de l'app (offline-first) ; les données remontent ensuite vers Odoo
 via la file de synchronisation.
 
@@ -10,6 +10,7 @@ via la file de synchronisation.
 erDiagram
     FOURNISSEURS ||--o{ CHARGEMENTS : "dépose"
     CHARGEMENTS  ||--o{ MINE_CHARGEMENTS : "contient (1..3)"
+    MINE_CHARGEMENTS ||--o{ LOT_TRACEABILITY_PHOTOS : "preuves photo v2"
     MINES        ||--o{ MINE_CHARGEMENTS : "source"
     COMMUNES     ||--o{ MINE_SUBMISSIONS : "localise"
     CHARGEMENTS  ||--o{ TRANSBORDEMENTS : "chaîne (0..N)"
@@ -68,6 +69,22 @@ erDiagram
         text photoPath
         text photoHash
         datetime dateHeure
+        int photoSchemaVersion
+    }
+    LOT_TRACEABILITY_PHOTOS {
+        text lotId PK,FK
+        text stage PK
+        int stageOrder PK
+        text role PK
+        text path
+        text hash
+        real lat
+        real lon
+        real gpsAccuracy
+        datetime capturedAt
+        real headingDegrees
+        real headingAccuracy
+        text headingReference
     }
     TRANSBORDEMENTS {
         int id PK
@@ -219,6 +236,31 @@ compatibles avec les captures historiques et les appareils sans boussole.
 | `Transbordements.photoRechargePath` | `photoRechargeHeadingDegrees`, `photoRechargeHeadingAccuracy`, `photoRechargeHeadingReference` |
 | `ArriveesDepot.photoArriveePath` | `photoArriveeHeadingDegrees`, `photoArriveeHeadingAccuracy`, `photoArriveeHeadingReference` |
 | `ArriveesDepot.photoPermisPath` | `photoPermisHeadingDegrees`, `photoPermisHeadingAccuracy`, `photoPermisHeadingReference` |
+
+### LotTraceabilityPhotos
+
+Preuves photo du schéma API v2. Une ligne représente un rôle photo pour une
+étape précise d’un lot. Cette table générique évite d’ajouter trois groupes de
+colonnes à chaque nouvelle étape.
+
+| Colonne | Type | Contrainte | Rôle |
+|---|---|---|---|
+| `lotId` | text | **PK**, FK → Lots | Lot concerné |
+| `stage` | text | **PK** | `mine`, `transload_unload`, `transload_reload`, `depot_unload` |
+| `stageOrder` | int | **PK**, défaut 0 | Ordre du transbordement ; 0 pour mine/dépôt |
+| `role` | text | **PK** | `plate`, `mica`, `truck_with_mica` |
+| `path` | text | non nul | Fichier JPEG local |
+| `hash` | text | non nul | SHA-256 transmis à Odoo |
+| `lat`, `lon` | real | non nul | GPS propre à la capture |
+| `gpsAccuracy` | real | non nul | Précision en mètres |
+| `capturedAt` | datetime | non nul | Date de la capture |
+| `headingDegrees` | real | nullable | Cap magnétique `[0, 360[` |
+| `headingAccuracy` | real | nullable | Incertitude du cap |
+| `headingReference` | text | nullable | `magnetic` |
+
+`Lots.photoSchemaVersion=1` continue d’utiliser les anciennes colonnes photo.
+Les nouveaux lots utilisent la version 2 et doivent avoir exactement trois
+rôles pour chaque étape métier.
 
 ### Depots
 Référentiel des dépôts de destination. Sert au contrôle GPS d'arrivée.

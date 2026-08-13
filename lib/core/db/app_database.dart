@@ -126,8 +126,30 @@ class Lots extends Table {
   // pour l'historique visuel ; cette liste évite les doublons à la reprise.
   TextColumn get uploadedPhotoKeys =>
       text().withDefault(const Constant('[]'))();
+  IntColumn get photoSchemaVersion =>
+      integer().withDefault(const Constant(1))();
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Photos de traçabilité v2. Une ligne représente un rôle d'une étape d'un lot.
+@DataClassName('LotTraceabilityPhotoRow')
+class LotTraceabilityPhotos extends Table {
+  TextColumn get lotId => text().references(Lots, #id)();
+  TextColumn get stage => text()();
+  IntColumn get stageOrder => integer().withDefault(const Constant(0))();
+  TextColumn get role => text()();
+  TextColumn get path => text()();
+  TextColumn get hash => text()();
+  RealColumn get lat => real()();
+  RealColumn get lon => real()();
+  RealColumn get gpsAccuracy => real()();
+  DateTimeColumn get capturedAt => dateTime()();
+  RealColumn get headingDegrees => real().nullable()();
+  RealColumn get headingAccuracy => real().nullable()();
+  TextColumn get headingReference => text().nullable()();
+  @override
+  Set<Column> get primaryKey => {lotId, stage, stageOrder, role};
 }
 
 @DataClassName('SyncQueueRow')
@@ -247,6 +269,7 @@ class TrajetPoints extends Table {
     MineSubmissionPhotos,
     Chargements,
     Lots,
+    LotTraceabilityPhotos,
     SyncQueue,
     Depots,
     Transbordements,
@@ -258,7 +281,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -364,6 +387,10 @@ class AppDatabase extends _$AppDatabase {
       // ajout explicite.
       if (from >= 14 && from < 18) {
         await m.addColumn(mineSubmissions, mineSubmissions.communeId);
+      }
+      if (from >= 12 && from < 19) {
+        await m.addColumn(lots, lots.photoSchemaVersion);
+        await m.createTable(lotTraceabilityPhotos);
       }
     },
   );

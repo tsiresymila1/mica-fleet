@@ -1,26 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
+import 'package:mica_fleet/features/capture/domain/entities/traceability_photos.dart';
 import 'package:mica_fleet/features/loading/domain/entities/chargement.dart';
 import 'package:mica_fleet/features/loading/domain/entities/lot.dart';
 import 'package:mica_fleet/features/loading/domain/usecases/add_lot_to_chargement.dart';
 import 'package:mica_fleet/features/loading/domain/usecases/validate_chargement.dart';
 
 CapturedPhoto _p() => CapturedPhoto(
-    path: 'x',
-    sha256: 'h',
-    lat: -18.9,
-    lon: 47.5,
-    precision: 5,
-    takenAt: DateTime(2026));
+  path: 'x',
+  sha256: 'h',
+  lat: -18.9,
+  lon: 47.5,
+  precision: 5,
+  takenAt: DateTime(2026),
+);
 
 Lot _lot(String mineId, {CapturedPhoto? photo}) =>
     Lot(id: '', mineId: mineId, photo: photo);
 
 void main() {
   final c0 = Chargement(
-      id: 'MICA-2026-0001',
-      fournisseurId: 'F001',
-      dateCreation: DateTime(2026));
+    id: 'MICA-2026-0001',
+    fournisseurId: 'F001',
+    dateCreation: DateTime(2026),
+  );
 
   test('refuse un 4e lot (max 3 mines)', () {
     final add = AddLotToChargement();
@@ -51,6 +54,18 @@ void main() {
 
   test('validation réussit avec 1 lot + photo', () {
     final c = c0.copyWith(lots: [_lot('a', photo: _p())]);
+    expect(ValidateChargement()(c).getRight().toNullable()!.statut, 'valide');
+  });
+
+  test('validation réussit avec les 3 photos v2', () {
+    final set = TraceabilityPhotos(
+      plate: _p(),
+      mica: _p(),
+      truckWithMica: _p(),
+    );
+    final c = c0.copyWith(
+      lots: [Lot(id: '', mineId: 'a', photos: set)],
+    );
     expect(ValidateChargement()(c).getRight().toNullable()!.statut, 'valide');
   });
 }

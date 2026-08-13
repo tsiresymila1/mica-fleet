@@ -1,6 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
+import 'package:mica_fleet/features/capture/data/traceability_photo_store.dart';
+import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
+import 'package:mica_fleet/features/capture/domain/entities/traceability_photos.dart';
 import 'package:mica_fleet/features/depot/data/repositories/depot_repository_impl.dart';
 import 'package:mica_fleet/features/depot/domain/entities/arrivee_depot.dart';
 import 'package:mica_fleet/features/journal/data/journal_service.dart';
@@ -162,5 +165,59 @@ void main() {
       Uuid.isValidUUID(fromString: first.payload['session_id'] as String),
       isTrue,
     );
+  });
+
+  test('snapshot v2 déclare les trois photos mine et dépôt', () async {
+    CapturedPhoto photo(String name, double heading) => CapturedPhoto(
+      path: '/tmp/$name.jpg',
+      sha256: 'hash-$name',
+      lat: -18.9,
+      lon: 47.5,
+      precision: 3,
+      takenAt: DateTime.utc(2026, 8, 13),
+      headingDegrees: heading,
+      headingReference: 'magnetic',
+    );
+    TraceabilityPhotos set(String prefix) => TraceabilityPhotos(
+      plate: photo('${prefix}_plate', 10),
+      mica: photo('${prefix}_mica', 20),
+      truckWithMica: photo('${prefix}_truck', 30),
+    );
+    await (db.update(db.lots)
+          ..where((table) => table.id.equals('MICA-2026-0001-L1')))
+        .write(const LotsCompanion(photoSchemaVersion: Value(2)));
+    await TraceabilityPhotoStore(db).replace(
+      lotId: 'MICA-2026-0001-L1',
+      stage: TraceabilityPhotoStage.mine,
+      stageOrder: 0,
+      photos: set('mine'),
+    );
+
+    final result = await repo.persistArrivee(
+      ArriveeDepot(
+        lotId: 'MICA-2026-0001-L1',
+        depotId: 'D1',
+        chauffeur: 'Jean',
+        numPermis: 'P1',
+        numLot: 'L1',
+        gpsLat: -18.9,
+        gpsLon: 47.5,
+        statutGps: 'valide',
+        photosDecharge: set('depot'),
+      ),
+    );
+
+    expect(result.isRight(), isTrue);
+    final payload = (await sync.pending()).single.payload;
+    expect(payload['photo_schema_version'], 2);
+    final mine = payload['mine'] as Map<String, dynamic>;
+    final minePhotos = mine['photos'] as Map<String, dynamic>;
+    expect((minePhotos['plate'] as Map)['key'], 'mine_plate');
+    expect((minePhotos['mica'] as Map)['hash'], 'hash-mine_mica');
+    expect((minePhotos['truck_with_mica'] as Map)['heading_deg'], 30);
+    final arrival = payload['arrival'] as Map<String, dynamic>;
+    final depotPhotos = arrival['photos_unload'] as Map<String, dynamic>;
+    expect((depotPhotos['plate'] as Map)['key'], 'depot_unload_plate');
+    expect(await db.select(db.lotTraceabilityPhotos).get(), hasLength(6));
   });
 }
