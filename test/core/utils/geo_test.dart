@@ -11,7 +11,13 @@ void main() {
   });
 
   test('isWithinRadius vrai si distance <= rayon', () {
-    expect(isWithinRadius(-18.90000, 47.50000, -18.90013, 47.50000, 20), isTrue);
-    expect(isWithinRadius(-18.90000, 47.50000, -18.90050, 47.50000, 20), isFalse);
+    expect(
+      isWithinRadius(-18.90000, 47.50000, -18.90013, 47.50000, 20),
+      isTrue,
+    );
+    expect(
+      isWithinRadius(-18.90000, 47.50000, -18.90050, 47.50000, 20),
+      isFalse,
+    );
   });
 }

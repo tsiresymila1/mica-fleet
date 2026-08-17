@@ -41,7 +41,10 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   String? _dechargeHeadingReferenceInit, _rechargeHeadingReferenceInit;
   bool _saving = false;
   bool _loading = true;
-  bool _v2 = false;
+  int _photoSchemaVersion = 1;
+
+  bool get _structuredPhotos => _photoSchemaVersion >= 2;
+  bool get _requiresMicaPhoto => _photoSchemaVersion == 2;
 
   bool get _edition => widget.ordre != null;
 
@@ -53,7 +56,7 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
 
   Future<void> _initialize() async {
     final repo = ref.read(transportRepoProvider);
-    _v2 = await repo.photoSchemaVersionForLot(widget.lotId) >= 2;
+    _photoSchemaVersion = await repo.photoSchemaVersionForLot(widget.lotId);
     final chaine = _edition
         ? await repo.chaineFor(widget.lotId)
         : <Transbordement>[];
@@ -180,13 +183,15 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
       _rechargeHeadingAccuracyInit,
       _rechargeHeadingReferenceInit,
     );
-    final incomplete = _v2
+    final incomplete = _structuredPhotos
         ? photosDecharge == null || photosRecharge == null
         : d.path == null || r.path == null;
     if (incomplete) {
       await showAppMessage(
         context,
-        'Les 3 photos du déchargement et les 3 photos du rechargement sont obligatoires',
+        _requiresMicaPhoto
+            ? 'Les 3 photos du déchargement et les 3 photos du rechargement sont obligatoires'
+            : 'Les photos de plaque et du camion avec mica sont obligatoires pour chaque étape',
         kind: AppMsgKind.warning,
       );
       return;
@@ -215,8 +220,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
         photoRechargeHeadingDegrees: r.heading,
         photoRechargeHeadingAccuracy: r.headingAccuracy,
         photoRechargeHeadingReference: r.headingReference,
-        photosDecharge: _v2 ? photosDecharge : null,
-        photosRecharge: _v2 ? photosRecharge : null,
+        photosDecharge: _structuredPhotos ? photosDecharge : null,
+        photosRecharge: _structuredPhotos ? photosRecharge : null,
       );
       // Édition : on remplace le maillon de même ordre ; création : on ajoute.
       final nouvelleChaine = _edition
@@ -244,7 +249,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
     CapturedPhoto? mica,
     CapturedPhoto? truck,
   ) {
-    if (plate == null || mica == null || truck == null) return null;
+    if (plate == null || truck == null) return null;
+    if (_requiresMicaPhoto && mica == null) return null;
     return TraceabilityPhotos(plate: plate, mica: mica, truckWithMica: truck);
   }
 
@@ -270,7 +276,7 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             sousTitre: 'Camion qui portait ce lot',
           ),
           const SizedBox(height: 12),
-          if (!_v2)
+          if (!_structuredPhotos)
             _PhotoTile(
               fait: _decharge != null || _dechargePathInit != null,
               titreVide: 'Photo déchargement',
@@ -298,17 +304,19 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
                 }
               },
             ),
-            const SizedBox(height: 8),
-            _PhotoTile(
-              fait: _dechargeMica != null,
-              titreVide: 'Photo du mica',
-              photo: _dechargeMica,
-              pathInit: null,
-              onTap: () async {
-                final p = await _capture('Déchargement — mica');
-                if (p != null) setState(() => _dechargeMica = p);
-              },
-            ),
+            if (_requiresMicaPhoto) ...[
+              const SizedBox(height: 8),
+              _PhotoTile(
+                fait: _dechargeMica != null,
+                titreVide: 'Photo du mica',
+                photo: _dechargeMica,
+                pathInit: null,
+                onTap: () async {
+                  final p = await _capture('Déchargement — mica');
+                  if (p != null) setState(() => _dechargeMica = p);
+                },
+              ),
+            ],
             const SizedBox(height: 8),
             _PhotoTile(
               fait: _dechargeCamion != null,
@@ -336,7 +344,7 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             sousTitre: 'Nouveau camion pour ce lot',
           ),
           const SizedBox(height: 12),
-          if (!_v2)
+          if (!_structuredPhotos)
             _PhotoTile(
               fait: _recharge != null || _rechargePathInit != null,
               titreVide: 'Photo rechargement',
@@ -364,17 +372,19 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
                 }
               },
             ),
-            const SizedBox(height: 8),
-            _PhotoTile(
-              fait: _rechargeMica != null,
-              titreVide: 'Photo du mica',
-              photo: _rechargeMica,
-              pathInit: null,
-              onTap: () async {
-                final p = await _capture('Rechargement — mica');
-                if (p != null) setState(() => _rechargeMica = p);
-              },
-            ),
+            if (_requiresMicaPhoto) ...[
+              const SizedBox(height: 8),
+              _PhotoTile(
+                fait: _rechargeMica != null,
+                titreVide: 'Photo du mica',
+                photo: _rechargeMica,
+                pathInit: null,
+                onTap: () async {
+                  final p = await _capture('Rechargement — mica');
+                  if (p != null) setState(() => _rechargeMica = p);
+                },
+              ),
+            ],
             const SizedBox(height: 8),
             _PhotoTile(
               fait: _rechargeCamion != null,

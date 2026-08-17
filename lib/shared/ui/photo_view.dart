@@ -5,15 +5,17 @@ import '../../core/theme/app_theme.dart';
 /// Ouvre une photo en plein écran, zoomable (InteractiveViewer).
 /// Animation : la vignette « grandit » vers le plein écran (Hero) + fond en fondu.
 void openPhoto(BuildContext context, String path) {
-  Navigator.of(context).push(PageRouteBuilder(
-    opaque: false,
-    barrierColor: Colors.black,
-    transitionDuration: const Duration(milliseconds: 280),
-    reverseTransitionDuration: const Duration(milliseconds: 220),
-    pageBuilder: (_, _, _) => _PhotoViewer(path: path),
-    transitionsBuilder: (_, anim, _, child) =>
-        FadeTransition(opacity: anim, child: child),
-  ));
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black,
+      transitionDuration: const Duration(milliseconds: 280),
+      reverseTransitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (_, _, _) => _PhotoViewer(path: path),
+      transitionsBuilder: (_, anim, _, child) =>
+          FadeTransition(opacity: anim, child: child),
+    ),
+  );
 }
 
 class _PhotoViewer extends StatelessWidget {
@@ -39,8 +41,10 @@ class _PhotoViewer extends StatelessWidget {
                   child: Image.file(File(path), fit: BoxFit.contain),
                 ),
               )
-            : const Text('Image indisponible',
-                style: TextStyle(color: Colors.white70)),
+            : const Text(
+                'Image indisponible',
+                style: TextStyle(color: Colors.white70),
+              ),
       ),
     );
   }
@@ -62,11 +66,15 @@ class PhotoThumb extends StatelessWidget {
         child: ok
             ? Hero(
                 tag: path!,
-                child: Image.file(File(path!), fit: BoxFit.cover))
+                child: Image.file(File(path!), fit: BoxFit.cover),
+              )
             : Container(
                 color: AppColors.line,
-                child: const Icon(Icons.image_not_supported,
-                    color: AppColors.inkSoft)),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  color: AppColors.inkSoft,
+                ),
+              ),
       ),
     );
     if (!ok) return thumb;
@@ -80,8 +88,9 @@ class PhotoThumb extends StatelessWidget {
             margin: const EdgeInsets.all(3),
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(4)),
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
             child: const Icon(Icons.zoom_in, size: 14, color: Colors.white),
           ),
         ],

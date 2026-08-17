@@ -5,7 +5,8 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   const r = 6371000.0; // rayon Terre en m
   final dLat = _rad(lat2 - lat1);
   final dLon = _rad(lon2 - lon1);
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(_rad(lat1)) *
           math.cos(_rad(lat2)) *
           math.sin(dLon / 2) *
@@ -14,7 +15,12 @@ double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
 }
 
 bool isWithinRadius(
-    double lat1, double lon1, double lat2, double lon2, double radiusMeters) {
+  double lat1,
+  double lon1,
+  double lat2,
+  double lon2,
+  double radiusMeters,
+) {
   return haversineMeters(lat1, lon1, lat2, lon2) <= radiusMeters;
 }
 

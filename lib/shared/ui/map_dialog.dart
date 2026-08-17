@@ -14,8 +14,8 @@ Future<void> showLocationMap(
 }) {
   return showDialog<void>(
     context: context,
-    builder: (_) => _MapDialog(
-        titre: titre, lat: lat, lon: lon, rayonMetres: rayonMetres),
+    builder: (_) =>
+        _MapDialog(titre: titre, lat: lat, lon: lon, rayonMetres: rayonMetres),
   );
 }
 
@@ -48,21 +48,24 @@ class _MapDialog extends StatelessWidget {
             Container(
               color: AppColors.primary,
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-              child: Row(children: [
-                const Icon(Icons.place, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(titre,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium!
-                          .copyWith(color: Colors.white)),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ]),
+              child: Row(
+                children: [
+                  const Icon(Icons.place, color: Colors.white),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      titre,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium!.copyWith(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: sansCoord
@@ -87,26 +90,35 @@ class _MapDialog extends StatelessWidget {
                           userAgentPackageName: 'net.radoran.mica',
                         ),
                         if (rayonMetres != null && rayonMetres! > 0)
-                          CircleLayer(circles: [
-                            CircleMarker(
-                              point: point,
-                              radius: rayonMetres!,
-                              useRadiusInMeter: true,
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderColor: AppColors.primary,
-                              borderStrokeWidth: 2,
-                            ),
-                          ]),
-                        MarkerLayer(markers: [
-                          Marker(
-                            point: point,
-                            width: 44,
-                            height: 44,
-                            alignment: Alignment.topCenter,
-                            child: const Icon(Icons.location_on,
-                                color: AppColors.danger, size: 44),
+                          CircleLayer(
+                            circles: [
+                              CircleMarker(
+                                point: point,
+                                radius: rayonMetres!,
+                                useRadiusInMeter: true,
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderColor: AppColors.primary,
+                                borderStrokeWidth: 2,
+                              ),
+                            ],
                           ),
-                        ]),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: point,
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.topCenter,
+                              child: const Icon(
+                                Icons.location_on,
+                                color: AppColors.danger,
+                                size: 44,
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
             ),

@@ -18,7 +18,7 @@ class _FakeDepotRepository implements DepotRepository {
   Future<List<Depot>> activeDepots() async => depots;
 
   @override
-  Future<int> photoSchemaVersionForLot(String lotId) async => 2;
+  Future<int> photoSchemaVersionForLot(String lotId) async => 3;
 
   @override
   Future<LotResume?> lotResume(String lotId) async => null;
@@ -34,7 +34,7 @@ class _FakeDepotRepository implements DepotRepository {
 }
 
 void main() {
-  testWidgets('permet de rechercher et sélectionner un dépôt hors ligne', (
+  testWidgets('ne demande plus le dépôt et affiche les deux photos v3', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1080, 2200);
@@ -58,25 +58,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Choisir le dépôt'), findsOneWidget);
-    await tester.tap(find.text('Choisir le dépôt'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Sélectionner un dépôt'), findsOneWidget);
-    expect(find.text('Rechercher un dépôt'), findsOneWidget);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Rechercher un dépôt'),
-      'Sud',
-    );
-    await tester.pump();
-    expect(find.text('Dépôt Nord'), findsNothing);
-    expect(find.text('Dépôt Sud'), findsOneWidget);
-
-    await tester.tap(find.text('Dépôt Sud'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Sélection manuelle — le GPS sera vérifié après la photo'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Choisir le dépôt'), findsNothing);
+    expect(find.text('Les 2 photos du déchargement'), findsOneWidget);
+    expect(find.text('Photo de la plaque'), findsOneWidget);
+    expect(find.text('Photo du mica'), findsNothing);
+    expect(find.text('Photo du camion avec mica'), findsOneWidget);
+    expect(find.textContaining('déterminés par le serveur'), findsOneWidget);
   });
 }

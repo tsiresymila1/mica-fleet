@@ -24,14 +24,18 @@ class NotificationService {
     );
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
   }
 
   /// Programme les rappels futurs (ignore ceux déjà passés).
   /// [payload] est transmis au tap (ex. id de chargement).
-  Future<void> scheduleRappels(int baseId, List<RappelDelai> rappels,
-      {String? payload}) async {
+  Future<void> scheduleRappels(
+    int baseId,
+    List<RappelDelai> rappels, {
+    String? payload,
+  }) async {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,

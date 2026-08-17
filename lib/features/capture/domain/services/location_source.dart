@@ -18,7 +18,8 @@ class RealLocationSource implements LocationSource {
   Future<GpsFix> fix() async {
     await ensureLocationReady();
     final p = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    );
     return GpsFix(p.latitude, p.longitude, p.accuracy, mocked: p.isMocked);
   }
 }

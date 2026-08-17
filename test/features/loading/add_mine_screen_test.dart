@@ -7,7 +7,7 @@ import 'package:mica_fleet/features/mines/presentation/providers/mines_provider.
 
 void main() {
   testWidgets(
-    'présente le chargement comme trois captures explicites sans caméra permanente',
+    'présente le chargement comme deux captures explicites sans caméra permanente',
     (tester) async {
       tester.view.physicalSize = const Size(1080, 2200);
       tester.view.devicePixelRatio = 1;
@@ -29,13 +29,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Chargement à la mine'), findsOneWidget);
-      expect(find.text('Photos du chargement — 0/3'), findsOneWidget);
+      expect(find.text('Photos du chargement — 0/2'), findsOneWidget);
       expect(find.text('Photo de la plaque'), findsOneWidget);
-      expect(find.text('Photo du mica'), findsOneWidget);
+      expect(find.text('Photo du mica'), findsNothing);
       expect(find.text('Photo du camion avec mica'), findsOneWidget);
       expect(
         find.textContaining('Appuyer pour prendre la photo'),
-        findsNWidgets(3),
+        findsNWidgets(2),
       );
 
       final saveButton = tester.widget<FilledButton>(

@@ -138,7 +138,7 @@ class LotSnapshotBuilder {
       'id': payloadUuid,
       'session_id': sessionUuid,
       'supplier_id': session.fournisseurId,
-      'lot_reference': session.lotReference,
+      if (lot.photoSchemaVersion < 3) 'lot_reference': session.lotReference,
       'photo_schema_version': lot.photoSchemaVersion,
       'status': lot.statut,
       'created_at': _d(session.dateCreation),
@@ -174,12 +174,13 @@ class LotSnapshotBuilder {
       'arrival': arr == null
           ? null
           : {
-              'depot_id': _id(arr.depotId),
+              if (lot.photoSchemaVersion < 3 && arr.depotId != null)
+                'depot_id': _id(arr.depotId!),
               'driver': arr.chauffeur,
               'license_number': arr.numPermis,
-              'lot_number': arr.numLot,
-              // Odoo indexe aussi le numéro par couleur de mica.
-              'lots': {lot.couleur ?? 'lot': arr.numLot},
+              if (lot.photoSchemaVersion < 3) 'lot_number': arr.numLot,
+              if (lot.photoSchemaVersion < 3)
+                'lots': {lot.couleur ?? 'lot': arr.numLot},
               'gps': [arr.gpsLat, arr.gpsLon],
               'gps_status': arr.statutGps,
               'plate_arrival': arr.plaqueArrivee,

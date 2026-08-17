@@ -73,7 +73,7 @@ class _MicaFleetAppState extends ConsumerState<MicaFleetApp> {
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
         // Le réseau peut être resté connecté pendant que l'app était fermée :
-        // on rafraîchit les trois référentiels à chaque retour au premier plan.
+        // on rafraîchit les référentiels et les lots à chaque retour.
         ref.read(triggerSyncProvider).sync();
       },
     );

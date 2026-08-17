@@ -16,15 +16,9 @@ class _RoutingAdapter implements HttpClientAdapter {
     paths.add(options.path);
     final body = switch (options.path) {
       '/api/login' =>
-        '''
-        {"status":"ok","data":{"token":"token","agent":{"login":"eddy","name":"Eddy"}}}
-      ''',
+        '{"status":"ok","data":{"token":"token","agent":{"login":"eddy","name":"Eddy"}}}',
       '/api/mine' => '{"status":"ok","data":[]}',
       '/api/storage' => '{"status":"ok","data":[]}',
-      '/api/commune' =>
-        '''
-        {"status":"ok","data":[{"id":24091,"name":"Andilana","district":"Ambohidratrimo","active":true}]}
-      ''',
       _ => '{"status":"error","message":"route inconnue"}',
     };
     return ResponseBody.fromString(
@@ -41,19 +35,17 @@ class _RoutingAdapter implements HttpClientAdapter {
 }
 
 void main() {
-  test('le login charge et parse le référentiel /api/commune', () async {
+  test('le login ne charge plus le référentiel commune', () async {
     final adapter = _RoutingAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
 
-    final result = await RetrofitAuthRemoteDataSource(
-      AuthApi(dio),
-    ).login('eddy', 'secret');
+    await RetrofitAuthRemoteDataSource(AuthApi(dio)).login('eddy', 'secret');
 
-    expect(adapter.paths, contains('/api/commune'));
-    expect(result.communes, hasLength(1));
-    expect(result.communes.single.id, 24091);
-    expect(result.communes.single.nom, 'Andilana');
-    expect(result.communes.single.district, 'Ambohidratrimo');
+    expect(
+      adapter.paths,
+      containsAll(['/api/login', '/api/mine', '/api/storage']),
+    );
+    expect(adapter.paths, isNot(contains('/api/commune')));
   });
 }

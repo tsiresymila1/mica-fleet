@@ -84,7 +84,7 @@ class TraceabilityPhotoStore {
     final plate = photo(TraceabilityPhotoRole.plate);
     final mica = photo(TraceabilityPhotoRole.mica);
     final truck = photo(TraceabilityPhotoRole.truckWithMica);
-    if (plate == null || mica == null || truck == null) return null;
+    if (plate == null || truck == null) return null;
     return TraceabilityPhotos(plate: plate, mica: mica, truckWithMica: truck);
   }
 }

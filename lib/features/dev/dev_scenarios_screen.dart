@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+   import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/di/providers.dart';
@@ -11,8 +11,9 @@ import '../trip/domain/trip_simulator.dart';
 import '../trip/presentation/sim_session.dart';
 import 'dev_scenario_service.dart';
 
-final devScenarioServiceProvider =
-    Provider((ref) => DevScenarioService(ref.watch(dbProvider)));
+final devScenarioServiceProvider = Provider(
+  (ref) => DevScenarioService(ref.watch(dbProvider)),
+);
 
 /// Menu de test (DEBUG) : simuler des scénarios sur un vrai appareil.
 class DevScenariosScreen extends ConsumerWidget {
@@ -33,8 +34,10 @@ class DevScenariosScreen extends ConsumerWidget {
       } catch (e) {
         if (context.mounted) {
           await showAppMessage(
-              context, e.toString().replaceFirst('Exception: ', ''),
-              kind: AppMsgKind.error);
+            context,
+            e.toString().replaceFirst('Exception: ', ''),
+            kind: AppMsgKind.error,
+          );
         }
       }
     }
@@ -64,14 +67,20 @@ class DevScenariosScreen extends ConsumerWidget {
               final ep = await svc.simEndpoints();
               if (ep == null) {
                 if (context.mounted) {
-                  await showAppMessage(context,
-                      'Utilise d\'abord « Placer les mines ici »',
-                      kind: AppMsgKind.warning);
+                  await showAppMessage(
+                    context,
+                    'Utilise d\'abord « Placer les mines ici »',
+                    kind: AppMsgKind.warning,
+                  );
                 }
                 return;
               }
-              ref.read(simSessionProvider.notifier).start(
-                  SimPoint(ep.dLat, ep.dLon), SimPoint(ep.aLat, ep.aLon));
+              ref
+                  .read(simSessionProvider.notifier)
+                  .start(
+                    SimPoint(ep.dLat, ep.dLon),
+                    SimPoint(ep.aLat, ep.aLon),
+                  );
               if (context.mounted) context.push('/chargement');
             },
           ),
@@ -96,8 +105,11 @@ class DevScenariosScreen extends ConsumerWidget {
             sousTitre: 'Supprime tous les chargements',
             onTap: () async {
               final ok = await showConfirm(
-                  context, 'Effacer tous les chargements ?',
-                  danger: true, confirmLabel: 'Effacer');
+                context,
+                'Effacer tous les chargements ?',
+                danger: true,
+                confirmLabel: 'Effacer',
+              );
               if (ok) {
                 await run(() async {
                   await svc.clearChargements();

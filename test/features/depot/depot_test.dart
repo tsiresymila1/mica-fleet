@@ -49,23 +49,23 @@ void main() {
     expect(DetectDepot().nearest(const [], -18.9, 47.5), isNull);
   });
 
-  test('validate hors zone → réussit en hors_zone (plus de blocage)', () {
-    final r = ValidateArrivee(DetectDepot())(
+  test('validate délègue le dépôt et le statut GPS au serveur', () {
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.95,
       lon: 47.55,
       chauffeur: 'Jean',
       numPermis: 'P1',
       numLot: 'L1',
     );
-    expect(r.getRight().toNullable()!.statutGps, 'hors_zone');
+    final arrivee = r.getRight().toNullable()!;
+    expect(arrivee.statutGps, 'pending_server');
+    expect(arrivee.depotId, isNull);
   });
 
   test('validate échoue si champs obligatoires vides', () {
-    final r = ValidateArrivee(DetectDepot())(
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.9,
       lon: 47.5,
       chauffeur: '',
@@ -75,53 +75,21 @@ void main() {
     expect(r.isLeft(), isTrue);
   });
 
-  test('validate réussit dans la zone avec champs remplis', () {
-    final r = ValidateArrivee(DetectDepot())(
+  test('validate réussit sans numéro de lot fourni par le mobile', () {
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.90005,
       lon: 47.5,
       chauffeur: 'Jean',
       numPermis: 'P1',
-      numLot: 'L1',
+      numLot: '',
     );
-    expect(r.getRight().toNullable()!.depotId, 'D1');
-  });
-
-  test('validate utilise le dépôt sélectionné au lieu du plus proche', () {
-    final r = ValidateArrivee(DetectDepot())(
-      lotId: 'MICA-2026-0001-L1',
-      depots: depots,
-      depotId: 'D2',
-      lat: -18.90005,
-      lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: 'P1',
-      numLot: 'L1',
-    );
-    final arrivee = r.getRight().toNullable()!;
-    expect(arrivee.depotId, 'D2');
-    expect(arrivee.statutGps, 'hors_zone');
-  });
-
-  test('validate refuse un dépôt sélectionné absent du cache actif', () {
-    final r = ValidateArrivee(DetectDepot())(
-      lotId: 'MICA-2026-0001-L1',
-      depots: depots,
-      depotId: 'INCONNU',
-      lat: -18.90005,
-      lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: 'P1',
-      numLot: 'L1',
-    );
-    expect(r.isLeft(), isTrue);
+    expect(r.isRight(), isTrue);
   });
 
   test('plaque cohérente si arrivée == attendue (normalisée)', () {
-    final r = ValidateArrivee(DetectDepot())(
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.90005,
       lon: 47.5,
       chauffeur: 'J',
@@ -134,9 +102,8 @@ void main() {
   });
 
   test('plaque incohérente si arrivée != attendue', () {
-    final r = ValidateArrivee(DetectDepot())(
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.90005,
       lon: 47.5,
       chauffeur: 'J',
@@ -149,9 +116,8 @@ void main() {
   });
 
   test('plaque non vérifiable si la plaque attendue est inconnue', () {
-    final r = ValidateArrivee(DetectDepot())(
+    final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
-      depots: depots,
       lat: -18.90005,
       lon: 47.5,
       chauffeur: 'J',

@@ -6,16 +6,25 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/network/token_store.dart';
 import '../../domain/entities/fournisseur.dart';
 import '../../../sync/domain/repositories/remote_data_source.dart'
-    show RemoteCommune, RemoteDepot, RemoteMine;
+    show PasswordChangeRejected, RemoteDataSource, RemoteDepot, RemoteMine;
 import '../../domain/repositories/auth_repository.dart';
 import '../auth_remote_data_source.dart';
 import '../datasources/auth_local_ds.dart';
+import '../password_secret_store.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource local;
   final AuthRemoteDataSource remote;
   final SecureTokenStore tokenStore;
-  AuthRepositoryImpl(this.local, this.remote, this.tokenStore);
+  final PasswordSecretStore? passwordStore;
+  final RemoteDataSource? syncRemote;
+  AuthRepositoryImpl(
+    this.local,
+    this.remote,
+    this.tokenStore, [
+    this.passwordStore,
+    this.syncRemote,
+  ]);
 
   @override
   Future<Either<Failure, Fournisseur>> login(
@@ -30,7 +39,14 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final r = await remote.login(identifiant.trim(), password);
       await tokenStore.save(r.token);
-      await _upsertReferentiel(r.mines, r.depots, r.communes);
+      try {
+        await passwordStore?.saveVerifier(identifiant.trim(), password);
+      } catch (_) {
+        // Le login en ligne reste valable si le trousseau système est
+        // temporairement indisponible. Seul le prochain accès hors ligne sera
+        // alors impossible jusqu'à un nouveau login distant.
+      }
+      await _upsertReferentiel(r.mines, r.depots);
       await local.saveSession(r.agentId, r.agentNom);
       return right(Fournisseur(id: r.agentId, nom: r.agentNom));
     } on DioException catch (e) {
@@ -41,7 +57,7 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
       // Autre erreur serveur/réseau : replie sur une session déjà établie.
-      final offline = await _sessionHorsLigne(identifiant.trim());
+      final offline = await _sessionHorsLigne(identifiant.trim(), password);
       if (offline != null) return right(offline);
       final code = e.response?.statusCode;
       return left(
@@ -52,7 +68,7 @@ class AuthRepositoryImpl implements AuthRepository {
         ),
       );
     } catch (e) {
-      final offline = await _sessionHorsLigne(identifiant.trim());
+      final offline = await _sessionHorsLigne(identifiant.trim(), password);
       if (offline != null) return right(offline);
       return left(
         const Failure.network(
@@ -63,10 +79,16 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   /// Session déjà établie pour cet identifiant (repli hors ligne), ou null.
-  Future<Fournisseur?> _sessionHorsLigne(String identifiant) async {
+  Future<Fournisseur?> _sessionHorsLigne(
+    String identifiant,
+    String password,
+  ) async {
     final row = await local.findById(identifiant);
     final token = await tokenStore.read();
-    if (row != null && row.actif && token != null) {
+    final passwordValid =
+        passwordStore == null ||
+        await passwordStore!.verify(identifiant, password);
+    if (row != null && row.actif && token != null && passwordValid) {
       return Fournisseur(id: row.id, nom: row.nom, actif: row.actif);
     }
     return null;
@@ -75,7 +97,6 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> _upsertReferentiel(
     List<RemoteMine> mines,
     List<RemoteDepot> depots,
-    List<RemoteCommune> communes,
   ) async {
     final db = local.db;
     await db.batch((b) {
@@ -89,6 +110,7 @@ class AuthRepositoryImpl implements AuthRepository {
             lon: m.lon,
             rayonMetres: Value(m.rayonMetres),
             district: Value(m.district),
+            fokontany: Value(m.fokontany),
             commune: Value(m.commune),
             region: Value(m.region),
             actif: Value(m.actif),
@@ -110,18 +132,6 @@ class AuthRepositoryImpl implements AuthRepository {
           mode: InsertMode.insertOrReplace,
         );
       }
-      for (final commune in communes) {
-        b.insert(
-          db.communes,
-          CommunesCompanion.insert(
-            id: Value(commune.id),
-            nom: commune.nom,
-            district: Value(commune.district),
-            actif: Value(commune.actif),
-          ),
-          mode: InsertMode.insertOrReplace,
-        );
-      }
     });
   }
 
@@ -130,5 +140,64 @@ class AuthRepositoryImpl implements AuthRepository {
     final all = await local.db.select(local.db.fournisseurs).get();
     final s = all.where((f) => f.sessionToken != null).firstOrNull;
     return s == null ? null : Fournisseur(id: s.id, nom: s.nom, actif: s.actif);
+  }
+
+  @override
+  Future<Either<Failure, bool>> changePassword({
+    required String login,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (currentPassword.isEmpty || newPassword.length < 8) {
+      return left(
+        const Failure.validation(
+          'Le nouveau mot de passe doit contenir au moins 8 caractères',
+        ),
+      );
+    }
+    final secrets = passwordStore;
+    final api = syncRemote;
+    if (secrets == null || api == null) {
+      return left(const Failure.validation('Service indisponible'));
+    }
+    if (!await secrets.verify(login, currentPassword)) {
+      return left(const Failure.auth('Mot de passe actuel incorrect'));
+    }
+    try {
+      await api.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      await secrets.saveVerifier(login, newPassword);
+      await secrets.clearPending();
+      return right(false);
+    } on PasswordChangeRejected catch (error) {
+      return left(Failure.auth(error.message));
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status == 400 || status == 401 || status == 403 || status == 422) {
+        return left(
+          Failure.auth(
+            error.response?.data is Map
+                ? (error.response?.data['message']?.toString() ??
+                      'Mot de passe refusé par le serveur')
+                : 'Mot de passe refusé par le serveur',
+          ),
+        );
+      }
+      await secrets.queue(
+        login: login,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      return right(true);
+    } catch (_) {
+      await secrets.queue(
+        login: login,
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      return right(true);
+    }
   }
 }

@@ -7,12 +7,15 @@ abstract class LocalSyncStore {
   /// en FIFO par createdAt.
   Future<List<SyncOperation>> pending();
 
-  Future<void> updateStatus(String opId, SyncStatus status,
-      {int? attempts,
-      String? lastError,
-      DateTime? nextRetryAt,
-      int? odooId,
-      DateTime? syncedAt});
+  Future<void> updateStatus(
+    String opId,
+    SyncStatus status, {
+    int? attempts,
+    String? lastError,
+    DateTime? nextRetryAt,
+    int? odooId,
+    DateTime? syncedAt,
+  });
 
   /// Réserve une opération pour l'envoi de façon atomique : passe `pending` →
   /// `syncing` en une seule écriture conditionnelle. Renvoie `true` si CE

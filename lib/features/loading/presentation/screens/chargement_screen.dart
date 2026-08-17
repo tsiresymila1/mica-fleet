@@ -147,7 +147,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                                     : PillKind.warn,
                                 label: l.photos != null || l.photo != null
                                     ? (l.photos != null
-                                          ? '3 photos'
+                                          ? '2 photos'
                                           : 'Photo v1')
                                     : 'Manque',
                               ),

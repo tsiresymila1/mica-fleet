@@ -24,6 +24,7 @@ class Mines extends Table {
   RealColumn get lon => real()();
   RealColumn get rayonMetres => real().withDefault(const Constant(20))();
   TextColumn get district => text().nullable()();
+  TextColumn get fokontany => text().nullable()();
   TextColumn get commune => text().nullable()();
   TextColumn get region => text().nullable()();
   BoolColumn get actif => boolean().withDefault(const Constant(true))();
@@ -128,6 +129,12 @@ class Lots extends Table {
       text().withDefault(const Constant('[]'))();
   IntColumn get photoSchemaVersion =>
       integer().withDefault(const Constant(1))();
+  TextColumn get validationStatus =>
+      text().withDefault(const Constant('in_progress'))();
+  TextColumn get validationReason => text().nullable()();
+  TextColumn get serverReference => text().nullable()();
+  DateTimeColumn get serverUpdatedAt => dateTime().nullable()();
+  BoolColumn get remoteOnly => boolean().withDefault(const Constant(false))();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -214,7 +221,7 @@ class Transbordements extends Table {
 @DataClassName('ArriveeDepotRow')
 class ArriveesDepot extends Table {
   TextColumn get lotId => text().references(Lots, #id)();
-  TextColumn get depotId => text().references(Depots, #id)();
+  TextColumn get depotId => text().nullable().references(Depots, #id)();
   TextColumn get chauffeur => text()();
   TextColumn get numPermis => text()();
   TextColumn get photoPermisPath => text().nullable()();
@@ -281,7 +288,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -391,6 +398,18 @@ class AppDatabase extends _$AppDatabase {
       if (from >= 12 && from < 19) {
         await m.addColumn(lots, lots.photoSchemaVersion);
         await m.createTable(lotTraceabilityPhotos);
+      }
+      if (from >= 12 && from < 20) {
+        await m.addColumn(mines, mines.fokontany);
+        await m.addColumn(lots, lots.validationStatus);
+        await m.addColumn(lots, lots.validationReason);
+        await m.addColumn(lots, lots.serverReference);
+        await m.addColumn(lots, lots.serverUpdatedAt);
+        await m.addColumn(lots, lots.remoteOnly);
+        // Le dépôt est désormais résolu par le backend depuis arrival.gps.
+        // La migration conserve les anciennes valeurs mais autorise null pour
+        // les nouvelles arrivées.
+        await m.alterTable(TableMigration(arriveesDepot));
       }
     },
   );

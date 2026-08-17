@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/features/capture/domain/entities/captured_photo.dart';
@@ -80,7 +81,7 @@ void main() {
     expect(lot.photoHeadingReference, 'magnetic');
   });
 
-  test('persiste les trois preuves v2 du chargement mine', () async {
+  test('persiste les deux preuves v3 du chargement mine', () async {
     CapturedPhoto photo(String name, double heading) => CapturedPhoto(
       path: '/tmp/$name.jpg',
       sha256: 'hash-$name',
@@ -102,7 +103,6 @@ void main() {
             mineId: 'M001',
             photos: TraceabilityPhotos(
               plate: photo('plate', 10),
-              mica: photo('mica', 20),
               truckWithMica: photo('truck', 30),
             ),
           ),
@@ -112,14 +112,10 @@ void main() {
 
     expect(result.isRight(), isTrue);
     final lot = (await db.select(db.lots).get()).single;
-    expect(lot.photoSchemaVersion, 2);
+    expect(lot.photoSchemaVersion, 3);
     final photos = await db.select(db.lotTraceabilityPhotos).get();
-    expect(photos, hasLength(3));
-    expect(photos.map((row) => row.role).toSet(), {
-      'plate',
-      'mica',
-      'truck_with_mica',
-    });
+    expect(photos, hasLength(2));
+    expect(photos.map((row) => row.role).toSet(), {'plate', 'truck_with_mica'});
     expect(photos.singleWhere((row) => row.role == 'plate').headingDegrees, 10);
   });
 
@@ -134,7 +130,7 @@ void main() {
         .insert(
           ArriveesDepotCompanion.insert(
             lotId: 'MICA-2026-0001-L1',
-            depotId: 'D1',
+            depotId: const Value('D1'),
             chauffeur: 'J',
             numPermis: 'P',
             numLot: 'L',

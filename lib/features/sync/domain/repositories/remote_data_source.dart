@@ -3,7 +3,7 @@ import '../entities/sync_operation.dart';
 class RemoteMine {
   final String id, nom;
   final double lat, lon, rayonMetres;
-  final String? district, commune, region;
+  final String? district, fokontany, commune, region;
   final bool actif;
   RemoteMine(
     this.id,
@@ -14,8 +14,9 @@ class RemoteMine {
     this.district,
     this.commune,
     this.region,
-    this.actif,
-  );
+    this.actif, {
+    this.fokontany,
+  });
 }
 
 class RemoteDepot {
@@ -33,13 +34,42 @@ class RemoteDepot {
   );
 }
 
-class RemoteCommune {
-  final int id;
-  final String nom;
-  final String? district;
-  final bool actif;
+/// Vue utile du payload renvoyé par `GET /api/tracking/lots`.
+///
+/// Le backend renvoie le même objet que `payload` dans le submit, enrichi de
+/// la référence et de la décision de validation. Seuls les champs nécessaires
+/// au cache et aux listes sont projetés ici ; les champs supplémentaires du
+/// payload restent volontairement tolérés par le parseur.
+class RemoteLot {
+  final String payloadId;
+  final String sessionId;
+  final String? reference;
+  final String validationStatus;
+  final String? validationReason;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  final String mineId;
+  final String mineName;
+  final String? color;
+  final double? estimatedQuantity;
+  final String transportStatus;
+  final int? score;
 
-  const RemoteCommune(this.id, this.nom, this.district, this.actif);
+  const RemoteLot({
+    required this.payloadId,
+    required this.sessionId,
+    required this.reference,
+    required this.validationStatus,
+    required this.validationReason,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.mineId,
+    required this.mineName,
+    required this.color,
+    required this.estimatedQuantity,
+    required this.transportStatus,
+    required this.score,
+  });
 }
 
 /// Une photo à uploader : clé (slot), fichier local, hash (idempotence).
@@ -48,6 +78,14 @@ class PhotoPart {
   final String path;
   final String hash;
   PhotoPart(this.key, this.path, this.hash);
+}
+
+class PasswordChangeRejected implements Exception {
+  final String message;
+  const PasswordChangeRejected(this.message);
+
+  @override
+  String toString() => message;
 }
 
 abstract class RemoteDataSource {
@@ -77,6 +115,12 @@ abstract class RemoteDataSource {
   /// Pull du référentiel dépôts.
   Future<List<RemoteDepot>> fetchDepots();
 
-  /// Pull du référentiel communes.
-  Future<List<RemoteCommune>> fetchCommunes();
+  /// Pull des lots accessibles à l'utilisateur connecté. Une implémentation
+  /// vide garde les doubles de test et anciens connecteurs compatibles.
+  Future<List<RemoteLot>> fetchLots() async => const [];
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async => throw UnimplementedError('Password API not configured');
 }

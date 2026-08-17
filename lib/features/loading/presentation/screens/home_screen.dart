@@ -12,11 +12,18 @@ import '../providers/chargements_list_provider.dart';
 import '../providers/loading_provider.dart';
 
 /// Accueil : historique des LOTS (unité de traçabilité) + nouveau chargement.
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String _filter = 'all';
+
+  @override
+  Widget build(BuildContext context) {
     final liste = ref.watch(lotsListProvider);
     final fournisseur = ref.watch(authControllerProvider);
     final df = DateFormat('dd/MM/yyyy HH:mm');
@@ -52,27 +59,53 @@ class HomeScreen extends ConsumerWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(lotsListProvider),
+        onRefresh: () async => ref.read(triggerSyncProvider).sync(),
         child: liste.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Erreur : $e')),
           data: (items) {
             if (items.isEmpty) return _Empty();
+            final filtered = _filter == 'all'
+                ? items
+                : items
+                      .where((item) => item.validationStatus == _filter)
+                      .toList();
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-              itemCount: items.length,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+              itemCount: filtered.length + 1,
               separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (_, i) {
-                final l = items[i];
+                if (i == 0) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _filterChip('all', 'Tous'),
+                        _filterChip('in_progress', 'En cours'),
+                        _filterChip('validated', 'Validés'),
+                        _filterChip('rejected', 'Rejetés'),
+                      ],
+                    ),
+                  );
+                }
+                final l = filtered[i - 1];
                 final tile = ActionTile(
                   icon: l.arrive ? Icons.verified : Icons.local_shipping,
                   color: l.arrive ? AppColors.ok : AppColors.gold,
-                  titre: l.id,
+                  titre: l.serverReference ?? l.id,
                   sousTitre: [
-                    l.mineId,
-                    if (l.couleur != null) l.couleur!,
-                    df.format(l.date),
-                  ].join('  •  '),
+                    'Mine : ${l.mineName}',
+                    [
+                      if (l.couleur != null) l.couleur!,
+                      if (l.tonnage != null) '${l.tonnage} kg',
+                    ].join('  •  '),
+                    'Créé le ${df.format(l.date)}',
+                    'Réf. traçabilité : ${l.serverReference ?? 'à attribuer'}',
+                    'Validation : ${_validationLabel(l.validationStatus)}',
+                    if (l.validationReason != null &&
+                        l.validationReason!.trim().isNotEmpty)
+                      l.validationReason!,
+                  ].where((line) => line.isNotEmpty).join('\n'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -91,7 +124,7 @@ class HomeScreen extends ConsumerWidget {
                     ref.invalidate(lotsListProvider);
                   },
                 );
-                if (l.arrive) return tile;
+                if (l.arrive || l.remoteOnly) return tile;
                 return Dismissible(
                   key: ValueKey(l.id),
                   direction: DismissDirection.endToStart,
@@ -148,7 +181,22 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _filterChip(String value, String label) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(
+      label: Text(label),
+      selected: _filter == value,
+      onSelected: (_) => setState(() => _filter = value),
+    ),
+  );
 }
+
+String _validationLabel(String status) => switch (status) {
+  'validated' => 'Validé',
+  'rejected' => 'Rejeté',
+  _ => 'En cours',
+};
 
 class _AccountDrawer extends StatelessWidget {
   final String nom;

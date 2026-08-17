@@ -72,7 +72,11 @@ class ChargementDetailScreen extends ConsumerWidget {
                   children: [
                     _kv('Session', d.sessionId),
                     _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
-                    _kv('Statut', d.statut),
+                    _kv('Réf. traçabilité', d.serverReference ?? 'À attribuer'),
+                    _kv('Statut transport', d.statut),
+                    _kv('Validation', _validationLabel(d.validationStatus)),
+                    if (d.validationReason != null)
+                      _kv('Motif', d.validationReason!),
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -101,7 +105,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            d.mineId,
+                            d.mineName,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           Text(
@@ -240,10 +244,14 @@ class ChargementDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _kv('Dépôt', d.arrivee!.depotId),
+                      _kv(
+                        'Dépôt',
+                        d.arrivee!.depotId ?? 'Attribué par le serveur',
+                      ),
                       _kv('Chauffeur', d.arrivee!.chauffeur),
                       _kv('Permis', d.arrivee!.numPermis),
-                      _kv('N° de lot', d.arrivee!.numLot),
+                      if (d.arrivee!.numLot.isNotEmpty)
+                        _kv('N° de lot', d.arrivee!.numLot),
                       if (d.arrivee!.plaqueArrivee != null)
                         _kv('Plaque', d.arrivee!.plaqueArrivee!),
                       const SizedBox(height: 8),
@@ -305,7 +313,7 @@ class ChargementDetailScreen extends ConsumerWidget {
         ),
       ),
       bottomNavigationBar: detail.maybeWhen(
-        data: (d) => d.arrivee == null
+        data: (d) => d.arrivee == null && !d.remoteOnly
             ? SafeArea(
                 minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 child: Column(
@@ -340,6 +348,12 @@ class ChargementDetailScreen extends ConsumerWidget {
     );
   }
 }
+
+String _validationLabel(String status) => switch (status) {
+  'validated' => 'Validé',
+  'rejected' => 'Rejeté',
+  _ => 'En cours',
+};
 
 /// Carte de la trace GPS de la session (points espacés >20 m). Départ en vert,
 /// arrivée en rouge, tracé bleu entre les deux.

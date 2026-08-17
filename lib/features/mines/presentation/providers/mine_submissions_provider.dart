@@ -7,7 +7,6 @@ import '../../../../core/di/providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../data/repositories/mine_submission_repository_impl.dart';
-import '../../domain/entities/commune.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../../domain/repositories/mine_submission_repository.dart';
 import '../../../sync/data/sync_engine.dart';
@@ -19,10 +18,6 @@ final mineSubmissionRepositoryProvider = Provider<MineSubmissionRepository>(
 
 final mineSubmissionsProvider = FutureProvider<List<MineSubmission>>(
   (ref) => ref.watch(mineSubmissionRepositoryProvider).list(),
-);
-
-final communesProvider = FutureProvider<List<Commune>>(
-  (ref) => ref.watch(mineSubmissionRepositoryProvider).listCommunes(),
 );
 
 final createMineSubmissionProvider = Provider<CreateMineSubmissionController>(
@@ -39,18 +34,12 @@ class CreateMineSubmissionController {
 
   Future<Either<Failure, MineSubmission>> create({
     required String name,
-    required int communeId,
     required List<CapturedPhoto> photos,
     String? agentLogin,
   }) async {
     final result = await ref
         .read(mineSubmissionRepositoryProvider)
-        .create(
-          name: name,
-          communeId: communeId,
-          photos: photos,
-          agentLogin: agentLogin,
-        );
+        .create(name: name, photos: photos, agentLogin: agentLogin);
     if (result.isRight()) {
       ref.invalidate(mineSubmissionsProvider);
       // Le moteur absorbe les erreurs réseau et gardera l'opération en attente.

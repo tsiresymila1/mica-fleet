@@ -26,11 +26,12 @@ class TripTracker {
     await ensureLocationReady();
     _chargementId = chargementId;
     // Reprend le dernier point connu pour le filtrage.
-    final last = await (db.select(db.trajetPoints)
-          ..where((t) => t.chargementId.equals(chargementId))
-          ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)])
-          ..limit(1))
-        .getSingleOrNull();
+    final last =
+        await (db.select(db.trajetPoints)
+              ..where((t) => t.chargementId.equals(chargementId))
+              ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)])
+              ..limit(1))
+            .getSingleOrNull();
     _lastLat = last?.lat;
     _lastLon = last?.lon;
 
@@ -57,20 +58,29 @@ class TripTracker {
 
   /// Enregistre un point si sa distance au dernier point retenu dépasse le seuil.
   /// Utilisé par le flux GPS réel et par le simulateur.
-  Future<void> recordPoint(String chargementId, double lat, double lon,
-      {bool simule = false, DateTime? at}) async {
+  Future<void> recordPoint(
+    String chargementId,
+    double lat,
+    double lon, {
+    bool simule = false,
+    DateTime? at,
+  }) async {
     if (_lastLat != null &&
         haversineMeters(_lastLat!, _lastLon!, lat, lon) < seuilMetres) {
       return; // trop proche → ignoré
     }
     _lastLat = lat;
     _lastLon = lon;
-    await db.into(db.trajetPoints).insert(TrajetPointsCompanion.insert(
-          chargementId: chargementId,
-          lat: lat,
-          lon: lon,
-          capturedAt: at ?? DateTime.now(),
-          simule: Value(simule),
-        ));
+    await db
+        .into(db.trajetPoints)
+        .insert(
+          TrajetPointsCompanion.insert(
+            chargementId: chargementId,
+            lat: lat,
+            lon: lon,
+            capturedAt: at ?? DateTime.now(),
+            simule: Value(simule),
+          ),
+        );
   }
 }

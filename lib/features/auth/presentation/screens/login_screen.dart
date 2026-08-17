@@ -33,25 +33,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         .read(authControllerProvider.notifier)
         .login(_ctrl.text, _pwdCtrl.text);
     if (!mounted) return;
-    await r.match(
-      (f) async {
-        setState(() => _loading = false);
-        await showAppMessage(
-          context,
-          switch (f) {
-            ValidationFailure(:final message) => message,
-            AuthFailure(:final message) =>
-              message ?? 'Identifiant ou mot de passe incorrect',
-            NetworkFailure(:final message) =>
-              message ?? 'Serveur injoignable',
-            _ => 'Identifiant ou mot de passe incorrect',
-          },
-          kind: AppMsgKind.error,
-          titre: 'Connexion impossible',
-        );
-      },
-      (fournisseur) async => context.go('/home'),
-    );
+    await r.match((f) async {
+      setState(() => _loading = false);
+      await showAppMessage(
+        context,
+        switch (f) {
+          ValidationFailure(:final message) => message,
+          AuthFailure(:final message) =>
+            message ?? 'Identifiant ou mot de passe incorrect',
+          NetworkFailure(:final message) => message ?? 'Serveur injoignable',
+          _ => 'Identifiant ou mot de passe incorrect',
+        },
+        kind: AppMsgKind.error,
+        titre: 'Connexion impossible',
+      );
+    }, (fournisseur) async => context.go('/home'));
   }
 
   @override
@@ -117,9 +113,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     labelText: 'Mot de passe',
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
-                      icon: Icon(_pwdVisible
-                          ? Icons.visibility_off_outlined
-                          : Icons.visibility_outlined),
+                      icon: Icon(
+                        _pwdVisible
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
                       tooltip: _pwdVisible ? 'Cacher' : 'Voir',
                       onPressed: () =>
                           setState(() => _pwdVisible = !_pwdVisible),

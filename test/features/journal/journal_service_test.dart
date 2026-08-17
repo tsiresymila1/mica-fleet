@@ -23,8 +23,9 @@ void main() {
     await journal.append('chargement', 'C1', '{"a":1}');
     await journal.append('arrivee_depot', 'C1', '{"b":2}');
     // Falsifie le contenu du 1er maillon sans recalculer le hash
-    await (db.update(db.journalEntries)..where((t) => t.seq.equals(1)))
-        .write(const JournalEntriesCompanion(dataHash: Value('HACK')));
+    await (db.update(db.journalEntries)..where((t) => t.seq.equals(1))).write(
+      const JournalEntriesCompanion(dataHash: Value('HACK')),
+    );
     expect(await journal.verify(), isFalse);
   });
 }

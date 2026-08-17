@@ -16,8 +16,9 @@ void main() {
   });
 
   test('délègue identifiant + mot de passe au repo', () async {
-    when(() => repo.login('F001', 'secret'))
-        .thenAnswer((_) async => right(const Fournisseur(id: 'F001', nom: 'X')));
+    when(
+      () => repo.login('F001', 'secret'),
+    ).thenAnswer((_) async => right(const Fournisseur(id: 'F001', nom: 'X')));
     final r = await login('F001', 'secret');
     expect(r.isRight(), isTrue);
     verify(() => repo.login('F001', 'secret')).called(1);

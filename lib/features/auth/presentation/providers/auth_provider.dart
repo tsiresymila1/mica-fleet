@@ -18,18 +18,43 @@ final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   return RetrofitAuthRemoteDataSource(AuthApi(dio));
 });
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) =>
-    AuthRepositoryImpl(
-        AuthLocalDataSource(ref.watch(dbProvider)),
-        ref.watch(authRemoteDataSourceProvider),
-        SecureTokenStore()));
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepositoryImpl(
+    AuthLocalDataSource(ref.watch(dbProvider)),
+    ref.watch(authRemoteDataSourceProvider),
+    SecureTokenStore(),
+    ref.watch(passwordSecretStoreProvider),
+    ref.watch(remoteDataSourceProvider),
+  ),
+);
 
-final loginProvider =
-    Provider<Login>((ref) => Login(ref.watch(authRepositoryProvider)));
+final changePasswordProvider = Provider((ref) {
+  return ({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = ref.read(authControllerProvider);
+    if (session == null) {
+      return left<Failure, bool>(const Failure.auth('Session expirée'));
+    }
+    return ref
+        .read(authRepositoryProvider)
+        .changePassword(
+          login: session.id,
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+  };
+});
+
+final loginProvider = Provider<Login>(
+  (ref) => Login(ref.watch(authRepositoryProvider)),
+);
 
 /// État de session courant (null = déconnecté). Pilote la garde du routeur.
-final authControllerProvider =
-    NotifierProvider<AuthController, Fournisseur?>(AuthController.new);
+final authControllerProvider = NotifierProvider<AuthController, Fournisseur?>(
+  AuthController.new,
+);
 
 class AuthController extends Notifier<Fournisseur?> {
   @override
@@ -39,7 +64,9 @@ class AuthController extends Notifier<Fournisseur?> {
   void setSession(Fournisseur? f) => state = f;
 
   Future<Either<Failure, Fournisseur>> login(
-      String identifiant, String password) async {
+    String identifiant,
+    String password,
+  ) async {
     final res = await ref.read(loginProvider)(identifiant, password);
     res.match((_) {}, (f) => state = f);
     return res;

@@ -30,7 +30,7 @@ class _FakeRemote implements RemoteDataSource {
   final Object? pushError;
   final List<RemoteMine> mines;
   final List<RemoteDepot> depots;
-  final List<RemoteCommune> communes;
+  final List<RemoteLot> lots;
   _FakeRemote({
     this.failTimes = 0,
     this.alwaysFail = false,
@@ -38,7 +38,7 @@ class _FakeRemote implements RemoteDataSource {
     this.pushError,
     List<RemoteMine>? mines,
     List<RemoteDepot>? depots,
-    List<RemoteCommune>? communes,
+    List<RemoteLot>? lots,
   }) : mines =
            mines ??
            [
@@ -55,8 +55,7 @@ class _FakeRemote implements RemoteDataSource {
              ),
            ],
        depots = depots ?? [RemoteDepot('d1', 'Dépôt 1', -18.8, 47.4, 20, true)],
-       communes =
-           communes ?? [const RemoteCommune(24091, 'Andilana', null, true)];
+       lots = lots ?? const [];
 
   @override
   Future<int?> pushOperation(SyncOperation op) async {
@@ -105,7 +104,13 @@ class _FakeRemote implements RemoteDataSource {
   Future<List<RemoteDepot>> fetchDepots() async => depots;
 
   @override
-  Future<List<RemoteCommune>> fetchCommunes() async => communes;
+  Future<List<RemoteLot>> fetchLots() async => lots;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
 }
 
 void main() {
@@ -511,7 +516,7 @@ void main() {
           .insert(
             ArriveesDepotCompanion.insert(
               lotId: 'C2-L1',
-              depotId: 'D1',
+              depotId: const Value('D1'),
               chauffeur: 'Jean',
               numPermis: 'P1',
               numLot: 'L1',
@@ -579,7 +584,7 @@ void main() {
           .insert(
             ArriveesDepotCompanion.insert(
               lotId: 'C3-L1',
-              depotId: 'D1',
+              depotId: const Value('D1'),
               chauffeur: 'Jean',
               numPermis: 'P1',
               numLot: 'L1',
@@ -640,7 +645,7 @@ void main() {
       expect(op.lastError, isNull);
     });
 
-    test('pull rafraîchit les trois référentiels sans doublon', () async {
+    test('pull rafraîchit mines et dépôts sans doublon', () async {
       await db
           .into(db.mines)
           .insert(
@@ -687,11 +692,45 @@ void main() {
         depots.singleWhere((row) => row.id == 'ancien-depot').actif,
         isFalse,
       );
+      // Les communes ne sont plus utilisées par le formulaire mine. L'ancien
+      // cache reste intact afin de ne pas rendre la migration destructive.
       final communes = await db.select(db.communes).get();
-      expect(communes, hasLength(2));
-      expect(communes.singleWhere((row) => row.id == 24091).actif, isTrue);
-      expect(communes.singleWhere((row) => row.id == 1).actif, isFalse);
+      expect(communes, hasLength(1));
+      expect(communes.single.id, 1);
     });
+
+    test(
+      'pull lots restaure le cache sans doublon et actualise la validation',
+      () async {
+        final remoteLot = RemoteLot(
+          payloadId: 'payload-server-1',
+          sessionId: 'session-server-1',
+          reference: 'MICA-2026-0042',
+          validationStatus: 'validated',
+          validationReason: null,
+          createdAt: DateTime.utc(2026, 8, 14, 8),
+          updatedAt: DateTime.utc(2026, 8, 14, 10),
+          mineId: 'm1',
+          mineName: 'Mine 1',
+          color: 'Blanc',
+          estimatedQuantity: 120,
+          transportStatus: 'arrive',
+          score: 96,
+        );
+        final engine = SyncEngine(store, _FakeRemote(lots: [remoteLot]), db);
+
+        await engine.sync();
+        await engine.sync();
+
+        final lots = await db.select(db.lots).get();
+        expect(lots, hasLength(1));
+        expect(lots.single.payloadUuid, 'payload-server-1');
+        expect(lots.single.serverReference, 'MICA-2026-0042');
+        expect(lots.single.validationStatus, 'validated');
+        expect(lots.single.remoteOnly, isTrue);
+        expect(lots.single.score, 96);
+      },
+    );
 
     test(
       'proposition mine : submit, 5 uploads puis ajout après approbation',
@@ -723,16 +762,10 @@ void main() {
           }
           if (storage.existsSync()) storage.deleteSync(recursive: true);
         });
-        final created =
-            await MineSubmissionRepositoryImpl(
-              db,
-              storageDirectory: () async => storage,
-            ).create(
-              name: 'Mine terrain',
-              communeId: 24091,
-              photos: photos,
-              agentLogin: 'eddy',
-            );
+        final created = await MineSubmissionRepositoryImpl(
+          db,
+          storageDirectory: () async => storage,
+        ).create(name: 'Mine terrain', photos: photos, agentLogin: 'eddy');
         expect(created.isRight(), isTrue);
         final storedPaths = (await db.select(db.mineSubmissionPhotos).get())
             .map((row) => row.path)
@@ -809,12 +842,7 @@ void main() {
         await MineSubmissionRepositoryImpl(
           db,
           storageDirectory: () async => storage,
-        ).create(
-          name: 'Mine reprise',
-          communeId: 24091,
-          photos: photos,
-          agentLogin: 'eddy',
-        );
+        ).create(name: 'Mine reprise', photos: photos, agentLogin: 'eddy');
 
         final firstRemote = _FakeRemote(failPhotoKey: 'position_3');
         await SyncEngine(store, firstRemote, db).sync();

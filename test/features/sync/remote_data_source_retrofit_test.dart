@@ -63,7 +63,7 @@ void main() {
     expect(form.files.single.key, 'file');
   });
 
-  test('uploadMinePhoto ajoute entity_type mine', () async {
+  test('uploadMinePhoto utilise payload_id sans entity_type', () async {
     final tmp = File('${Directory.systemTemp.path}/mica_mine_position.jpg')
       ..writeAsBytesSync([1, 2, 3]);
     addTearDown(() {
@@ -83,7 +83,6 @@ void main() {
     final request = adapter.request!;
     expect(request.path, '/api/attachments');
     expect(Map.fromEntries((request.data as FormData).fields), {
-      'entity_type': 'mine',
       'device_uuid': 'device-uuid',
       'payload_id': 'payload-uuid',
       'key': 'position_1',
@@ -147,25 +146,67 @@ void main() {
     expect(depots.single.nom, 'Dépôt Sud');
   });
 
-  test('lit les communes dans data.communes', () async {
-    final adapter = _CaptureAdapter('''
+  test(
+    'lit le payload submit enrichi retourné par GET tracking lots',
+    () async {
+      final adapter = _CaptureAdapter('''
       {
         "status": "ok",
         "data": {
-          "communes": [{"id": 24091, "name": "Andilana"}]
+          "lots": [{
+            "id": "payload-1",
+            "session_id": "session-1",
+            "supplier_id": "eddy",
+            "photo_schema_version": 3,
+            "status": "arrive",
+            "created_at": "2026-08-14 08:00:00",
+            "mine": {
+              "mine_id": 42,
+              "reference": null,
+              "mine_name": "Mine Andilana",
+              "color": "Blanc",
+              "estimated_quantity": 120,
+              "plate": "1234 TBR",
+              "lat": -18.91,
+              "lon": 47.52,
+              "gps_accuracy": 5,
+              "photos": {
+                "plate": {"key": "mine_plate", "hash": "hash-1"},
+                "truck_with_mica": {
+                  "key": "mine_truck_with_mica",
+                  "hash": "hash-2"
+                }
+              }
+            },
+            "transloads": [],
+            "arrival": {
+              "gps": [-18.879, 47.508],
+              "gps_status": "pending_server",
+              "photos_unload": {}
+            },
+            "track": [],
+            "traceability_score": 96,
+            "traceability_reference": "MICA-2026-0042",
+            "validation_status": "validated",
+            "validation_reason": null
+          }]
         }
       }
     ''');
-    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
-      ..httpClientAdapter = adapter;
-    final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = adapter;
+      final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
 
-    final communes = await remote.fetchCommunes();
+      final lots = await remote.fetchLots();
 
-    expect(adapter.request!.path, '/api/commune');
-    expect(communes.single.id, 24091);
-    expect(communes.single.nom, 'Andilana');
-  });
+      expect(adapter.request!.path, '/api/tracking/lots');
+      expect(lots.single.payloadId, 'payload-1');
+      expect(lots.single.reference, 'MICA-2026-0042');
+      expect(lots.single.validationStatus, 'validated');
+      expect(lots.single.mineName, 'Mine Andilana');
+      expect(lots.single.estimatedQuantity, 120);
+    },
+  );
 
   test('un status error ne doit pas vider le cache référentiel', () async {
     final adapter = _CaptureAdapter(

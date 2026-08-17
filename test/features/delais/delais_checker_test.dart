@@ -9,7 +9,10 @@ void main() {
     expect(c.statut(const Duration(hours: 10), limite), DelaiStatut.ok);
   });
   test('bientôt échu à 80%+', () {
-    expect(c.statut(const Duration(hours: 20), limite), DelaiStatut.bientotEchu);
+    expect(
+      c.statut(const Duration(hours: 20), limite),
+      DelaiStatut.bientotEchu,
+    );
   });
   test('dépassé au-delà de la limite', () {
     expect(c.statut(const Duration(hours: 25), limite), DelaiStatut.depasse);

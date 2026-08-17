@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:retrofit/retrofit.dart';
 import '../../sync/domain/repositories/remote_data_source.dart'
-    show RemoteCommune, RemoteDepot, RemoteMine;
+    show RemoteDepot, RemoteMine;
 
 part 'auth_remote_data_source.g.dart';
 
@@ -13,14 +13,12 @@ class LoginResult {
   final String agentNom;
   final List<RemoteMine> mines;
   final List<RemoteDepot> depots;
-  final List<RemoteCommune> communes;
   LoginResult({
     required this.token,
     required this.agentId,
     required this.agentNom,
     required this.mines,
     required this.depots,
-    required this.communes,
   });
 }
 
@@ -44,10 +42,6 @@ abstract class AuthApi {
   /// Dépôts (storage) autorisés pour l'agent connecté.
   @GET('/api/storage')
   Future<dynamic> storages(@Header('Authorization') String bearer);
-
-  /// Communes proposées dans le formulaire de création manuelle d'une mine.
-  @GET('/api/commune')
-  Future<dynamic> communes(@Header('Authorization') String bearer);
 }
 
 class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
@@ -75,9 +69,6 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       agentNom: (agent['name'] ?? login).toString(),
       mines: _mines(await _tryList(() => api.mines(bearer), 'mines')),
       depots: _depots(await _tryList(() => api.storages(bearer), 'depots')),
-      communes: _communes(
-        await _tryList(() => api.communes(bearer), 'communes'),
-      ),
     );
   }
 
@@ -115,6 +106,7 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
         m['commune'] as String?,
         m['region'] as String?,
         m['active'] as bool? ?? true,
+        fokontany: m['fokontany'] as String?,
       );
     }).toList();
   }
@@ -132,37 +124,6 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
         d['active'] as bool? ?? true,
       );
     }).toList();
-  }
-
-  List<RemoteCommune> _communes(List? raw) {
-    if (raw == null) return [];
-    final result = <RemoteCommune>[];
-    for (final entry in raw) {
-      if (entry is! Map) continue;
-      final commune = Map<String, dynamic>.from(entry);
-      final rawId = commune['id'];
-      final id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
-      final nom = (commune['name'] ?? commune['nom'])?.toString().trim();
-      if (id == null || nom == null || nom.isEmpty) continue;
-      final rawDistrict = commune['district'];
-      final district = rawDistrict is Map
-          ? (rawDistrict['name'] ?? rawDistrict['nom'])?.toString()
-          : rawDistrict?.toString();
-      final rawActive = commune['active'];
-      result.add(
-        RemoteCommune(
-          id,
-          nom,
-          district,
-          rawActive is bool
-              ? rawActive
-              : rawActive == null ||
-                    rawActive.toString() == '1' ||
-                    rawActive.toString().toLowerCase() == 'true',
-        ),
-      );
-    }
-    return result;
   }
 }
 
@@ -211,11 +172,6 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
     depots: [
       RemoteDepot('D001', 'Dépôt Antananarivo', -18.879, 47.5079, 20, true),
       RemoteDepot('D002', 'Dépôt Antsirabe', -19.8659, 47.0334, 20, true),
-    ],
-    communes: const [
-      RemoteCommune(24091, 'Andilana', 'Ambohidratrimo', true),
-      RemoteCommune(24092, 'Ambatomena', 'Manjakandriana', true),
-      RemoteCommune(24093, 'Sahatany', 'Antsirabe II', true),
     ],
   );
 }

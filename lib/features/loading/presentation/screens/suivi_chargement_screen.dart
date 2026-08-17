@@ -21,23 +21,30 @@ class SuiviChargementScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: AppColors.ok.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [
-              const Icon(Icons.check_circle, color: AppColors.ok, size: 32),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Chargement enregistré',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    Text(sessionId,
-                        style: Theme.of(context).textTheme.bodyMedium),
-                  ],
+              color: AppColors.ok.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppColors.ok, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chargement enregistré',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        sessionId,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           lots.when(
@@ -47,26 +54,29 @@ class SuiviChargementScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 StepHeader(
-                    numero: 2,
-                    titre: '${list.length} lot(s) en route',
-                    sousTitre: 'Ouvre un lot pour suivre SON camion'),
+                  numero: 2,
+                  titre: '${list.length} lot(s) en route',
+                  sousTitre: 'Ouvre un lot pour suivre SON camion',
+                ),
                 const SizedBox(height: 8),
-                ...list.map((l) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: ActionTile(
-                        icon: Icons.inventory_2,
-                        color: AppColors.gold,
-                        titre: l.id,
-                        sousTitre: [
-                          l.mineId,
-                          if (l.couleur != null) l.couleur!,
-                        ].join(' · '),
-                        onTap: () async {
-                          await context.push('/detail/${l.id}');
-                          ref.invalidate(lotsEnCoursProvider(sessionId));
-                        },
-                      ),
-                    )),
+                ...list.map(
+                  (l) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ActionTile(
+                      icon: Icons.inventory_2,
+                      color: AppColors.gold,
+                      titre: l.id,
+                      sousTitre: [
+                        l.mineId,
+                        if (l.couleur != null) l.couleur!,
+                      ].join(' · '),
+                      onTap: () async {
+                        await context.push('/detail/${l.id}');
+                        ref.invalidate(lotsEnCoursProvider(sessionId));
+                      },
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

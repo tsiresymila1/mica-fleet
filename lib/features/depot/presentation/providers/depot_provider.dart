@@ -6,15 +6,18 @@ import '../../domain/repositories/depot_repository.dart';
 import '../../domain/usecases/detect_depot.dart';
 import '../../domain/usecases/validate_arrivee.dart';
 
-final depotRepoProvider = Provider<DepotRepository>((ref) => DepotRepositoryImpl(
+final depotRepoProvider = Provider<DepotRepository>(
+  (ref) => DepotRepositoryImpl(
     ref.watch(dbProvider),
     ref.watch(localSyncStoreProvider),
-    ref.watch(journalServiceProvider)));
+    ref.watch(journalServiceProvider),
+  ),
+);
 
 final detectDepotProvider = Provider((ref) => DetectDepot());
 
-final validateArriveeProvider =
-    Provider((ref) => ValidateArrivee(ref.watch(detectDepotProvider)));
+final validateArriveeProvider = Provider((ref) => ValidateArrivee());
 
 final activeDepotsProvider = FutureProvider<List<Depot>>(
-    (ref) => ref.watch(depotRepoProvider).activeDepots());
+  (ref) => ref.watch(depotRepoProvider).activeDepots(),
+);

@@ -45,7 +45,6 @@ void main() {
   test('refuse une proposition avec moins de 5 photos', () async {
     final result = await repository.create(
       name: 'Mine test',
-      communeId: 24091,
       photos: [for (var i = 1; i <= 4; i++) _photo(i, storage)],
       agentLogin: 'eddy',
     );
@@ -58,7 +57,6 @@ void main() {
   test('sauvegarde 5 preuves et crée un payload UUID dans la file', () async {
     final result = await repository.create(
       name: '  Mine Antsahabe  ',
-      communeId: 24091,
       photos: [for (var i = 1; i <= 5; i++) _photo(i, storage)],
       agentLogin: 'eddy',
     );
@@ -66,7 +64,7 @@ void main() {
     expect(result.isRight(), isTrue);
     final submission = (await db.select(db.mineSubmissions).get()).single;
     expect(submission.nom, 'Mine Antsahabe');
-    expect(submission.communeId, 24091);
+    expect(submission.communeId, isNull);
     expect(Uuid.isValidUUID(fromString: submission.payloadId), isTrue);
     expect(Uuid.isValidUUID(fromString: submission.deviceUuid), isTrue);
     expect(submission.state, 'local_pending');
@@ -88,7 +86,7 @@ void main() {
     final payload = jsonDecode(queued.payload) as Map<String, dynamic>;
     expect(payload['id'], submission.payloadId);
     expect(payload['name'], 'Mine Antsahabe');
-    expect(payload['commune_id'], 24091);
+    expect(payload.containsKey('commune_id'), isFalse);
     expect(payload['positions'], hasLength(5));
     final firstHash = (payload['positions'] as List).first['hash'] as String;
     expect(firstHash, hasLength(64));
@@ -103,23 +101,9 @@ void main() {
     expect(photos.every((photo) => File(photo.path).existsSync()), isTrue);
   });
 
-  test('refuse une proposition sans commune valide', () async {
-    final result = await repository.create(
-      name: 'Mine test',
-      communeId: 0,
-      photos: [for (var i = 1; i <= 5; i++) _photo(i, storage)],
-      agentLogin: 'eddy',
-    );
-
-    expect(result.isLeft(), isTrue);
-    expect(await db.select(db.mineSubmissions).get(), isEmpty);
-    expect(await db.select(db.syncQueue).get(), isEmpty);
-  });
-
   test('supprime la proposition, sa file et ses photos locales', () async {
     final created = await repository.create(
       name: 'Mine à supprimer',
-      communeId: 24091,
       photos: [for (var i = 1; i <= 5; i++) _photo(i, storage)],
       agentLogin: 'eddy',
     );

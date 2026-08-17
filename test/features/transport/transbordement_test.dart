@@ -9,7 +9,10 @@ void main() {
     final add = AddTransbordement();
     var c = <Transbordement>[];
     c = add(c, const Transbordement(ordre: 0, plaqueApres: 'B'));
-    c = add(c, const Transbordement(ordre: 0, plaqueAvant: 'B', plaqueApres: 'C'));
+    c = add(
+      c,
+      const Transbordement(ordre: 0, plaqueAvant: 'B', plaqueApres: 'C'),
+    );
     expect(c.map((m) => m.ordre).toList(), [1, 2]);
   });
 
@@ -28,11 +31,12 @@ void main() {
     final v = ValidateTransbordement();
     final c = [
       const Transbordement(
-          ordre: 1,
-          gpsDechargeLat: -18.90000,
-          gpsDechargeLon: 47.5,
-          gpsRechargeLat: -18.90010,
-          gpsRechargeLon: 47.5),
+        ordre: 1,
+        gpsDechargeLat: -18.90000,
+        gpsDechargeLon: 47.5,
+        gpsRechargeLat: -18.90010,
+        gpsRechargeLon: 47.5,
+      ),
     ];
     expect(v(c, 20).single.conforme, isTrue);
   });

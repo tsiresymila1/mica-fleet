@@ -7,13 +7,13 @@ part 'arrivee_depot.freezed.dart';
 abstract class ArriveeDepot with _$ArriveeDepot {
   const factory ArriveeDepot({
     required String lotId,
-    required String depotId,
+    String? depotId,
     required String chauffeur,
     required String numPermis,
     required String numLot, // numéro de lot (1 lot = 1 traçabilité)
     required double gpsLat,
     required double gpsLon,
-    required String statutGps, // valide / hors_zone
+    required String statutGps, // pending_server / valide / hors_zone
     String? plaqueArrivee,
     @Default(true) bool plaqueCoherente,
     int? scoreTracabilite,

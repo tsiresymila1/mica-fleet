@@ -11,7 +11,11 @@ class TripSimulator {
   /// [steps] points entre départ et dépôt. [seed] rend le jitter déterministe.
   /// Renvoie (points, indexTransbordement) — le transbordement est vers ~40 %.
   (List<SimPoint>, int) generate(
-      SimPoint depart, SimPoint depot, {int steps = 20, int seed = 7}) {
+    SimPoint depart,
+    SimPoint depot, {
+    int steps = 20,
+    int seed = 7,
+  }) {
     final rnd = math.Random(seed);
     final pts = <SimPoint>[];
     for (var i = 0; i <= steps; i++) {

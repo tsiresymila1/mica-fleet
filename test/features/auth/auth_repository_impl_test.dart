@@ -12,9 +12,20 @@ class _Remote implements AuthRemoteDataSource {
     token: 'token',
     agentId: login,
     agentNom: 'Eddy',
-    mines: const [],
+    mines: [
+      RemoteMine(
+        'M1',
+        'Mine Andilana',
+        -18.91,
+        47.52,
+        20,
+        'Ambohidratrimo',
+        'Andilana',
+        'Analamanga',
+        true,
+      ),
+    ],
     depots: const [],
-    communes: const [RemoteCommune(24091, 'Andilana', 'Ambohidratrimo', true)],
   );
 }
 
@@ -34,7 +45,7 @@ void main() {
   setUp(() => db = AppDatabase.memory());
   tearDown(() => db.close());
 
-  test('le login conserve les communes dans le cache Drift', () async {
+  test('le login conserve les mines dans le cache Drift', () async {
     final repository = AuthRepositoryImpl(
       AuthLocalDataSource(db),
       _Remote(),
@@ -44,10 +55,10 @@ void main() {
     final result = await repository.login('eddy', 'secret');
 
     expect(result.isRight(), isTrue);
-    final commune = (await db.select(db.communes).get()).single;
-    expect(commune.id, 24091);
-    expect(commune.nom, 'Andilana');
-    expect(commune.district, 'Ambohidratrimo');
-    expect(commune.actif, isTrue);
+    final mine = (await db.select(db.mines).get()).single;
+    expect(mine.id, 'M1');
+    expect(mine.nom, 'Mine Andilana');
+    expect(mine.commune, 'Andilana');
+    expect(mine.actif, isTrue);
   });
 }

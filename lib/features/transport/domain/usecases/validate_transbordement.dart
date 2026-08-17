@@ -8,8 +8,13 @@ class ValidateTransbordement {
       if (m.gpsDechargeLat == null || m.gpsRechargeLat == null) {
         return m.copyWith(conforme: false);
       }
-      final ok = isWithinRadius(m.gpsDechargeLat!, m.gpsDechargeLon!,
-          m.gpsRechargeLat!, m.gpsRechargeLon!, rayonMetres);
+      final ok = isWithinRadius(
+        m.gpsDechargeLat!,
+        m.gpsDechargeLon!,
+        m.gpsRechargeLat!,
+        m.gpsRechargeLon!,
+        rayonMetres,
+      );
       return m.copyWith(conforme: ok);
     }).toList();
   }

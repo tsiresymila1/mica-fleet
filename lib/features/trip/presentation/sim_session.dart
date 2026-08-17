@@ -8,22 +8,22 @@ class SimState {
   final int transbordementIndex;
   final int stage; // 0 = mine, 1 = transbordement, 2 = dépôt
   final String plate; // plaque du camion actuellement en charge
-  const SimState(
-      this.points, this.transbordementIndex, this.stage, this.plate);
+  const SimState(this.points, this.transbordementIndex, this.stage, this.plate);
 
   int get _idx => switch (stage) {
-        0 => 0,
-        1 => transbordementIndex,
-        _ => points.length - 1,
-      };
+    0 => 0,
+    1 => transbordementIndex,
+    _ => points.length - 1,
+  };
 
   SimPoint get current => points[_idx];
 }
 
 /// Session de simulation guidée : fournit des coordonnées GPS simulées selon
 /// l'étape (mine → transbordement → dépôt) et la plaque du camion en cours.
-final simSessionProvider =
-    NotifierProvider<SimSession, SimState?>(SimSession.new);
+final simSessionProvider = NotifierProvider<SimSession, SimState?>(
+  SimSession.new,
+);
 
 class SimSession extends Notifier<SimState?> {
   final _rng = math.Random();
@@ -55,8 +55,10 @@ class SimSession extends Notifier<SimState?> {
   static String _randomPlate(math.Random r) {
     final digits = (1000 + r.nextInt(9000)).toString();
     const letters = 'ABCDEFGHJKLMNPRSTVWXYZ';
-    final l =
-        List.generate(3, (_) => letters[r.nextInt(letters.length)]).join();
+    final l = List.generate(
+      3,
+      (_) => letters[r.nextInt(letters.length)],
+    ).join();
     return '$digits $l';
   }
 
@@ -69,7 +71,11 @@ class SimSession extends Notifier<SimState?> {
     final s = state;
     if (s == null) return;
     state = SimState(
-        s.points, s.transbordementIndex, (s.stage + 1).clamp(0, 2), s.plate);
+      s.points,
+      s.transbordementIndex,
+      (s.stage + 1).clamp(0, 2),
+      s.plate,
+    );
   }
 
   /// Points de la trace mine → transbordement.

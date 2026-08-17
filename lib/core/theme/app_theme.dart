@@ -40,21 +40,25 @@ class AppTheme {
   static ThemeData build() {
     final base = ThemeData(useMaterial3: true, brightness: Brightness.light);
 
-    TextStyle display(
-            {double? fontSize, FontWeight? fontWeight, Color? color}) =>
-        TextStyle(
-            fontFamily: 'Montserrat',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            height: 1.2,
-            color: color);
+    TextStyle display({
+      double? fontSize,
+      FontWeight? fontWeight,
+      Color? color,
+    }) => TextStyle(
+      fontFamily: 'Montserrat',
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      height: 1.2,
+      color: color,
+    );
     TextStyle body({double? fontSize, FontWeight? fontWeight, Color? color}) =>
         TextStyle(
-            fontFamily: 'ABeeZee',
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            height: 1.35,
-            color: color);
+          fontFamily: 'ABeeZee',
+          fontSize: fontSize,
+          fontWeight: fontWeight,
+          height: 1.35,
+          color: color,
+        );
 
     const scheme = ColorScheme.light(
       primary: AppColors.primary,
@@ -72,14 +76,26 @@ class AppTheme {
       textTheme: base.textTheme
           .copyWith(
             displaySmall: display(fontSize: 26, fontWeight: FontWeight.w700),
-            headlineMedium:
-                display(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.ink),
-            headlineSmall:
-                display(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.ink),
-            titleLarge:
-                display(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.ink),
-            titleMedium:
-                display(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.ink),
+            headlineMedium: display(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
+            headlineSmall: display(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
+            titleLarge: display(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+            ),
+            titleMedium: display(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+            ),
             bodyLarge: body(fontSize: 14, color: AppColors.ink),
             bodyMedium: body(fontSize: 12.5, color: AppColors.inkSoft),
             labelLarge: display(fontSize: 14, fontWeight: FontWeight.w600),
@@ -92,7 +108,10 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         titleTextStyle: display(
-            fontSize: 17, fontWeight: FontWeight.w600, color: Colors.white),
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
@@ -109,8 +128,7 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           textStyle: display(fontSize: 15, fontWeight: FontWeight.w600),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -119,15 +137,16 @@ class AppTheme {
           minimumSize: const Size.fromHeight(50),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           textStyle: display(fontSize: 14, fontWeight: FontWeight.w600),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         labelStyle: body(fontSize: 14, color: AppColors.inkSoft),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),

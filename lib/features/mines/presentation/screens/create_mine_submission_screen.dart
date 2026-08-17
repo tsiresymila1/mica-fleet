@@ -11,7 +11,6 @@ import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../data/repositories/mine_submission_repository_impl.dart';
-import '../../domain/entities/commune.dart';
 import '../providers/mine_submissions_provider.dart';
 
 class CreateMineSubmissionScreen extends ConsumerStatefulWidget {
@@ -26,7 +25,6 @@ class _CreateMineSubmissionScreenState
     extends ConsumerState<CreateMineSubmissionScreen> {
   final _nameController = TextEditingController();
   final List<CapturedPhoto> _photos = [];
-  Commune? _selectedCommune;
   bool _saving = false;
 
   @override
@@ -61,22 +59,12 @@ class _CreateMineSubmissionScreenState
 
   Future<void> _save() async {
     if (_saving) return;
-    final communeId = _selectedCommune?.id;
-    if (communeId == null) {
-      await showAppMessage(
-        context,
-        'Sélectionne une commune',
-        kind: AppMsgKind.error,
-      );
-      return;
-    }
     setState(() => _saving = true);
     final agent = ref.read(authControllerProvider);
     final result = await ref
         .read(createMineSubmissionProvider)
         .create(
           name: _nameController.text,
-          communeId: communeId,
           photos: List.unmodifiable(_photos),
           agentLogin: agent?.id,
         );
@@ -101,26 +89,9 @@ class _CreateMineSubmissionScreenState
     if (mounted) setState(() => _saving = false);
   }
 
-  Future<void> _selectCommune(List<Commune> communes) async {
-    final selected = await showModalBottomSheet<Commune>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => _CommunePickerSheet(
-        communes: communes,
-        selectedId: _selectedCommune?.id,
-      ),
-    );
-    if (selected != null && mounted) {
-      setState(() => _selectedCommune = selected);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final enough = _photos.length >= MineSubmissionRepositoryImpl.minPhotos;
-    final communes = ref.watch(communesProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Proposer une mine')),
       body: ListView(
@@ -141,47 +112,9 @@ class _CreateMineSubmissionScreenState
               prefixIcon: Icon(Icons.landscape_outlined),
             ),
           ),
-          const SizedBox(height: 14),
-          communes.when(
-            data: (items) {
-              if (items.isEmpty) {
-                return const _EmptyCommuneCache();
-              }
-              return InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () => _selectCommune(items),
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Commune',
-                    prefixIcon: Icon(Icons.location_city_outlined),
-                    suffixIcon: Icon(Icons.keyboard_arrow_down),
-                  ),
-                  child: Text(
-                    _selectedCommune == null
-                        ? 'Sélectionner une commune'
-                        : _selectedCommune!.nom,
-                    style: _selectedCommune == null
-                        ? Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.inkSoft,
-                          )
-                        : null,
-                  ),
-                ),
-              );
-            },
-            loading: () => const LinearProgressIndicator(),
-            error: (error, stackTrace) => Row(
-              children: [
-                const Expanded(
-                  child: Text('Impossible de lire les communes en cache.'),
-                ),
-                IconButton(
-                  tooltip: 'Réessayer',
-                  onPressed: () => ref.invalidate(communesProvider),
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
+          const SizedBox(height: 8),
+          const Text(
+            'Le fokontany, la commune et la région seront déterminés par le serveur à partir des positions GPS.',
           ),
           const SizedBox(height: 28),
           StepHeader(
@@ -225,111 +158,13 @@ class _CreateMineSubmissionScreenState
         child: BigButton(
           icon: Icons.save_outlined,
           label: _saving ? 'Enregistrement…' : 'Enregistrer localement',
-          onPressed:
-              _saving ||
-                  !enough ||
-                  _nameController.text.trim().isEmpty ||
-                  _selectedCommune == null
+          onPressed: _saving || !enough || _nameController.text.trim().isEmpty
               ? null
               : _save,
         ),
       ),
     );
   }
-}
-
-class _CommunePickerSheet extends StatefulWidget {
-  final List<Commune> communes;
-  final int? selectedId;
-
-  const _CommunePickerSheet({required this.communes, this.selectedId});
-
-  @override
-  State<_CommunePickerSheet> createState() => _CommunePickerSheetState();
-}
-
-class _CommunePickerSheetState extends State<_CommunePickerSheet> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final query = _query.trim().toLowerCase();
-    final filtered = widget.communes.where((commune) {
-      if (query.isEmpty) return true;
-      return commune.nom.toLowerCase().contains(query) ||
-          (commune.district?.toLowerCase().contains(query) ?? false);
-    }).toList();
-
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 16,
-      ),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Choisir une commune',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              autofocus: true,
-              onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                hintText: 'Rechercher une commune',
-                prefixIcon: Icon(Icons.search),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: filtered.isEmpty
-                  ? const Center(child: Text('Aucune commune trouvée'))
-                  : ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, _) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final commune = filtered[index];
-                        final selected = commune.id == widget.selectedId;
-                        return ListTile(
-                          leading: const Icon(Icons.location_on_outlined),
-                          title: Text(commune.nom),
-                          subtitle: commune.district == null
-                              ? null
-                              : Text(commune.district!),
-                          trailing: selected
-                              ? const Icon(Icons.check, color: AppColors.ok)
-                              : null,
-                          onTap: () => Navigator.of(context).pop(commune),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyCommuneCache extends StatelessWidget {
-  const _EmptyCommuneCache();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.errorContainer,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    child: const Text(
-      'Aucune commune disponible. Connecte-toi une première fois pour '
-      'charger le référentiel.',
-    ),
-  );
 }
 
 class _PhotoPositionTile extends StatelessWidget {

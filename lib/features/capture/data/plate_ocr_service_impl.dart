@@ -6,8 +6,9 @@ class MlkitPlateOcrService implements PlateOcrService {
   Future<String?> readPlate(String imagePath) async {
     final recognizer = TextRecognizer();
     try {
-      final result =
-          await recognizer.processImage(InputImage.fromFilePath(imagePath));
+      final result = await recognizer.processImage(
+        InputImage.fromFilePath(imagePath),
+      );
       final candidates = result.blocks
           .map((b) => b.text.replaceAll(RegExp(r'[^A-Z0-9]'), ''))
           .where((t) => t.length >= 5 && t.length <= 10);

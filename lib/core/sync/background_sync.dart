@@ -32,8 +32,9 @@ Future<void> runBackgroundSync() async {
         ? MockRemoteDataSource()
         : () {
             final dio = buildDio(
-                baseUrl: AppConfig.odooBaseUrl,
-                tokenReader: SecureTokenStore().read);
+              baseUrl: AppConfig.odooBaseUrl,
+              tokenReader: SecureTokenStore().read,
+            );
             return RetrofitRemoteDataSource(OdooApi(dio), dio);
           }();
     final engine = SyncEngine(store, remote, db);

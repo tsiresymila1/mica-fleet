@@ -73,7 +73,7 @@ class LoadingRepositoryImpl implements LoadingRepository {
                   photoSchemaVersion: Value(
                     l.photos == null
                         ? (existingLot?.photoSchemaVersion ?? 1)
-                        : 2,
+                        : 3,
                   ),
                   statut: const Value('en_cours'),
                   // Idempotence sync : un device_uuid stable PAR LOT.

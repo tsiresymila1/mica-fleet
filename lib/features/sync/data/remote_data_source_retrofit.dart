@@ -22,8 +22,8 @@ abstract class OdooApi {
   @GET('/api/storage')
   Future<dynamic> storages();
 
-  @GET('/api/commune')
-  Future<dynamic> communes();
+  @GET('/api/tracking/lots')
+  Future<dynamic> lots();
 }
 
 class RetrofitRemoteDataSource implements RemoteDataSource {
@@ -46,19 +46,15 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     String payloadId,
     PhotoPart photo,
   ) async {
-    await _uploadAttachment(deviceUuid, payloadId, photo, entityType: 'mine');
+    await _uploadAttachment(deviceUuid, payloadId, photo);
   }
 
   Future<void> _uploadAttachment(
     String deviceUuid,
     String payloadId,
-    PhotoPart photo, {
-    String? entityType,
-  }) async {
+    PhotoPart photo,
+  ) async {
     final form = FormData();
-    if (entityType != null) {
-      form.fields.add(MapEntry('entity_type', entityType));
-    }
     form.fields.add(MapEntry('device_uuid', deviceUuid));
     form.fields.add(MapEntry('payload_id', payloadId));
     form.fields.add(MapEntry('key', photo.key));
@@ -130,26 +126,84 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   }
 
   @override
-  Future<List<RemoteCommune>> fetchCommunes() async {
-    final communes = _requiredList(await api.communes(), 'communes');
-    final result = <RemoteCommune>[];
-    for (final entry in communes) {
+  Future<List<RemoteLot>> fetchLots() async {
+    final lots = _requiredList(await api.lots(), 'lots');
+    final result = <RemoteLot>[];
+    for (final entry in lots) {
       if (entry is! Map) continue;
-      final id = entry['id'] is int
-          ? entry['id'] as int
-          : int.tryParse(entry['id']?.toString() ?? '');
-      final nom = entry['name']?.toString().trim();
-      if (id == null || nom == null || nom.isEmpty) continue;
+      // Contrat v3 : chaque entrée est exactement `payload` du submit,
+      // enrichi des trois champs serveur. `payload_id` reste toléré seulement
+      // pour relire une réponse déployée avant ce contrat.
+      final payloadId = (entry['id'] ?? entry['payload_id'])?.toString();
+      final sessionId = entry['session_id']?.toString();
+      if (payloadId == null ||
+          payloadId.isEmpty ||
+          sessionId == null ||
+          sessionId.isEmpty) {
+        continue;
+      }
+      final mine = entry['mine'] is Map ? entry['mine'] as Map : entry;
+      final mineId = (mine['mine_id'] ?? entry['mine_id'])?.toString();
+      if (mineId == null || mineId.isEmpty) continue;
       result.add(
-        RemoteCommune(
-          id,
-          nom,
-          entry['district']?.toString(),
-          entry['active'] as bool? ?? true,
+        RemoteLot(
+          payloadId: payloadId,
+          sessionId: sessionId,
+          reference: (entry['traceability_reference'] ?? entry['lot_reference'])
+              ?.toString(),
+          validationStatus: _validationStatus(
+            entry['validation_status']?.toString(),
+          ),
+          validationReason:
+              (entry['validation_reason'] ?? entry['rejection_reason'])
+                  ?.toString(),
+          createdAt:
+              _date(entry['created_at']) ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+          updatedAt: _date(entry['updated_at']),
+          mineId: mineId,
+          mineName:
+              (mine['mine_name'] ?? mine['name'] ?? entry['mine_name'])
+                  ?.toString() ??
+              mineId,
+          color: (mine['color'] ?? entry['color'])?.toString(),
+          estimatedQuantity:
+              (mine['estimated_quantity'] ?? entry['estimated_quantity']) is num
+              ? ((mine['estimated_quantity'] ?? entry['estimated_quantity'])
+                        as num)
+                    .toDouble()
+              : double.tryParse(
+                  (mine['estimated_quantity'] ?? entry['estimated_quantity'])
+                          ?.toString() ??
+                      '',
+                ),
+          transportStatus:
+              entry['status']?.toString() ??
+              entry['transport_status']?.toString() ??
+              'arrive',
+          score: entry['traceability_score'] is num
+              ? (entry['traceability_score'] as num).round()
+              : int.tryParse(entry['traceability_score']?.toString() ?? ''),
         ),
       );
     }
     return result;
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await dio.post<dynamic>(
+      '/api/password/change',
+      data: {'current_password': currentPassword, 'new_password': newPassword},
+    );
+    if (response.data is Map && response.data['status'] == 'error') {
+      throw PasswordChangeRejected(
+        response.data['message']?.toString() ?? 'Mot de passe refusé',
+      );
+    }
   }
 
   /// Tolère une liste nue, `{data: [...]}` et `{data: {<key>: [...]}}`.
@@ -183,7 +237,19 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     m['commune'] as String?,
     m['region'] as String?,
     m['active'] as bool? ?? true,
+    fokontany: m['fokontany'] as String?,
   );
+
+  static DateTime? _date(dynamic value) => value == null
+      ? null
+      : DateTime.tryParse(value.toString().replaceFirst(' ', 'T'));
+
+  static String _validationStatus(String? value) =>
+      switch (value?.trim().toLowerCase()) {
+        'validated' || 'valide' || 'validé' => 'validated',
+        'rejected' || 'rejete' || 'rejeté' => 'rejected',
+        _ => 'in_progress',
+      };
 
   /// Datetime au format Odoo : 'YYYY-MM-DD HH:MM:SS' (UTC).
   static String _odooDate(DateTime d) =>

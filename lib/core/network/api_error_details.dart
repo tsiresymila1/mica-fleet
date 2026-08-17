@@ -23,7 +23,8 @@ String _dioDetails(DioException error) {
     final status = response.statusCode?.toString() ?? 'inconnu';
     final body = _responseBody(response.data);
     final fallback = response.statusMessage?.trim();
-    final detail = body ??
+    final detail =
+        body ??
         (fallback != null && fallback.isNotEmpty
             ? fallback
             : 'Le serveur n’a fourni aucun détail.');

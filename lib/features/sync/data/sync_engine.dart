@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/db/app_database.dart';
 import '../../../core/network/api_error_details.dart';
+import '../../auth/data/password_secret_store.dart';
 import '../domain/entities/sync_operation.dart';
 import '../domain/repositories/local_sync_store.dart';
 import '../domain/repositories/remote_data_source.dart';
@@ -25,8 +26,9 @@ class SyncEngine {
   final LocalSyncStore store;
   final RemoteDataSource remote;
   final AppDatabase db;
+  final PasswordSecretStore? passwordStore;
   final _uuid = const Uuid();
-  SyncEngine(this.store, this.remote, this.db);
+  SyncEngine(this.store, this.remote, this.db, [this.passwordStore]);
 
   static const int maxAttempts = 5; // au-delà → statut failed (terminal)
 
@@ -47,6 +49,7 @@ class SyncEngine {
   }
 
   Future<void> _syncOnce() async {
+    await _syncPendingPassword();
     final ops = await store.pending(); // batch max 10
     for (final op in ops) {
       await _pushPendingOperation(op);
@@ -73,9 +76,32 @@ class SyncEngine {
       // pas les deux autres ni le cache déjà disponible.
     }
     try {
-      await _pullCommunes();
+      await _pullLots();
     } catch (_) {
-      // Réseau indisponible : le dernier cache communes reste utilisable.
+      // Le cache local reste disponible si l'historique distant est en panne.
+    }
+  }
+
+  Future<void> _syncPendingPassword() async {
+    final secrets = passwordStore;
+    if (secrets == null) return;
+    final PendingPasswordChange? pending;
+    try {
+      pending = await secrets.pending();
+    } catch (_) {
+      // Certains environnements (tests, ancien appareil) n'exposent pas
+      // encore le stockage sécurisé. Cela ne doit pas bloquer le reste.
+      return;
+    }
+    if (pending == null) return;
+    try {
+      await remote.changePassword(
+        currentPassword: pending.currentPassword,
+        newPassword: pending.newPassword,
+      );
+      await secrets.clearPending();
+    } catch (_) {
+      // Le secret reste chiffré et sera repris à la prochaine connexion.
     }
   }
 
@@ -351,7 +377,7 @@ class SyncEngine {
     final lot = await (db.select(
       db.lots,
     )..where((t) => t.id.equals(lotId))).getSingleOrNull();
-    if (lot?.photoSchemaVersion == 2) {
+    if ((lot?.photoSchemaVersion ?? 1) >= 2) {
       final rows =
           await (db.select(db.lotTraceabilityPhotos)
                 ..where((table) => table.lotId.equals(lotId))
@@ -376,7 +402,7 @@ class SyncEngine {
     final trans = await (db.select(
       db.transbordements,
     )..where((t) => t.lotId.equals(lotId))).get();
-    if (lot?.photoSchemaVersion != 2) {
+    if ((lot?.photoSchemaVersion ?? 1) < 2) {
       for (final t in trans) {
         await add('transload_${t.ordre}_unload', t.photoDechargePath, null);
         await add('transload_${t.ordre}_reload', t.photoRechargePath, null);
@@ -386,7 +412,7 @@ class SyncEngine {
       db.arriveesDepot,
     )..where((t) => t.lotId.equals(lotId))).getSingleOrNull();
     if (arr != null) {
-      if (lot?.photoSchemaVersion != 2) {
+      if ((lot?.photoSchemaVersion ?? 1) < 2) {
         await add('arrival', arr.photoArriveePath, null);
       }
       await add('license', arr.photoPermisPath, null);
@@ -506,6 +532,7 @@ class SyncEngine {
               lon: mine.lon,
               rayonMetres: Value(mine.rayonMetres),
               district: Value(mine.district),
+              fokontany: Value(mine.fokontany),
               commune: Value(mine.commune),
               region: Value(mine.region),
               actif: Value(mine.actif),
@@ -568,27 +595,88 @@ class SyncEngine {
     });
   }
 
-  Future<void> _pullCommunes() async {
-    final communes = await remote.fetchCommunes();
-    await db.transaction(() async {
-      await db
-          .update(db.communes)
-          .write(const CommunesCompanion(actif: Value(false)));
-      await db.batch((batch) {
-        for (final commune in communes) {
-          batch.insert(
-            db.communes,
-            CommunesCompanion.insert(
-              id: Value(commune.id),
-              nom: commune.nom,
-              district: Value(commune.district),
-              actif: Value(commune.actif),
-            ),
-            mode: InsertMode.insertOrReplace,
-          );
+  Future<void> _pullLots() async {
+    final remoteLots = await remote.fetchLots();
+    for (final remoteLot in remoteLots) {
+      // `remoteLot.payloadId` correspond à payload.id dans le submit. C'est
+      // la clé de fusion stable entre appareils et évite tout doublon local.
+      final local =
+          await (db.select(db.lots)..where(
+                (table) => table.payloadUuid.equals(remoteLot.payloadId),
+              ))
+              .getSingleOrNull();
+      if (local != null) {
+        await (db.update(
+          db.lots,
+        )..where((table) => table.id.equals(local.id))).write(
+          LotsCompanion(
+            serverReference: Value(remoteLot.reference),
+            validationStatus: Value(remoteLot.validationStatus),
+            validationReason: Value(remoteLot.validationReason),
+            serverUpdatedAt: Value(remoteLot.updatedAt ?? DateTime.now()),
+            score: Value(remoteLot.score ?? local.score),
+          ),
+        );
+        continue;
+      }
+
+      await db.transaction(() async {
+        final mine =
+            await (db.select(db.mines)
+                  ..where((table) => table.id.equals(remoteLot.mineId)))
+                .getSingleOrNull();
+        if (mine == null) {
+          await db
+              .into(db.mines)
+              .insert(
+                MinesCompanion.insert(
+                  id: remoteLot.mineId,
+                  nom: remoteLot.mineName,
+                  lat: 0,
+                  lon: 0,
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
         }
+
+        final cachedSessionId = 'REMOTE-${remoteLot.sessionId}';
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: cachedSessionId,
+                sessionUuid: Value(remoteLot.sessionId),
+                fournisseurId: 'server',
+                dateCreation: remoteLot.createdAt,
+                statut: const Value('synchronise'),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
+
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'REMOTE-${remoteLot.payloadId}',
+                payloadUuid: Value(remoteLot.payloadId),
+                sessionId: cachedSessionId,
+                mineId: remoteLot.mineId,
+                couleur: Value(remoteLot.color),
+                quantiteEstimee: Value(remoteLot.estimatedQuantity),
+                statut: Value(remoteLot.transportStatus),
+                score: Value(remoteLot.score),
+                photosUploaded: const Value(true),
+                photoSchemaVersion: const Value(3),
+                validationStatus: Value(remoteLot.validationStatus),
+                validationReason: Value(remoteLot.validationReason),
+                serverReference: Value(remoteLot.reference),
+                serverUpdatedAt: Value(remoteLot.updatedAt),
+                remoteOnly: const Value(true),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
       });
-    });
+    }
   }
 
   /// Backoff exponentiel : 1, 2, 4, 8… minutes, plafonné à 6 h.

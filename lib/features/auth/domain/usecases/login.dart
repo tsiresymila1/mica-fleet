@@ -8,7 +8,9 @@ class Login {
   Login(this.repo);
 
   Future<Either<Failure, Fournisseur>> call(
-      String identifiant, String password) {
+    String identifiant,
+    String password,
+  ) {
     return repo.login(identifiant, password);
   }
 }

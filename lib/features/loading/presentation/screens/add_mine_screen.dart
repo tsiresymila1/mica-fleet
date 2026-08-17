@@ -23,7 +23,6 @@ class AddMineScreen extends ConsumerStatefulWidget {
 class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   Mine? _mine;
   CapturedPhoto? _platePhoto;
-  CapturedPhoto? _micaPhoto;
   CapturedPhoto? _truckPhoto;
   final _couleurCtrl = TextEditingController();
   final _qteCtrl = TextEditingController();
@@ -64,7 +63,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           _platePhoto = photo;
           break;
         case TraceabilityPhotoRole.mica:
-          _micaPhoto = photo;
           break;
         case TraceabilityPhotoRole.truckWithMica:
           _truckPhoto = photo;
@@ -75,18 +73,15 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   }
 
   int get _capturedPhotoCount =>
-      [_platePhoto, _micaPhoto, _truckPhoto].whereType<CapturedPhoto>().length;
+      [_platePhoto, _truckPhoto].whereType<CapturedPhoto>().length;
 
-  bool get _canSave => _mine != null && _capturedPhotoCount == 3;
+  bool get _canSave => _mine != null && _capturedPhotoCount == 2;
 
   void _save() {
-    if (_mine == null ||
-        _platePhoto == null ||
-        _micaPhoto == null ||
-        _truckPhoto == null) {
+    if (_mine == null || _platePhoto == null || _truckPhoto == null) {
       showAppMessage(
         context,
-        'Choisis la mine et prends les 3 photos obligatoires',
+        'Choisis la mine et prends les 2 photos obligatoires',
         kind: AppMsgKind.warning,
       );
       return;
@@ -106,7 +101,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             : _plaqueCtrl.text.trim(),
         photos: TraceabilityPhotos(
           plate: _platePhoto!,
-          mica: _micaPhoto!,
           truckWithMica: _truckPhoto!,
         ),
       ),
@@ -155,14 +149,14 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           const SizedBox(height: 24),
           StepHeader(
             numero: 2,
-            titre: 'Photos du chargement — $_capturedPhotoCount/3',
+            titre: 'Photos du chargement — $_capturedPhotoCount/2',
             sousTitre: 'Appuie sur chaque ligne pour prendre la photo demandée',
           ),
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: _capturedPhotoCount / 3,
+              value: _capturedPhotoCount / 2,
               minHeight: 6,
               backgroundColor: AppColors.inkSoft.withValues(alpha: 0.15),
             ),
@@ -173,13 +167,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             subtitle: 'Utilisée pour la reconnaissance de plaque',
             photo: _platePhoto,
             onTap: () => _capture(TraceabilityPhotoRole.plate),
-          ),
-          const SizedBox(height: 10),
-          _CaptureTile(
-            title: 'Photo du mica',
-            subtitle: 'Vue rapprochée du produit',
-            photo: _micaPhoto,
-            onTap: () => _capture(TraceabilityPhotoRole.mica),
           ),
           const SizedBox(height: 10),
           _CaptureTile(

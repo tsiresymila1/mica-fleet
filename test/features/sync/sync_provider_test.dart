@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/core/di/providers.dart';
 import 'package:mica_fleet/features/depot/presentation/providers/depot_provider.dart';
-import 'package:mica_fleet/features/mines/presentation/providers/mine_submissions_provider.dart';
 import 'package:mica_fleet/features/mines/presentation/providers/mines_provider.dart';
 import 'package:mica_fleet/features/sync/domain/entities/sync_operation.dart';
 import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
@@ -31,9 +30,13 @@ class _ReferencesRemote implements RemoteDataSource {
   ];
 
   @override
-  Future<List<RemoteCommune>> fetchCommunes() async => const [
-    RemoteCommune(24091, 'Andilana', null, true),
-  ];
+  Future<List<RemoteLot>> fetchLots() async => const [];
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
 
   @override
   Future<int?> pushOperation(SyncOperation op) async => null;
@@ -54,7 +57,7 @@ class _ReferencesRemote implements RemoteDataSource {
 }
 
 void main() {
-  test('la sync invalide les providers des trois référentiels', () async {
+  test('la sync invalide les providers mines et dépôts', () async {
     final db = AppDatabase.memory();
     addTearDown(db.close);
     final container = ProviderContainer(
@@ -67,12 +70,10 @@ void main() {
 
     expect(await container.read(minesProvider.future), isEmpty);
     expect(await container.read(activeDepotsProvider.future), isEmpty);
-    expect(await container.read(communesProvider.future), isEmpty);
 
     await container.read(triggerSyncProvider).sync();
 
     expect((await container.read(minesProvider.future)).single.id, '7');
     expect((await container.read(activeDepotsProvider.future)).single.id, '8');
-    expect((await container.read(communesProvider.future)).single.id, 24091);
   });
 }

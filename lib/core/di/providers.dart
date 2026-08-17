@@ -11,21 +11,30 @@ import '../../features/sync/data/remote_data_source_retrofit.dart';
 import '../../features/sync/data/sync_engine.dart';
 import '../../features/sync/domain/repositories/local_sync_store.dart';
 import '../../features/sync/domain/repositories/remote_data_source.dart';
+import '../../features/auth/data/password_secret_store.dart';
+import '../update/app_update_service.dart';
 
-final dbProvider =
-    Provider<AppDatabase>((ref) => throw UnimplementedError('override in main'));
+final dbProvider = Provider<AppDatabase>(
+  (ref) => throw UnimplementedError('override in main'),
+);
 
-final notificationServiceProvider =
-    Provider<NotificationService>((ref) => NotificationService());
+final notificationServiceProvider = Provider<NotificationService>(
+  (ref) => NotificationService(),
+);
 
-final journalServiceProvider =
-    Provider<JournalService>((ref) => JournalService(ref.watch(dbProvider)));
+final journalServiceProvider = Provider<JournalService>(
+  (ref) => JournalService(ref.watch(dbProvider)),
+);
 
-final localSyncStoreProvider =
-    Provider<LocalSyncStore>((ref) => DriftLocalSyncStore(ref.watch(dbProvider)));
+final localSyncStoreProvider = Provider<LocalSyncStore>(
+  (ref) => DriftLocalSyncStore(ref.watch(dbProvider)),
+);
 
-final odooBaseUrlProvider =
-    Provider<String>((ref) => AppConfig.odooBaseUrl);
+final passwordSecretStoreProvider = Provider(
+  (ref) => const PasswordSecretStore(),
+);
+
+final odooBaseUrlProvider = Provider<String>((ref) => AppConfig.odooBaseUrl);
 
 final remoteDataSourceProvider = Provider<RemoteDataSource>((ref) {
   // Mode démo (flag MICA_DEMO) : faux backend. Sinon Retrofit vers Odoo.
@@ -37,8 +46,19 @@ final remoteDataSourceProvider = Provider<RemoteDataSource>((ref) {
   return RetrofitRemoteDataSource(OdooApi(dio), dio);
 });
 
-final syncEngineProvider = Provider<SyncEngine>((ref) => SyncEngine(
-      ref.watch(localSyncStoreProvider),
-      ref.watch(remoteDataSourceProvider),
-      ref.watch(dbProvider),
-    ));
+final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
+  final dio = buildDio(
+    baseUrl: ref.watch(odooBaseUrlProvider),
+    tokenReader: SecureTokenStore().read,
+  );
+  return AppUpdateService(dio);
+});
+
+final syncEngineProvider = Provider<SyncEngine>(
+  (ref) => SyncEngine(
+    ref.watch(localSyncStoreProvider),
+    ref.watch(remoteDataSourceProvider),
+    ref.watch(dbProvider),
+    ref.watch(passwordSecretStoreProvider),
+  ),
+);

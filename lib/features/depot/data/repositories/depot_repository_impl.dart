@@ -49,7 +49,7 @@ class DepotRepositoryImpl implements DepotRepository {
             .insertOnConflictUpdate(
               ArriveesDepotCompanion.insert(
                 lotId: a.lotId,
-                depotId: a.depotId,
+                depotId: Value(a.depotId),
                 chauffeur: a.chauffeur,
                 numPermis: a.numPermis,
                 numLot: a.numLot,

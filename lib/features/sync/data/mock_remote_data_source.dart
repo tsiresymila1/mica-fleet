@@ -93,8 +93,11 @@ class MockRemoteDataSource implements RemoteDataSource {
   ];
 
   @override
-  Future<List<RemoteCommune>> fetchCommunes() async => const [
-    RemoteCommune(24091, 'Andilana', 'Ambohidratrimo', true),
-    RemoteCommune(24092, 'Ambatomena', 'Manjakandriana', true),
-  ];
+  Future<List<RemoteLot>> fetchLots() async => const [];
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
 }

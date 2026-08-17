@@ -10,8 +10,10 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   /// Mode démo : faux backend de sync + seed local + menu Scénarios.
   /// Par défaut = mode debug (comportement actuel), surchargé par le flag.
-  static const bool demo =
-      bool.fromEnvironment('MICA_DEMO', defaultValue: kDebugMode);
+  static const bool demo = bool.fromEnvironment(
+    'MICA_DEMO',
+    defaultValue: kDebugMode,
+  );
 
   /// Racine du serveur Odoo, **sans** `/api` : les chemins des endpoints le
   /// contiennent déjà (`/api/login`, `/api/tracking/submit`…).
@@ -23,6 +25,8 @@ class AppConfig {
 
   /// Bearer token Odoo par défaut (repli si rien n'est stocké de façon chiffrée).
   /// À ne pas mettre en dur : passer via --dart-define ou stocker à l'exécution.
-  static const String odooToken =
-      String.fromEnvironment('MICA_ODOO_TOKEN', defaultValue: '');
+  static const String odooToken = String.fromEnvironment(
+    'MICA_ODOO_TOKEN',
+    defaultValue: '',
+  );
 }

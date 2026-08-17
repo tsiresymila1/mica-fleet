@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/geo.dart';
 import '../../../../shared/capture_photo_screen.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
@@ -15,7 +14,6 @@ import '../../../transport/presentation/providers/transport_provider.dart';
 import '../../../trip/presentation/sim_session.dart';
 import '../../../trip/presentation/trip_provider.dart';
 import '../../../loading/presentation/providers/chargements_list_provider.dart';
-import '../../domain/entities/depot.dart';
 import '../providers/depot_provider.dart';
 
 /// Arrivée au dépôt d'UN lot : son chauffeur, son numéro de lot, son score.
@@ -32,17 +30,16 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _chauffeurCtrl = TextEditingController();
   final _permisCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
-  final _numLotCtrl = TextEditingController();
   CapturedPhoto? _platePhoto;
   CapturedPhoto? _micaPhoto;
   CapturedPhoto? _truckPhoto;
   CapturedPhoto? _permisPhoto;
-  List<Depot> _depots = const [];
-  Depot? _selectedDepot;
-  bool _depotManuallySelected = false;
   bool _saving = false;
   bool _loadingSchema = true;
-  bool _v2 = false;
+  int _photoSchemaVersion = 1;
+
+  bool get _structuredPhotos => _photoSchemaVersion >= 2;
+  bool get _requiresMicaPhoto => _photoSchemaVersion == 2;
 
   @override
   void initState() {
@@ -57,11 +54,9 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   Future<void> _loadSchema() async {
     final repo = ref.read(depotRepoProvider);
     final version = await repo.photoSchemaVersionForLot(widget.lotId);
-    final depots = await repo.activeDepots();
     if (!mounted) return;
     setState(() {
-      _v2 = version >= 2;
-      _depots = depots;
+      _photoSchemaVersion = version;
       _loadingSchema = false;
     });
   }
@@ -71,7 +66,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     _chauffeurCtrl.dispose();
     _permisCtrl.dispose();
     _plaqueCtrl.dispose();
-    _numLotCtrl.dispose();
     super.dispose();
   }
 
@@ -83,13 +77,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   Future<void> _captureArrivee() async {
     final p = await _capture('Déchargement dépôt — plaque');
     if (p == null) return;
-    final detected = ref
-        .read(detectDepotProvider)
-        .nearest(_depots, p.lat, p.lon);
-    setState(() {
-      _platePhoto = p;
-      if (!_depotManuallySelected) _selectedDepot = detected?.depot;
-    });
+    setState(() => _platePhoto = p);
     if (_plaqueCtrl.text.trim().isEmpty) {
       final sim = ref.read(simSessionProvider);
       final plaque = sim != null
@@ -99,72 +87,17 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     }
   }
 
-  Future<void> _selectDepot() async {
-    if (_depots.isEmpty) {
-      await showAppMessage(
-        context,
-        'Aucun dépôt disponible hors ligne. Lance une synchronisation.',
-        kind: AppMsgKind.warning,
-      );
-      return;
-    }
-    final selected = await showModalBottomSheet<Depot>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _DepotPickerSheet(
-        depots: _depots,
-        selectedDepotId: _selectedDepot?.id,
-      ),
-    );
-    if (selected == null || !mounted) return;
-    setState(() {
-      _selectedDepot = selected;
-      _depotManuallySelected = true;
-    });
-  }
-
-  String get _depotSubtitle {
-    final depot = _selectedDepot;
-    if (depot == null) {
-      return _depots.isEmpty
-          ? 'Aucun dépôt en cache — synchronisation nécessaire'
-          : 'Appuyer pour choisir un dépôt';
-    }
-    final photo = _platePhoto;
-    if (photo == null) {
-      return _depotManuallySelected
-          ? 'Sélection manuelle — le GPS sera vérifié après la photo'
-          : 'Le GPS sera vérifié après la photo de plaque';
-    }
-    final result = ref
-        .read(detectDepotProvider)
-        .evaluate(depot, photo.lat, photo.lon);
-    final source = _depotManuallySelected
-        ? 'Sélection manuelle'
-        : 'Détecté automatiquement';
-    final gps = switch (result.statutGps) {
-      'valide' => 'dans la zone',
-      'non_verifiable' => 'position non vérifiable',
-      _ => 'à ${result.distanceMetres.round()} m',
-    };
-    return '$source — $gps';
-  }
-
   Future<void> _save() async {
-    if (_selectedDepot == null) {
-      await showAppMessage(
-        context,
-        'Choisis le dépôt de destination',
-        kind: AppMsgKind.warning,
-      );
-      return;
-    }
     final photo = _platePhoto;
-    if (photo == null || (_v2 && (_micaPhoto == null || _truckPhoto == null))) {
+    final missingStructured =
+        _structuredPhotos &&
+        (_truckPhoto == null || (_requiresMicaPhoto && _micaPhoto == null));
+    if (photo == null || missingStructured) {
       await showAppMessage(
         context,
-        'Les 3 photos du déchargement au dépôt sont obligatoires',
+        _requiresMicaPhoto
+            ? 'Les 3 photos du déchargement au dépôt sont obligatoires'
+            : 'Les photos de plaque et du camion avec mica sont obligatoires',
         kind: AppMsgKind.warning,
       );
       return;
@@ -180,13 +113,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
 
       final res = ref.read(validateArriveeProvider)(
         lotId: widget.lotId,
-        depots: _depots,
-        depotId: _selectedDepot!.id,
         lat: photo.lat,
         lon: photo.lon,
         chauffeur: _chauffeurCtrl.text.trim(),
         numPermis: _permisCtrl.text.trim(),
-        numLot: _numLotCtrl.text.trim(),
+        numLot: '',
         plaqueArrivee: _plaqueCtrl.text.trim().isEmpty
             ? null
             : _plaqueCtrl.text.trim(),
@@ -194,10 +125,10 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         plaqueAttendue: chaine.isNotEmpty
             ? chaine.last.plaqueApres
             : resume?.plaqueDepart,
-        photosDecharge: _v2
+        photosDecharge: _structuredPhotos
             ? TraceabilityPhotos(
                 plate: photo,
-                mica: _micaPhoto!,
+                mica: _micaPhoto,
                 truckWithMica: _truckPhoto!,
               )
             : null,
@@ -224,24 +155,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         return;
       }
 
-      final depot = _selectedDepot!;
-      final dist = haversineMeters(photo.lat, photo.lon, depot.lat, depot.lon);
-      final gpsVerifiable = arrivee.statutGps != 'non_verifiable';
-
-      // Hors zone : on prévient et on laisse forcer (dérive GPS, mais aussi
-      // fraude possible → le score sera pénalisé et le statut conservé).
-      if (arrivee.statutGps == 'hors_zone') {
-        if (!mounted) return;
-        final forcer = await showConfirm(
-          context,
-          'Tu es à ${dist.round()} m de « ${depot.nom} ».\n'
-          'Valider quand même ? Le score sera réduit.',
-          titre: 'Loin du dépôt',
-          confirmLabel: 'Valider',
-        );
-        if (!forcer) return;
-      }
-
       final ratio = resume?.cree == null
           ? 1.0
           : DateTime.now().difference(resume!.cree!).inSeconds /
@@ -256,10 +169,13 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
               mineAutorisee: true,
               donneesCompletes: true,
               nombreMines: 1, // un lot = UNE mine
-              depotReconnu: true, // un dépôt a été rattaché
+              // Le serveur détermine le dépôt depuis le GPS. Le score
+              // affiché hors ligne est donc provisoire et n'accorde aucun
+              // point GPS avant la validation distante.
+              depotReconnu: true,
               gpsNonFalsifie: true,
-              distanceGpsMetres: dist,
-              gpsVerifiable: gpsVerifiable,
+              distanceGpsMetres: 0,
+              gpsVerifiable: false,
               ratioDelai: ratio <= 0 ? 1.0 : ratio,
               transportCoherent:
                   arrivee.plaqueCoherente && chaine.every((m) => m.conforme),
@@ -295,14 +211,10 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
       }
 
       if (!mounted) return;
-      final note = switch (arrivee.statutGps) {
-        'hors_zone' => '\n\n⚠ Loin du dépôt (${dist.round()} m)',
-        'non_verifiable' => '\n\nℹ Position du dépôt non renseignée',
-        _ => '',
-      };
       await showAppMessage(
         context,
-        '${widget.lotId}\n\nScore : ${score.score}/100$note',
+        '${widget.lotId}\n\nScore provisoire : ${score.score}/100\n'
+        'Le dépôt et le score final seront validés par le serveur.',
         kind: AppMsgKind.success,
         titre: 'Lot arrivé',
       );
@@ -324,26 +236,15 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         children: [
           StepHeader(
             numero: 1,
-            titre: 'Le dépôt',
-            sousTitre: 'Détecté par GPS et modifiable si nécessaire',
-          ),
-          const SizedBox(height: 12),
-          ActionTile(
-            icon: _selectedDepot == null
-                ? Icons.warehouse_outlined
-                : Icons.warehouse,
-            color: _selectedDepot == null ? AppColors.primary : AppColors.ok,
-            titre: _selectedDepot?.nom ?? 'Choisir le dépôt',
-            sousTitre: _depotSubtitle,
-            onTap: _selectDepot,
-            trailing: const Icon(Icons.unfold_more, color: AppColors.inkSoft),
-          ),
-          const SizedBox(height: 24),
-          StepHeader(
-            numero: 2,
-            titre: _v2 ? 'Les 3 photos du déchargement' : 'La photo d’arrivée',
-            sousTitre: _v2
-                ? 'Plaque, mica et camion avec mica'
+            titre: _structuredPhotos
+                ? (_requiresMicaPhoto
+                      ? 'Les 3 photos du déchargement'
+                      : 'Les 2 photos du déchargement')
+                : 'La photo d’arrivée',
+            sousTitre: _structuredPhotos
+                ? (_requiresMicaPhoto
+                      ? 'Plaque, mica et camion avec mica'
+                      : 'Plaque et camion avec mica')
                 : 'Capture historique v1',
           ),
           const SizedBox(height: 12),
@@ -358,7 +259,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                 : 'GPS ${_platePhoto!.lat.toStringAsFixed(4)}, ${_platePhoto!.lon.toStringAsFixed(4)}',
             onTap: _captureArrivee,
           ),
-          if (_v2) ...[
+          if (_requiresMicaPhoto) ...[
             const SizedBox(height: 8),
             ActionTile(
               icon: _micaPhoto == null ? Icons.camera_alt : Icons.verified,
@@ -372,6 +273,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                 if (p != null) setState(() => _micaPhoto = p);
               },
             ),
+          ],
+          if (_structuredPhotos) ...[
             const SizedBox(height: 8),
             ActionTile(
               icon: _truckPhoto == null ? Icons.camera_alt : Icons.verified,
@@ -399,7 +302,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          StepHeader(numero: 3, titre: 'Le chauffeur'),
+          StepHeader(numero: 2, titre: 'Le chauffeur'),
           const SizedBox(height: 12),
           TextField(
             controller: _chauffeurCtrl,
@@ -427,19 +330,11 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
               if (p != null) setState(() => _permisPhoto = p);
             },
           ),
-          const SizedBox(height: 24),
-          StepHeader(
-            numero: 4,
-            titre: 'Le numéro de lot',
-            sousTitre: 'Donné par le dépôt',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _numLotCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Numéro de lot',
-              prefixIcon: Icon(Icons.inventory_2),
-            ),
+          const SizedBox(height: 16),
+          const Text(
+            'Le dépôt et la référence du lot seront déterminés par le '
+            'serveur à partir de la position GPS.',
+            style: TextStyle(color: AppColors.inkSoft),
           ),
         ],
       ),
@@ -450,98 +345,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           label: _saving ? 'Validation…' : 'Valider l\'arrivée',
           onPressed: _saving ? null : _save,
         ),
-      ),
-    );
-  }
-}
-
-class _DepotPickerSheet extends StatefulWidget {
-  final List<Depot> depots;
-  final String? selectedDepotId;
-
-  const _DepotPickerSheet({
-    required this.depots,
-    required this.selectedDepotId,
-  });
-
-  @override
-  State<_DepotPickerSheet> createState() => _DepotPickerSheetState();
-}
-
-class _DepotPickerSheetState extends State<_DepotPickerSheet> {
-  final _searchCtrl = TextEditingController();
-  String _query = '';
-
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final normalized = _query.trim().toLowerCase();
-    final filtered = widget.depots
-        .where((depot) => depot.nom.toLowerCase().contains(normalized))
-        .toList();
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 20,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sélectionner un dépôt',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Rechercher un dépôt',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (value) => setState(() => _query = value),
-          ),
-          const SizedBox(height: 12),
-          Flexible(
-            child: filtered.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: Text('Aucun dépôt trouvé')),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final depot = filtered[index];
-                      final selected = depot.id == widget.selectedDepotId;
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(
-                          Icons.warehouse,
-                          color: selected ? AppColors.ok : AppColors.primary,
-                        ),
-                        title: Text(depot.nom),
-                        subtitle: Text(
-                          'Rayon GPS : ${depot.rayonMetres.round()} m',
-                        ),
-                        trailing: selected
-                            ? const Icon(Icons.check, color: AppColors.ok)
-                            : null,
-                        onTap: () => Navigator.of(context).pop(depot),
-                      );
-                    },
-                  ),
-          ),
-        ],
       ),
     );
   }

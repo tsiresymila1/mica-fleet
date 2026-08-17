@@ -12,7 +12,6 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/db/app_database.dart';
 import '../../../../core/error/failure.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
-import '../../domain/entities/commune.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../../domain/repositories/mine_submission_repository.dart';
 
@@ -28,7 +27,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
   @override
   Future<Either<Failure, MineSubmission>> create({
     required String name,
-    required int communeId,
     required List<CapturedPhoto> photos,
     String? agentLogin,
   }) async {
@@ -37,9 +35,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       return left(
         const Failure.validation('Le nom de la mine est obligatoire'),
       );
-    }
-    if (communeId <= 0) {
-      return left(const Failure.validation('La commune est obligatoire'));
     }
     if (photos.length < minPhotos) {
       return left(
@@ -93,7 +88,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       final payload = <String, dynamic>{
         'id': payloadId,
         'name': normalizedName,
-        'commune_id': communeId,
         'created_at': _odooDate(now),
         'positions': [
           for (final part in parts)
@@ -121,7 +115,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                 payloadId: payloadId,
                 deviceUuid: deviceUuid,
                 nom: normalizedName,
-                communeId: Value(communeId),
                 agentLogin: Value(agentLogin),
                 createdAt: now,
                 updatedAt: now,
@@ -173,7 +166,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
           payloadId: payloadId,
           deviceUuid: deviceUuid,
           nom: normalizedName,
-          communeId: communeId,
           agentLogin: agentLogin,
           state: MineSubmissionState.localPending,
           createdAt: now,
@@ -236,24 +228,6 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       );
     }
     return result;
-  }
-
-  @override
-  Future<List<Commune>> listCommunes() async {
-    final rows =
-        await (db.select(db.communes)
-              ..where((table) => table.actif.equals(true))
-              ..orderBy([(table) => OrderingTerm.asc(table.nom)]))
-            .get();
-    return [
-      for (final row in rows)
-        Commune(
-          id: row.id,
-          nom: row.nom,
-          district: row.district,
-          actif: row.actif,
-        ),
-    ];
   }
 
   @override

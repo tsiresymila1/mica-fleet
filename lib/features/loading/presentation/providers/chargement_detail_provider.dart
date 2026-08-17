@@ -26,7 +26,8 @@ class TransLine {
 }
 
 class ArriveeLine {
-  final String depotId, chauffeur, numPermis, numLot, statutGps;
+  final String? depotId;
+  final String chauffeur, numPermis, numLot, statutGps;
   final String? plaqueArrivee, photoArrivee, photoPermis;
   final List<PhotoLine> photosDecharge;
   final bool plaqueCoherente;
@@ -70,6 +71,7 @@ class LotDetail {
   final String id;
   final String sessionId;
   final String mineId;
+  final String mineName;
   final String? reference, couleur, plaqueDepart, photoPath;
   final double? quantite, lat, lon;
   final DateTime date;
@@ -79,10 +81,15 @@ class LotDetail {
   final List<TransLine> transbordements;
   final ArriveeLine? arrivee;
   final SyncEtat sync;
+  final String validationStatus;
+  final String? validationReason;
+  final String? serverReference;
+  final bool remoteOnly;
   const LotDetail({
     required this.id,
     required this.sessionId,
     required this.mineId,
+    required this.mineName,
     required this.reference,
     required this.couleur,
     required this.plaqueDepart,
@@ -97,6 +104,10 @@ class LotDetail {
     required this.transbordements,
     required this.arrivee,
     required this.sync,
+    required this.validationStatus,
+    required this.validationReason,
+    required this.serverReference,
+    required this.remoteOnly,
   });
 
   /// Renvoi manuel possible : arrivé mais pas totalement synchronisé.
@@ -117,6 +128,9 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
   final session = await (db.select(
     db.chargements,
   )..where((t) => t.id.equals(l.sessionId))).getSingleOrNull();
+  final mine = await (db.select(
+    db.mines,
+  )..where((t) => t.id.equals(l.mineId))).getSingleOrNull();
   final trans =
       await (db.select(db.transbordements)
             ..where((t) => t.lotId.equals(lotId))
@@ -139,12 +153,15 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             (t) => t.entityId.equals(lotId) & t.entityType.equals('lot'),
           ))
           .getSingleOrNull();
-  final sync = syncEtatFrom(op?.status, l.photosUploaded);
+  final sync = l.remoteOnly
+      ? SyncEtat.synchronise
+      : syncEtatFrom(op?.status, l.photosUploaded);
 
   return LotDetail(
     id: l.id,
     sessionId: l.sessionId,
     mineId: l.mineId,
+    mineName: mine?.nom ?? l.mineId,
     reference: l.reference,
     couleur: l.couleur,
     plaqueDepart: l.plaqueDepart,
@@ -186,6 +203,10 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             photos('depot_unload', 0),
           ),
     sync: sync,
+    validationStatus: l.validationStatus,
+    validationReason: l.validationReason,
+    serverReference: l.serverReference,
+    remoteOnly: l.remoteOnly,
   );
 });
 

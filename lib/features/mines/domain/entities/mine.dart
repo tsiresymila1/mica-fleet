@@ -5,6 +5,7 @@ class Mine {
   final double lon;
   final double rayonMetres;
   final String? district;
+  final String? fokontany;
   final String? commune;
   final String? region;
   final bool actif;
@@ -16,6 +17,7 @@ class Mine {
     required this.lon,
     this.rayonMetres = 20,
     this.district,
+    this.fokontany,
     this.commune,
     this.region,
     this.actif = true,

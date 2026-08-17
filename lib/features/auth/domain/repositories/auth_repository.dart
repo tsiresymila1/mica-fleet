@@ -11,4 +11,11 @@ abstract class AuthRepository {
     String password,
   );
   Future<Fournisseur?> currentSession();
+
+  /// Retourne `true` quand le changement a été mis en attente hors ligne.
+  Future<Either<Failure, bool>> changePassword({
+    required String login,
+    required String currentPassword,
+    required String newPassword,
+  });
 }

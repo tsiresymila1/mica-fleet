@@ -9,8 +9,15 @@ void main() {
   setUp(() async {
     db = AppDatabase.memory();
     tracker = TripTracker(db);
-    await db.into(db.chargements).insert(ChargementsCompanion.insert(
-        id: 'C1', fournisseurId: 'F001', dateCreation: DateTime(2026)));
+    await db
+        .into(db.chargements)
+        .insert(
+          ChargementsCompanion.insert(
+            id: 'C1',
+            fournisseurId: 'F001',
+            dateCreation: DateTime(2026),
+          ),
+        );
   });
   tearDown(() => db.close());
 
