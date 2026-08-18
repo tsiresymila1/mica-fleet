@@ -39,6 +39,16 @@ class LotListItem {
   });
 }
 
+String normalizeValidationStatus(String status) {
+  return switch (status.trim().toLowerCase()) {
+    'draft' => 'draft',
+    'in_progress' || 'en_cours' => 'draft',
+    'validated' || 'validé' || 'valide' => 'validated',
+    'rejected' || 'rejeté' || 'rejete' => 'rejected',
+    _ => 'draft',
+  };
+}
+
 /// Historique des lots (plus récent d'abord), avec score.
 final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
   ref,
@@ -74,7 +84,7 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         sync: l.remoteOnly
             ? SyncEtat.synchronise
             : syncEtatFrom(op?.status, l.photosUploaded),
-        validationStatus: l.validationStatus,
+        validationStatus: normalizeValidationStatus(l.validationStatus),
         validationReason: l.validationReason,
         serverReference: l.serverReference,
         remoteOnly: l.remoteOnly,

@@ -246,9 +246,10 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   static String _validationStatus(String? value) =>
       switch (value?.trim().toLowerCase()) {
+        'draft' => 'draft',
         'validated' || 'valide' || 'validé' => 'validated',
         'rejected' || 'rejete' || 'rejeté' => 'rejected',
-        _ => 'in_progress',
+        _ => 'draft',
       };
 
   /// Datetime au format Odoo : 'YYYY-MM-DD HH:MM:SS' (UTC).

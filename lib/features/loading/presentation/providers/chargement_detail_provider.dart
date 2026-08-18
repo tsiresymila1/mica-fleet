@@ -203,7 +203,7 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             photos('depot_unload', 0),
           ),
     sync: sync,
-    validationStatus: l.validationStatus,
+    validationStatus: _normalizeValidationStatus(l.validationStatus),
     validationReason: l.validationReason,
     serverReference: l.serverReference,
     remoteOnly: l.remoteOnly,
@@ -215,4 +215,12 @@ String _photoRoleLabel(String role) => switch (role) {
   'mica' => 'Mica',
   'truck_with_mica' => 'Camion + mica',
   _ => role,
+};
+
+String _normalizeValidationStatus(String status) => switch (status.trim().toLowerCase()) {
+  'draft' => 'draft',
+  'in_progress' || 'en_cours' => 'draft',
+  'validated' || 'validé' || 'valide' => 'validated',
+  'rejected' || 'rejeté' || 'rejete' => 'rejected',
+  _ => 'draft',
 };

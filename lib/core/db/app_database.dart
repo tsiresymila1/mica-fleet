@@ -130,7 +130,7 @@ class Lots extends Table {
   IntColumn get photoSchemaVersion =>
       integer().withDefault(const Constant(1))();
   TextColumn get validationStatus =>
-      text().withDefault(const Constant('in_progress'))();
+      text().withDefault(const Constant('draft'))();
   TextColumn get validationReason => text().nullable()();
   TextColumn get serverReference => text().nullable()();
   DateTimeColumn get serverUpdatedAt => dateTime().nullable()();

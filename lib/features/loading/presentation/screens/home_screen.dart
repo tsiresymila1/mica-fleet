@@ -81,7 +81,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Row(
                       children: [
                         _filterChip('all', 'Tous'),
-                        _filterChip('in_progress', 'En cours'),
+                        _filterChip('draft', 'Brouillons'),
                         _filterChip('validated', 'Validés'),
                         _filterChip('rejected', 'Rejetés'),
                       ],
@@ -193,9 +193,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 String _validationLabel(String status) => switch (status) {
+  'draft' => 'Brouillon',
   'validated' => 'Validé',
   'rejected' => 'Rejeté',
-  _ => 'En cours',
+  _ => 'Brouillon',
 };
 
 class _AccountDrawer extends StatelessWidget {
