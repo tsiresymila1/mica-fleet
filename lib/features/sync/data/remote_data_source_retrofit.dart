@@ -123,11 +123,14 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       if (depot == null) continue;
       final lat = _toDouble(depot['lat']);
       final lon = _toDouble(depot['lon']);
+      final id = depot['id']?.toString();
+      final nom = _asString(depot['name']);
+      if (id == null || id.isEmpty || nom == null || nom.isEmpty) continue;
       if (lat == null || lon == null) continue;
       items.add(
         RemoteDepot(
-          depot['id']?.toString() ?? '',
-          _asString(depot['name']) ?? '',
+          id,
+          nom,
           lat,
           lon,
           _toDouble(depot['radius_m']) ?? 20.0,
@@ -243,10 +246,13 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   static RemoteMine? _mineFromMap(Map<String, dynamic> m) {
     final lat = _toDouble(m['lat']);
     final lon = _toDouble(m['lon']);
+    final id = m['id']?.toString();
+    final nom = _asString(m['name']);
+    if (id == null || id.isEmpty || nom == null || nom.isEmpty) return null;
     if (lat == null || lon == null) return null;
     return RemoteMine(
-      m['id']?.toString() ?? '',
-      _asString(m['name']) ?? '',
+      id,
+      nom,
       lat,
       lon,
       _toDouble(m['radius_m']) ?? 20.0,

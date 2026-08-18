@@ -218,4 +218,29 @@ void main() {
 
     expect(remote.fetchMines(), throwsException);
   });
+
+  test('fetchMines ignore les lignes mines malformées', () async {
+    final adapter = _CaptureAdapter(
+      '''
+        {
+          "status":"ok",
+          "data":{
+            "mines":[
+              {"id": 7, "name": "Mine OK", "lat": -18.91, "lon": 47.52},
+              {"id": 8, "name": "Mine Mauvaise", "lat": false, "lon": 47.52},
+              {"id": "9", "name": "", "lat": -18.9, "lon": 47.5}
+            ]
+          }
+        }
+      ''',
+    );
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = adapter;
+    final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+
+    final mines = await remote.fetchMines();
+
+    expect(mines, hasLength(1));
+    expect(mines.single.id, '7');
+  });
 }
