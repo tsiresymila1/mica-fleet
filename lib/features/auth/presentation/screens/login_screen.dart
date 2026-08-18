@@ -65,26 +65,37 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               children: [
                 const Spacer(flex: 2),
                 // Marque
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryDark],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.terrain,
-                    color: AppColors.gold,
-                    size: 40,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset(
+                    'assets/logos/mica_logo.png',
+                    width: 140,
+                    height: 140,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [AppColors.primary, AppColors.primaryDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.terrain,
+                          color: AppColors.gold,
+                          size: 52,
+                        ),
+                      );
+                    },
                   ),
                 ),
-                const SizedBox(height: 16),
-                Text('Mica', style: t.displaySmall),
-                const SizedBox(height: 4),
+                const SizedBox(height: 20),
+                Text('Mica Fleet', style: t.displaySmall),
+                const SizedBox(height: 6),
                 Text(
                   'Suivi du chargement à la mine',
                   style: t.bodyMedium,
