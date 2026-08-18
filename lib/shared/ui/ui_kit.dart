@@ -283,39 +283,56 @@ Future<void> showAppMessage(
     context: context,
     builder: (ctx) => Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+          maxWidth: 360,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 32),
               ),
-              child: Icon(icon, color: color, size: 32),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              titre ?? defautTitre,
-              style: Theme.of(ctx).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              style: Theme.of(ctx).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            BigButton(
-              icon: Icons.check,
-              label: 'OK',
-              color: color,
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-          ],
+              const SizedBox(height: 16),
+              Text(
+                titre ?? defautTitre,
+                style: Theme.of(ctx).textTheme.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: (MediaQuery.of(ctx).size.height * 0.4).clamp(
+                    72.0,
+                    280.0,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    message,
+                    style: Theme.of(ctx).textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              BigButton(
+                icon: Icons.check,
+                label: 'OK',
+                color: color,
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
         ),
       ),
     ),
