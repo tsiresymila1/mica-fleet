@@ -733,6 +733,101 @@ void main() {
     );
 
     test(
+      'pull lots supprime les lots synchronisés qui n’existent plus serveur',
+      () async {
+        await db.into(db.fournisseurs).insert(
+          FournisseursCompanion.insert(
+            id: 'eddy',
+            nom: 'Eddy',
+            actif: const Value(true),
+            sessionToken: const Value('token-sync-lot'),
+          ),
+        );
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: 'S-2026-0001',
+                fournisseurId: 'eddy',
+                dateCreation: DateTime(2026),
+              ),
+            );
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'S-2026-0001-L1',
+                payloadUuid: const Value('payload-existing'),
+                sessionId: 'S-2026-0001',
+                mineId: 'm1',
+                statut: const Value('arrive'),
+              ),
+            );
+        await store.enqueue(
+          SyncOperation(
+            opId: 'sync-lot-1',
+            entityType: 'lot',
+            entityId: 'S-2026-0001-L1',
+            opType: SyncOpType.create,
+            payload: const {
+              'id': 'payload-existing',
+              'session_id': 'session-existing',
+            },
+            createdAt: DateTime(2026, 8, 14, 8),
+          ),
+        );
+        await store.updateStatus('sync-lot-1', SyncStatus.synced);
+
+        final engine = SyncEngine(store, _FakeRemote(lots: const []), db);
+        await engine.sync();
+
+        final lots = await db.select(db.lots).get();
+        expect(lots, isEmpty);
+      },
+    );
+
+    test(
+      'pull lots ne supprime pas les lots locaux non synchronisés',
+      () async {
+        await db.into(db.fournisseurs).insert(
+          FournisseursCompanion.insert(
+            id: 'eddy',
+            nom: 'Eddy',
+            actif: const Value(true),
+            sessionToken: const Value('token-local-lot'),
+          ),
+        );
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: 'S-2026-0002',
+                fournisseurId: 'eddy',
+                dateCreation: DateTime(2026),
+              ),
+            );
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'S-2026-0002-L1',
+                payloadUuid: const Value('payload-local-only'),
+                sessionId: 'S-2026-0002',
+                mineId: 'm1',
+                statut: const Value('en_cours'),
+              ),
+            );
+
+        final engine = SyncEngine(store, _FakeRemote(lots: const []), db);
+        await engine.sync();
+
+        final lots = await db.select(db.lots).get();
+        expect(lots, hasLength(1));
+        expect(lots.single.id, 'S-2026-0002-L1');
+      },
+    );
+
+    test(
       'proposition mine : submit, 5 uploads puis ajout après approbation',
       () async {
         final storage = Directory.systemTemp.createTempSync(

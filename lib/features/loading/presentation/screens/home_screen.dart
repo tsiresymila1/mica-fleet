@@ -140,16 +140,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           kind: l.arrive ? PillKind.ok : PillKind.neutral,
                           label: l.arrive ? 'Arrivé' : 'En route',
                         ),
-                      if (!l.arrive && !l.remoteOnly)
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            color: AppColors.danger,
-                          ),
-                          tooltip: 'Supprimer le lot',
-                          onPressed: () =>
-                              _deleteLotFromList(context, ref, l.id),
-                        ),
                     ],
                   ),
                   onTap: () async {
@@ -157,6 +147,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.invalidate(lotsListProvider);
                   },
                 );
+                final tileWithAction = !l.arrive && !l.remoteOnly
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          tile,
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _deleteLotFromList(context, ref, l.id),
+                              icon: const Icon(Icons.delete_outline),
+                              label: const Text('Supprimer le lot'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.danger,
+                                side: BorderSide(color: AppColors.danger),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : tile;
                 if (l.arrive || l.remoteOnly) return tile;
                 return Dismissible(
                   key: ValueKey(l.id),
@@ -194,7 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                     }
                   },
-                  child: tile,
+                  child: tileWithAction,
                 );
               },
             );

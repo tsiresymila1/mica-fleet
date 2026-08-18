@@ -689,13 +689,13 @@ class SyncEngine {
       });
     }
 
-    await _deleteRemoteOnlyLotsNotInServer(
+    await _deleteLotsMissingOnServer(
       currentSupplierId,
       remotePayloadIds,
     );
   }
 
-  Future<void> _deleteRemoteOnlyLotsNotInServer(
+  Future<void> _deleteLotsMissingOnServer(
     String supplierId,
     Set<String> remotePayloadIds,
   ) async {
@@ -715,8 +715,14 @@ class SyncEngine {
         .get();
 
     for (final lot in supplierLots) {
-      if (!lot.remoteOnly) continue;
       if (lot.payloadUuid == null) continue;
+      if (!lot.remoteOnly) {
+        final hasLotSyncOp = await (db.select(db.syncQueue)
+              ..where((t) =>
+                  t.entityType.equals('lot') & t.entityId.equals(lot.id)))
+            .getSingleOrNull();
+        if (hasLotSyncOp == null) continue;
+      }
       if (remotePayloadIds.contains(lot.payloadUuid!)) continue;
       if (await _lotHasPendingSyncQueue(lot.id)) continue;
       await _deleteRemoteOnlyLotCascade(lot.id);
