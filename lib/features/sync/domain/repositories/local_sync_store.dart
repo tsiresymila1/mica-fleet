@@ -5,7 +5,7 @@ abstract class LocalSyncStore {
 
   /// Opérations à pousser : `pending` dont le backoff (`nextRetryAt`) est échu,
   /// en FIFO par createdAt.
-  Future<List<SyncOperation>> pending();
+  Future<List<SyncOperation>> pending({String? agentLogin});
 
   Future<void> updateStatus(
     String opId,

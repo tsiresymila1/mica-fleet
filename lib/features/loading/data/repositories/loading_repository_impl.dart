@@ -170,4 +170,59 @@ class LoadingRepositoryImpl implements LoadingRepository {
       return left(Failure.database(e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, Unit>> deleteLot(String lotId) async {
+    try {
+      final lot = await (db.select(
+        db.lots,
+      )..where((t) => t.id.equals(lotId))).getSingleOrNull();
+      if (lot == null) {
+        return left(const Failure.validation('Lot introuvable'));
+      }
+      final arrival = await (db.select(
+        db.arriveesDepot,
+      )..where((t) => t.lotId.equals(lotId))).getSingleOrNull();
+      if (arrival != null) {
+        return left(
+          const Failure.validation(
+            'Un lot est déjà arrivé au dépôt — suppression locale impossible',
+          ),
+        );
+      }
+
+      await db.transaction(() async {
+        await (db.delete(
+          db.lotTraceabilityPhotos,
+        )..where((t) => t.lotId.equals(lotId))).go();
+        await (db.delete(
+          db.transbordements,
+        )..where((t) => t.lotId.equals(lotId))).go();
+        await (db.delete(db.syncQueue)..where(
+              (t) => t.entityType.equals('lot') & t.entityId.equals(lotId),
+            ))
+            .go();
+        await (db.delete(db.lots)..where((t) => t.id.equals(lotId))).go();
+      });
+
+      final remainingLots = await (db.select(
+        db.lots,
+      )..where((t) => t.sessionId.equals(lot.sessionId))).get();
+      if (remainingLots.isEmpty) {
+        await db.transaction(() async {
+          await (db.delete(
+            db.trajetPoints,
+          )..where((t) => t.chargementId.equals(lot.sessionId))).go();
+          await (db.delete(
+            db.chargements,
+          )..where((t) => t.id.equals(lot.sessionId))).go();
+        });
+      }
+
+      await journal.append('lot_supprime', lotId, '{"lot_id":"$lotId"}');
+      return right(unit);
+    } catch (e) {
+      return left(Failure.database(e.toString()));
+    }
+  }
 }

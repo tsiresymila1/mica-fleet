@@ -10,6 +10,8 @@ import '../../../sync/presentation/sync_provider.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
 import '../../../trip/presentation/trip_provider.dart';
 import '../providers/chargement_detail_provider.dart';
+import '../providers/chargements_list_provider.dart';
+import '../providers/loading_provider.dart';
 
 /// Supprime un maillon de la chaîne d'un lot (renumérote le reste), après
 /// confirmation. Autorisé seulement tant que le lot est en cours.
@@ -42,6 +44,38 @@ Future<void> _supprimerMaillon(
       res.isRight() ? 'Changement supprimé' : 'Suppression impossible',
       kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error,
     );
+  }
+}
+
+Future<void> _deleteLotLocal(
+  BuildContext context,
+  WidgetRef ref,
+  String lotId,
+  String sessionId,
+) async {
+  final ok = await showConfirm(
+    context,
+    'Supprimer le lot $lotId ?',
+    titre: 'Supprimer',
+    confirmLabel: 'Supprimer',
+    danger: true,
+  );
+  if (!ok) return;
+  final res = await ref.read(loadingRepoProvider).deleteLot(lotId);
+  if (!context.mounted) return;
+  await showAppMessage(
+    context,
+    res.isRight() ? 'Lot supprimé localement' : 'Suppression impossible',
+    kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error,
+  );
+  if (res.isRight() && context.mounted) {
+    if (context.canPop()) Navigator.of(context).pop();
+  }
+  if (res.isRight()) {
+    ref.invalidate(lotsListProvider);
+    if (sessionId.isNotEmpty) {
+      ref.invalidate(lotsEnCoursProvider(sessionId));
+    }
   }
 }
 
@@ -334,6 +368,17 @@ class ChargementDetailScreen extends ConsumerWidget {
                       label: 'Arrivée au dépôt',
                       onPressed: () => context.push('/arrivee/$lotId'),
                     ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _deleteLotLocal(context, ref, lotId, d.sessionId),
+                      icon: const Icon(Icons.delete_outline),
+                      label: const Text('Supprimer le lot'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: BorderSide(color: AppColors.danger),
+                      ),
+                    ),
                   ],
                 ),
               )
@@ -547,7 +592,9 @@ Widget _kv(String k, String v) => Padding(
     spacing: 8,
     children: [
       Text(k, style: const TextStyle(color: AppColors.inkSoft)),
-      Flexible(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w600))),
+      Flexible(
+        child: Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ),
     ],
   ),
 );

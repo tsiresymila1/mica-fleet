@@ -143,4 +143,92 @@ void main() {
     expect(r.isLeft(), isTrue);
     expect(await db.select(db.chargements).get(), isNotEmpty);
   });
+
+  test('supprime un lot local et son cache associé', () async {
+    await db
+        .into(db.lotTraceabilityPhotos)
+        .insert(
+          LotTraceabilityPhotosCompanion.insert(
+            lotId: 'MICA-2026-0001-L1',
+            stage: 'mine',
+            stageOrder: const Value(0),
+            role: 'plate',
+            path: '/tmp/p1.jpg',
+            hash: 'hash',
+            lat: -18.9,
+            lon: 47.5,
+            gpsAccuracy: 3,
+            capturedAt: DateTime(2026),
+          ),
+        );
+    await db
+        .into(db.transbordements)
+        .insert(
+          TransbordementsCompanion.insert(
+            lotId: 'MICA-2026-0001-L1',
+            ordre: 1,
+            plaqueAvant: const Value('ABC'),
+          ),
+        );
+    await db
+        .into(db.syncQueue)
+        .insert(
+          SyncQueueCompanion.insert(
+            opId: 'op-delete-lot',
+            entityType: 'lot',
+            entityId: 'MICA-2026-0001-L1',
+            opType: 'delete',
+            payload: '{}',
+            createdAt: DateTime(2026),
+          ),
+        );
+
+    final r = await repo.deleteLot('MICA-2026-0001-L1');
+    expect(r.isRight(), isTrue);
+    expect(await db.select(db.lots).get(), isEmpty);
+    expect(await db.select(db.lotTraceabilityPhotos).get(), isEmpty);
+    expect(await db.select(db.transbordements).get(), isEmpty);
+    expect(await db.select(db.syncQueue).get(), isEmpty);
+  });
+
+  test('refuse la suppression locale d’un lot déjà arrivé', () async {
+    await db
+        .into(db.chargements)
+        .insert(
+          ChargementsCompanion.insert(
+            id: 'MICA-2026-0002',
+            fournisseurId: 'F001',
+            dateCreation: DateTime(2026),
+          ),
+        );
+    await db
+        .into(db.lots)
+        .insert(
+          LotsCompanion.insert(
+            id: 'MICA-2026-0002-L1',
+            sessionId: 'MICA-2026-0002',
+            mineId: 'M002',
+          ),
+        );
+    await db
+        .into(db.arriveesDepot)
+        .insert(
+          ArriveesDepotCompanion.insert(
+            lotId: 'MICA-2026-0002-L1',
+            chauffeur: 'J',
+            numPermis: 'P',
+            numLot: 'L',
+            gpsLat: -18.9,
+            gpsLon: 47.5,
+            statutGps: 'valide',
+          ),
+        );
+
+    final r = await repo.deleteLot('MICA-2026-0002-L1');
+    expect(r.isLeft(), isTrue);
+    expect(
+      (await db.select(db.lots).get()).map((e) => e.id),
+      contains('MICA-2026-0002-L1'),
+    );
+  });
 }

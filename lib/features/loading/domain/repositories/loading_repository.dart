@@ -9,4 +9,7 @@ abstract class LoadingRepository {
 
   /// Supprime un chargement non finalisé (sans arrivée) et ses données liées.
   Future<Either<Failure, Unit>> deleteChargement(String chargementId);
+
+  /// Supprime un lot local non arrivé et son cache associé.
+  Future<Either<Failure, Unit>> deleteLot(String lotId);
 }

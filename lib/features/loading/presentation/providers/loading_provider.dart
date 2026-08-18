@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/utils/loading_id.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../delais/domain/delai_alert_planner.dart';
 import '../../../delais/domain/entities/delai_config.dart';
 import '../../../trip/presentation/trip_provider.dart';
@@ -12,6 +14,7 @@ import '../../domain/entities/lot.dart';
 import '../../domain/repositories/loading_repository.dart';
 import '../../domain/usecases/add_lot_to_chargement.dart';
 import '../../domain/usecases/validate_chargement.dart';
+import '../../../sync/presentation/sync_provider.dart';
 import 'chargements_list_provider.dart';
 
 final loadingRepoProvider = Provider<LoadingRepository>(
@@ -98,6 +101,11 @@ class ChargementController extends Notifier<Chargement?> {
               rappels,
               payload: persisted.id,
             );
+        final connectivity = await Connectivity().checkConnectivity();
+        if (connectivity.any((status) => status != ConnectivityResult.none)) {
+          await ref.read(authControllerProvider.notifier).refreshSessionToken();
+          await ref.read(triggerSyncProvider).sync();
+        }
         await ref.read(tripTrackerProvider).start(persisted.id);
       });
       return saved;

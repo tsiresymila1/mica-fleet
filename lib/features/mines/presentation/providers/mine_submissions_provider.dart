@@ -11,13 +11,18 @@ import '../../domain/entities/mine_submission.dart';
 import '../../domain/repositories/mine_submission_repository.dart';
 import '../../../sync/data/sync_engine.dart';
 import 'mines_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 final mineSubmissionRepositoryProvider = Provider<MineSubmissionRepository>(
   (ref) => MineSubmissionRepositoryImpl(ref.watch(dbProvider)),
 );
 
 final mineSubmissionsProvider = FutureProvider<List<MineSubmission>>(
-  (ref) => ref.watch(mineSubmissionRepositoryProvider).list(),
+  (ref) {
+    final agentLogin = ref.watch(authControllerProvider)?.id;
+    if (agentLogin == null) return Future.value([]);
+    return ref.watch(mineSubmissionRepositoryProvider).list(agentLogin: agentLogin);
+  },
 );
 
 final createMineSubmissionProvider = Provider<CreateMineSubmissionController>(

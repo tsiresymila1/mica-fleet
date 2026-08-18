@@ -40,6 +40,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final r = await remote.login(identifiant.trim(), password);
       await tokenStore.save(r.token);
       try {
+        await passwordStore?.savePassword(identifiant.trim(), password);
         await passwordStore?.saveVerifier(identifiant.trim(), password);
       } catch (_) {
         // Le login en ligne reste valable si le trousseau système est
@@ -84,17 +85,36 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<bool> refreshFromStoredPassword(String login) async {
+    final secrets = passwordStore;
+    if (secrets == null) return false;
+    final password = await secrets.readPassword(login);
+    if (password == null || password.isEmpty) return false;
+    try {
+      final r = await remote.login(login, password);
+      await tokenStore.save(r.token);
+      await local.setActiveSession(r.agentId, r.agentNom);
+      return true;
+    } on DioException catch (_) {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Session déjà établie pour cet identifiant (repli hors ligne), ou null.
   Future<Fournisseur?> _sessionHorsLigne(
     String identifiant,
     String password,
   ) async {
     final row = await local.findById(identifiant);
-    final token = await tokenStore.read();
     final passwordValid =
         passwordStore == null ||
         await passwordStore!.verify(identifiant, password);
-    if (row != null && row.actif && token != null && passwordValid) {
+    // En hors-ligne, on s'appuie sur la session locale déjà connue : si elle
+    // existe, est active et que le mot de passe correspond, on reconnecte.
+    if (row != null && row.actif && passwordValid) {
       return Fournisseur(id: row.id, nom: row.nom, actif: row.actif);
     }
     return null;

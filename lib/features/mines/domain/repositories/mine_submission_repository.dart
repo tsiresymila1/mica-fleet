@@ -11,7 +11,7 @@ abstract class MineSubmissionRepository {
     String? agentLogin,
   });
 
-  Future<List<MineSubmission>> list();
+  Future<List<MineSubmission>> list({String? agentLogin});
 
   /// Supprime la copie locale, les preuves et l'opération encore en file.
   Future<Either<Failure, Unit>> delete(String payloadId);

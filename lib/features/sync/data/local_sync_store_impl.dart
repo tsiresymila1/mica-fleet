@@ -31,14 +31,20 @@ class DriftLocalSyncStore implements LocalSyncStore {
   }
 
   @override
-  Future<List<SyncOperation>> pending() async {
+  Future<List<SyncOperation>> pending({String? agentLogin}) async {
     final now = DateTime.now();
     final q = db.select(db.syncQueue)
       ..where(
         (t) =>
             t.status.equals('pending') &
             (t.nextRetryAt.isNull() | t.nextRetryAt.isSmallerOrEqualValue(now)),
-      )
+      );
+    if (agentLogin == null) {
+      q.where((t) => t.agentLogin.isNull());
+    } else {
+      q.where((t) => t.agentLogin.equals(agentLogin));
+    }
+    q
       ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
       ..limit(10); // batch max 10 par exécution
     final rows = await q.get();

@@ -23,12 +23,16 @@ class PendingPasswordChange {
 /// un vérificateur salé non réversible reste pour autoriser le mode hors ligne.
 class PasswordSecretStore {
   static const _pendingKey = 'pending_password_change_v1';
+  static const _passwordKey = 'agent_password_v1';
   final FlutterSecureStorage _storage;
 
   const PasswordSecretStore([this._storage = const FlutterSecureStorage()]);
 
   String _verifierKey(String login) =>
       'password_verifier_${base64Url.encode(utf8.encode(login))}';
+
+  String _passwordCredentialKey(String login) =>
+      '$_passwordKey${base64Url.encode(utf8.encode(login))}';
 
   Future<void> saveVerifier(String login, String password) async {
     final random = Random.secure();
@@ -61,6 +65,21 @@ class PasswordSecretStore {
       return false;
     }
   }
+
+  /// Stocke le mot de passe de connexion pour permettre une reconnexion
+  /// automatique (si la chaîne de confiance du terminal le permet).
+  ///
+  /// La stratégie produit un confort d'usage ; en mode sécurisé, ce secret est
+  /// protégé par le store natif (keystore / Keychain).
+  Future<void> savePassword(String login, String password) async {
+    await _storage.write(key: _passwordCredentialKey(login), value: password);
+  }
+
+  Future<String?> readPassword(String login) async =>
+      _storage.read(key: _passwordCredentialKey(login));
+
+  Future<void> clearPassword(String login) async =>
+      _storage.delete(key: _passwordCredentialKey(login));
 
   Future<void> queue({
     required String login,

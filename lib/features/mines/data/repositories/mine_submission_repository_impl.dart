@@ -182,10 +182,13 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
   }
 
   @override
-  Future<List<MineSubmission>> list() async {
-    final rows = await (db.select(
-      db.mineSubmissions,
-    )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
+  Future<List<MineSubmission>> list({String? agentLogin}) async {
+    final query = db.select(db.mineSubmissions)
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    if (agentLogin != null) {
+      query.where((t) => t.agentLogin.equals(agentLogin));
+    }
+    final rows = await query.get();
     final result = <MineSubmission>[];
     for (final row in rows) {
       final photos =

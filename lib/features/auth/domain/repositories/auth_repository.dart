@@ -13,6 +13,10 @@ abstract class AuthRepository {
   Future<Fournisseur?> currentSession();
   Future<void> logout();
 
+  /// Tente une reconnexion silencieuse depuis les identifiants locaux afin de
+  /// remettre un token à jour (utile au retour réseau).
+  Future<bool> refreshFromStoredPassword(String login);
+
   /// Retourne `true` quand le changement a été mis en attente hors ligne.
   Future<Either<Failure, bool>> changePassword({
     required String login,

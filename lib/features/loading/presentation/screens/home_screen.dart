@@ -11,6 +11,29 @@ import '../providers/chargement_detail_provider.dart' show SyncEtat;
 import '../providers/chargements_list_provider.dart';
 import '../providers/loading_provider.dart';
 
+Future<void> _deleteLotFromList(
+  BuildContext context,
+  WidgetRef ref,
+  String lotId,
+) async {
+  final ok = await showConfirm(
+    context,
+    'Supprimer le lot $lotId ?',
+    titre: 'Supprimer',
+    confirmLabel: 'Supprimer',
+    danger: true,
+  );
+  if (!ok) return;
+  final res = await ref.read(loadingRepoProvider).deleteLot(lotId);
+  if (!context.mounted) return;
+  ref.invalidate(lotsListProvider);
+  await showAppMessage(
+    context,
+    res.isRight() ? 'Lot supprimé localement' : 'Suppression impossible',
+    kind: res.isRight() ? AppMsgKind.success : AppMsgKind.error,
+  );
+}
+
 /// Accueil : historique des LOTS (unité de traçabilité) + nouveau chargement.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -116,6 +139,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         StatusPill(
                           kind: l.arrive ? PillKind.ok : PillKind.neutral,
                           label: l.arrive ? 'Arrivé' : 'En route',
+                        ),
+                      if (!l.arrive && !l.remoteOnly)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: AppColors.danger,
+                          ),
+                          tooltip: 'Supprimer le lot',
+                          onPressed: () =>
+                              _deleteLotFromList(context, ref, l.id),
                         ),
                     ],
                   ),

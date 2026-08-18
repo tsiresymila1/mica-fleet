@@ -74,7 +74,19 @@ class AuthController extends Notifier<Fournisseur?> {
 
   Future<void> logout() async {
     await SecureTokenStore().clear();
+    final session = state;
     await ref.read(authRepositoryProvider).logout();
+    final secrets = ref.read(passwordSecretStoreProvider);
+    if (session != null) {
+      await secrets.clearPassword(session.id);
+      await secrets.clearPending();
+    }
     state = null;
+  }
+
+  Future<void> refreshSessionToken() async {
+    final session = state;
+    if (session == null) return;
+    await ref.read(authRepositoryProvider).refreshFromStoredPassword(session.id);
   }
 }

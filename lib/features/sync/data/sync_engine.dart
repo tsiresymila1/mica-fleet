@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -50,7 +51,8 @@ class SyncEngine {
 
   Future<void> _syncOnce() async {
     await _syncPendingPassword();
-    final ops = await store.pending(); // batch max 10
+    final agentLogin = await _activeSupplierId();
+    final ops = await store.pending(agentLogin: agentLogin); // batch max 10
     for (final op in ops) {
       await _pushPendingOperation(op);
     }
@@ -697,6 +699,12 @@ class SyncEngine {
     String supplierId,
     Set<String> remotePayloadIds,
   ) async {
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity.every((status) => status == ConnectivityResult.none)) {
+      // Quand on est réellement hors-ligne, éviter toute suppression de cache.
+      return;
+    }
+
     final supplierSessions = await (db.select(db.chargements)
           ..where((t) => t.fournisseurId.equals(supplierId)))
         .get();
@@ -707,10 +715,10 @@ class SyncEngine {
         .get();
 
     for (final lot in supplierLots) {
+      if (!lot.remoteOnly) continue;
       if (lot.payloadUuid == null) continue;
       if (remotePayloadIds.contains(lot.payloadUuid!)) continue;
       if (await _lotHasPendingSyncQueue(lot.id)) continue;
-      if (!lot.photosUploaded && !lot.remoteOnly) continue;
       await _deleteRemoteOnlyLotCascade(lot.id);
     }
 

@@ -12,6 +12,11 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/sync/presentation/sync_provider.dart';
 
+Future<void> _refreshAndSync(ProviderContainer container) async {
+  await container.read(authControllerProvider.notifier).refreshSessionToken();
+  await container.read(triggerSyncProvider).sync();
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final db = await AppDatabase.open();
@@ -33,6 +38,7 @@ Future<void> main() async {
 
   // Reprend les opérations bloquées (app tuée en plein push).
   await container.read(localSyncStoreProvider).resetInFlight();
+  await container.read(authControllerProvider.notifier).refreshSessionToken();
 
   // Sync initiale au démarrage : charge le référentiel + pousse les en-attente.
   // (onConnectivityChanged ne se déclenche pas à froid si déjà en ligne.)
@@ -44,7 +50,7 @@ Future<void> main() async {
   // Sync au retour réseau
   Connectivity().onConnectivityChanged.listen((status) {
     if (status.any((s) => s != ConnectivityResult.none)) {
-      container.read(triggerSyncProvider).sync();
+      _refreshAndSync(container);
     }
   });
 
@@ -74,7 +80,12 @@ class _MicaFleetAppState extends ConsumerState<MicaFleetApp> {
       onResume: () {
         // Le réseau peut être resté connecté pendant que l'app était fermée :
         // on rafraîchit les référentiels et les lots à chaque retour.
-        ref.read(triggerSyncProvider).sync();
+        final connectivity = Connectivity();
+        connectivity.checkConnectivity().then((status) {
+          if (status.any((s) => s != ConnectivityResult.none)) {
+            _refreshAndSync(ref.container);
+          }
+        });
       },
     );
   }
