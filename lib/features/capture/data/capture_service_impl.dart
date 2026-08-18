@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:crypto/crypto.dart';
 import '../domain/entities/captured_photo.dart';
+import 'photo_compression.dart';
 import '../domain/services/capture_service.dart';
 import '../domain/services/heading_source.dart';
 import '../domain/services/location_source.dart';
@@ -17,12 +18,13 @@ class CameraCaptureService implements CaptureService {
     final fixFuture = location.fix();
     final headingFuture = heading.current();
     final file = await controller.takePicture();
+    final compressedPath = await compressCapturedPhotoPath(sourcePath: file.path);
     final fix = await fixFuture;
     final headingFix = await headingFuture;
-    final bytes = await File(file.path).readAsBytes();
+    final bytes = await File(compressedPath).readAsBytes();
     final digest = sha256.convert(bytes).toString();
     return CapturedPhoto(
-      path: file.path,
+      path: compressedPath,
       sha256: digest,
       lat: fix.lat,
       lon: fix.lon,

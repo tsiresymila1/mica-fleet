@@ -351,7 +351,43 @@ Les clés sont **scopées au lot** (1 payload = 1 lot), donc simples :
 
 ---
 
-## 4. `POST /api/logout`
+## 4. `POST /api/password/change`
+
+Changement de mot de passe agent (en ligne), puis synchronisation hors ligne
+automatique si l'appel échoue temporairement.
+
+### Requête
+
+```json
+{ "current_password": "Ancien123", "new_password": "Nouveau123" }
+```
+
+### Cas fonctionnels
+
+- Réponse succès : 200/201/200 avec `status: "ok"` selon implémentation
+- Erreur `400/401/403/422` : le changement est refusé, l'app affiche le message
+  serveur.
+- Erreur réseau non-application : la modification est **mise en file d’attente locale**
+  et re-soumise automatiquement au prochain sync (`SyncEngine._syncPendingPassword`).
+
+### Comportement applicatif côté mobile
+
+Le flux mobile appelle directement `/api/password/change`. En cas
+de succès immédiat :
+- le nouveau mot de passe est conservé côté stockage chiffré local,
+- toute file de changement pendante est nettoyée.
+
+En cas d'échec réseau :
+- la demande est persistée localement (`PendingPasswordChange`),
+- elle reste visible dans le détail des syncs avec un status `pending`,
+- elle est renvoyée automatiquement en tâche de sync.
+
+> Endpoint attendu côté serveur : `POST /api/password/change` avec la forme
+> {`current_password`, `new_password`}.
+
+---
+
+## 5. `POST /api/logout`
 
 Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 
@@ -365,7 +401,7 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 
 ---
 
-## 5. Codes HTTP
+## 6. Codes HTTP
 
 | Code | Cas |
 |---|---|
@@ -380,7 +416,7 @@ Invalide le token courant. L'app l'appelle à la déconnexion explicite.
 
 ---
 
-## 6. À confirmer par Technarea
+## 7. À confirmer par Technarea
 
 1. **`/api/mine` et `/api/storage`** : forme exacte de la réponse ? L'app attend
    `data: [...]` avec `id`, `name`, `lat`, `lon`, `radius_m`, `active`.

@@ -542,9 +542,11 @@ Widget _kv(String k, String v) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 4),
   child: Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    spacing: 8,
     children: [
       Text(k, style: const TextStyle(color: AppColors.inkSoft)),
-      Text(v, style: const TextStyle(fontWeight: FontWeight.w600)),
+      Flexible(child: Text(v, style: const TextStyle(fontWeight: FontWeight.w600))),
     ],
   ),
 );

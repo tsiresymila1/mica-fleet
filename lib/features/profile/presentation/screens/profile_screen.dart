@@ -227,74 +227,27 @@ class _ChangePasswordTileState extends ConsumerState<_ChangePasswordTile> {
   bool _saving = false;
 
   Future<void> _open() async {
-    final current = TextEditingController();
-    final next = TextEditingController();
-    final confirmation = TextEditingController();
-    final submitted = await showDialog<bool>(
+    final data = await showModalBottomSheet<_PasswordChangeData>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Modifier le mot de passe'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: current,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Mot de passe actuel',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: next,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Nouveau mot de passe',
-                helperText: '8 caractères minimum',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: confirmation,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirmation'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Enregistrer'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => const _PasswordChangeSheet(),
     );
-    if (submitted != true || !mounted) {
-      current.dispose();
-      next.dispose();
-      confirmation.dispose();
-      return;
-    }
-    if (next.text != confirmation.text) {
+
+    if (data == null || !mounted) return;
+    if (data.newPassword != data.confirmation) {
       await showAppMessage(
         context,
         'La confirmation ne correspond pas au nouveau mot de passe.',
         kind: AppMsgKind.warning,
       );
-      current.dispose();
-      next.dispose();
-      confirmation.dispose();
       return;
     }
     setState(() => _saving = true);
     try {
       final result = await ref.read(changePasswordProvider)(
-        currentPassword: current.text,
-        newPassword: next.text,
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
       );
       if (!mounted) return;
       await result.match(
@@ -312,9 +265,6 @@ class _ChangePasswordTileState extends ConsumerState<_ChangePasswordTile> {
         ),
       );
     } finally {
-      current.dispose();
-      next.dispose();
-      confirmation.dispose();
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -327,6 +277,150 @@ class _ChangePasswordTileState extends ConsumerState<_ChangePasswordTile> {
     sousTitre: 'Disponible aussi hors ligne',
     onTap: _saving ? null : _open,
   );
+}
+
+class _PasswordChangeData {
+  const _PasswordChangeData({
+    required this.currentPassword,
+    required this.newPassword,
+    required this.confirmation,
+  });
+
+  final String currentPassword;
+  final String newPassword;
+  final String confirmation;
+}
+
+class _PasswordChangeSheet extends ConsumerStatefulWidget {
+  const _PasswordChangeSheet();
+
+  @override
+  ConsumerState<_PasswordChangeSheet> createState() =>
+      _PasswordChangeSheetState();
+}
+
+class _PasswordChangeSheetState extends ConsumerState<_PasswordChangeSheet> {
+  final _current = TextEditingController();
+  final _next = TextEditingController();
+  final _confirmation = TextEditingController();
+  bool _currentHidden = true;
+  bool _nextHidden = true;
+  bool _confirmationHidden = true;
+
+  @override
+  void dispose() {
+    _current.dispose();
+    _next.dispose();
+    _confirmation.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(
+      _PasswordChangeData(
+        currentPassword: _current.text,
+        newPassword: _next.text,
+        confirmation: _confirmation.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              children: [
+                const Spacer(),
+                Text(
+                  'Modifier le mot de passe',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Annuler',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          TextField(
+            controller: _current,
+            obscureText: _currentHidden,
+            decoration: InputDecoration(
+              labelText: 'Mot de passe actuel',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _currentHidden ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () => setState(
+                  () => _currentHidden = !_currentHidden,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _next,
+            obscureText: _nextHidden,
+            decoration: InputDecoration(
+              labelText: 'Nouveau mot de passe',
+              helperText: '8 caractères minimum',
+              suffixIcon: IconButton(
+                icon: Icon(_nextHidden ? Icons.visibility_off : Icons.visibility),
+                onPressed: () => setState(() => _nextHidden = !_nextHidden),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _confirmation,
+            obscureText: _confirmationHidden,
+            decoration: InputDecoration(
+              labelText: 'Confirmation',
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _confirmationHidden
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                ),
+                onPressed: () => setState(
+                  () => _confirmationHidden = !_confirmationHidden,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(onPressed: _submit, child: const Text('Enregistrer')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 String _failureMessage(Failure failure) => switch (failure) {
