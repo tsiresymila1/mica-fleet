@@ -140,34 +140,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           kind: l.arrive ? PillKind.ok : PillKind.neutral,
                           label: l.arrive ? 'Arrivé' : 'En route',
                         ),
+                      if (l.arrive || l.remoteOnly) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.lock_outline, size: 20, color: AppColors.inkSoft),
+                      ] else ...[
+                        const SizedBox(width: 6),
+                        IconButton(
+                          tooltip: 'Supprimer le lot',
+                          onPressed: () =>
+                              _deleteLotFromList(context, ref, l.id),
+                          icon: const Icon(Icons.delete_outline),
+                          color: AppColors.danger,
+                        ),
+                      ],
                     ],
                   ),
                   onTap: () async {
                     await context.push('/detail/${l.id}');
                     ref.invalidate(lotsListProvider);
                   },
+                  onLongPress: () async {
+                    if (l.arrive || l.remoteOnly) {
+                      await showAppMessage(
+                        context,
+                        l.arrive
+                            ? 'Ce lot est déjà arrivé, suppression locale impossible.'
+                            : 'Ce lot vient du serveur, il est en synchronisation distante.',
+                        kind: AppMsgKind.warning,
+                      );
+                      return;
+                    }
+                    _deleteLotFromList(context, ref, l.id);
+                  },
                 );
-                final tileWithAction = !l.arrive && !l.remoteOnly
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          tile,
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _deleteLotFromList(context, ref, l.id),
-                              icon: const Icon(Icons.delete_outline),
-                              label: const Text('Supprimer le lot'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.danger,
-                                side: BorderSide(color: AppColors.danger),
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : tile;
                 if (l.arrive || l.remoteOnly) return tile;
                 return Dismissible(
                   key: ValueKey(l.id),
@@ -205,7 +210,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                     }
                   },
-                  child: tileWithAction,
+                  child: tile,
                 );
               },
             );
