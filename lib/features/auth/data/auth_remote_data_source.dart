@@ -94,36 +94,101 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
 
   List<RemoteMine> _mines(List? raw) {
     if (raw == null) return [];
-    return raw.map((e) {
-      final m = e as Map<String, dynamic>;
-      return RemoteMine(
-        m['id'].toString(),
-        m['name'] as String,
-        (m['lat'] as num).toDouble(),
-        (m['lon'] as num).toDouble(),
-        (m['radius_m'] as num?)?.toDouble() ?? 20,
-        m['district'] as String?,
-        m['commune'] as String?,
-        m['region'] as String?,
-        m['active'] as bool? ?? true,
-        fokontany: m['fokontany'] as String?,
+    final mines = <RemoteMine>[];
+    for (final entry in raw) {
+      final m = entry as Map<String, dynamic>?;
+      if (m == null) continue;
+      final lat = _toDouble(m['lat']);
+      final lon = _toDouble(m['lon']);
+      final id = m['id']?.toString();
+      final nom = _asString(m['name']);
+      if (id == null || id.isEmpty || nom == null || nom.isEmpty) continue;
+      if (lat == null || lon == null) continue;
+      mines.add(
+        RemoteMine(
+          id,
+          nom,
+          lat,
+          lon,
+          _toDouble(m['radius_m']) ?? 20.0,
+          _asOptionalString(m['district']),
+          _asOptionalString(m['commune']),
+          _asOptionalString(m['region']),
+          _asBool(m['active']) ?? true,
+          fokontany: _asOptionalString(m['fokontany']),
+        ),
       );
-    }).toList();
+    }
+    return mines;
   }
 
   List<RemoteDepot> _depots(List? raw) {
     if (raw == null) return [];
-    return raw.map((e) {
-      final d = e as Map<String, dynamic>;
-      return RemoteDepot(
-        d['id'].toString(),
-        d['name'] as String,
-        (d['lat'] as num).toDouble(),
-        (d['lon'] as num).toDouble(),
-        (d['radius_m'] as num?)?.toDouble() ?? 20,
-        d['active'] as bool? ?? true,
+    final depots = <RemoteDepot>[];
+    for (final entry in raw) {
+      final d = entry as Map<String, dynamic>?;
+      if (d == null) continue;
+      final lat = _toDouble(d['lat']);
+      final lon = _toDouble(d['lon']);
+      final id = d['id']?.toString();
+      final nom = _asString(d['name']);
+      if (id == null || id.isEmpty || nom == null || nom.isEmpty) continue;
+      if (lat == null || lon == null) continue;
+      depots.add(
+        RemoteDepot(
+          id,
+          nom,
+          lat,
+          lon,
+          _toDouble(d['radius_m']) ?? 20.0,
+          _asBool(d['active']) ?? true,
+        ),
       );
-    }).toList();
+    }
+    return depots;
+  }
+
+  static String? _asOptionalString(dynamic value) =>
+      value is String ? (value.isEmpty ? null : value) : null;
+
+  static String? _asString(dynamic value) => switch (value) {
+        String v => v.isEmpty ? null : v,
+        null => null,
+        _ => value.toString(),
+      };
+
+  static double? _toDouble(dynamic value) => switch (value) {
+        num v => v.toDouble(),
+        String v => double.tryParse(v),
+        _ => null,
+      };
+
+  static bool? _asBool(dynamic value) => switch (value) {
+        bool v => v,
+        String v => _parseBool(v),
+        int v => v != 0,
+        _ => null,
+      };
+
+  static bool? _parseBool(String value) {
+    switch (value.trim().toLowerCase()) {
+      case '1':
+      case 'true':
+      case 't':
+      case 'yes':
+      case 'y':
+      case 'on':
+        return true;
+      case '0':
+      case 'false':
+      case 'f':
+      case 'no':
+      case 'n':
+      case 'off':
+        return false;
+      default:
+        return null;
+    }
   }
 }
 

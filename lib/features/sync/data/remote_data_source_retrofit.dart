@@ -106,23 +106,36 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   @override
   Future<List<RemoteMine>> fetchMines() async {
     final mines = _requiredList(await api.mines(), 'mines');
-    return mines.map((entry) => _mineFromMap(entry as Map)).toList();
+    return _mineList(
+      mines
+          .map((entry) => entry as Map<String, dynamic>?)
+          .where((entry) => entry != null)
+          .toList(),
+    );
   }
 
   @override
   Future<List<RemoteDepot>> fetchDepots() async {
     final depots = _requiredList(await api.storages(), 'depots');
-    return depots.map((entry) {
-      final depot = entry as Map;
-      return RemoteDepot(
-        depot['id'].toString(),
-        depot['name'].toString(),
-        (depot['lat'] as num).toDouble(),
-        (depot['lon'] as num).toDouble(),
-        (depot['radius_m'] as num?)?.toDouble() ?? 20,
-        depot['active'] as bool? ?? true,
+    final items = <RemoteDepot>[];
+    for (final entry in depots) {
+      final depot = entry as Map<String, dynamic>?;
+      if (depot == null) continue;
+      final lat = _toDouble(depot['lat']);
+      final lon = _toDouble(depot['lon']);
+      if (lat == null || lon == null) continue;
+      items.add(
+        RemoteDepot(
+          depot['id']?.toString() ?? '',
+          _asString(depot['name']) ?? '',
+          lat,
+          lon,
+          _toDouble(depot['radius_m']) ?? 20.0,
+          _asBool(depot['active']) ?? true,
+        ),
       );
-    }).toList();
+    }
+    return items;
   }
 
   @override
@@ -227,18 +240,80 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     return result;
   }
 
-  static RemoteMine _mineFromMap(Map m) => RemoteMine(
-    m['id'].toString(),
-    m['name'] as String,
-    (m['lat'] as num).toDouble(),
-    (m['lon'] as num).toDouble(),
-    (m['radius_m'] as num?)?.toDouble() ?? 20,
-    m['district'] as String?,
-    m['commune'] as String?,
-    m['region'] as String?,
-    m['active'] as bool? ?? true,
-    fokontany: m['fokontany'] as String?,
-  );
+  static RemoteMine? _mineFromMap(Map<String, dynamic> m) {
+    final lat = _toDouble(m['lat']);
+    final lon = _toDouble(m['lon']);
+    if (lat == null || lon == null) return null;
+    return RemoteMine(
+      m['id']?.toString() ?? '',
+      _asString(m['name']) ?? '',
+      lat,
+      lon,
+      _toDouble(m['radius_m']) ?? 20.0,
+      _asOptionalString(m['district']),
+      _asOptionalString(m['commune']),
+      _asOptionalString(m['region']),
+      _asBool(m['active']) ?? true,
+      fokontany: _asOptionalString(m['fokontany']),
+    );
+  }
+
+  static String? _asOptionalString(dynamic value) =>
+      value is String ? (value.isEmpty ? null : value) : null;
+
+  static String? _asString(dynamic value) => switch (value) {
+        String v => v.isEmpty ? null : v,
+        null => null,
+        _ => value.toString(),
+      };
+
+  static double? _toDouble(dynamic value) => switch (value) {
+        num v => v.toDouble(),
+        String v => double.tryParse(v),
+        _ => null,
+      };
+
+  static bool? _asBool(dynamic value) => switch (value) {
+        bool v => v,
+        String v => _parseBool(v),
+        int v => v != 0,
+        _ => null,
+      };
+
+  static bool? _parseBool(String value) {
+    switch (value.trim().toLowerCase()) {
+      case '1':
+      case 'true':
+      case 't':
+      case 'yes':
+      case 'y':
+      case 'on':
+        return true;
+      case '0':
+      case 'false':
+      case 'f':
+      case 'no':
+      case 'n':
+      case 'off':
+        return false;
+      default:
+        return null;
+    }
+  }
+
+  static List<RemoteMine> _mineList(List? raw) {
+    if (raw == null) return [];
+    final mines = <RemoteMine>[];
+    for (final entry in raw) {
+      final map = entry is Map<String, dynamic> ? entry : null;
+      if (map == null) continue;
+      final mine = _mineFromMap(map);
+      if (mine != null) {
+        mines.add(mine);
+      }
+    }
+    return mines;
+  }
 
   static DateTime? _date(dynamic value) => value == null
       ? null
