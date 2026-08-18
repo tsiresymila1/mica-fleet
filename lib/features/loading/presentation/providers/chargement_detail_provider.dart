@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class PhotoLine {
   final String label;
@@ -121,13 +122,26 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
   ref,
   lotId,
 ) async {
+  final supplierId = ref.watch(authControllerProvider)?.id;
+  if (supplierId == null) {
+    throw StateError('Aucun compte connecté');
+  }
+
   final db = ref.watch(dbProvider);
   final l = await (db.select(
     db.lots,
-  )..where((t) => t.id.equals(lotId))).getSingle();
+  )..where((t) => t.id.equals(lotId))).getSingleOrNull();
+  if (l == null) {
+    throw StateError('Lot introuvable');
+  }
+
   final session = await (db.select(
     db.chargements,
   )..where((t) => t.id.equals(l.sessionId))).getSingleOrNull();
+  if (session == null || session.fournisseurId != supplierId) {
+    throw StateError('Ce lot n’est pas accessible depuis ce compte');
+  }
+
   final mine = await (db.select(
     db.mines,
   )..where((t) => t.id.equals(l.mineId))).getSingleOrNull();

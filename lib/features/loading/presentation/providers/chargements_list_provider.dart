@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/di/providers.dart';
 import 'chargement_detail_provider.dart' show SyncEtat, syncEtatFrom;
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Ligne d'historique : un LOT (unité de traçabilité et de score).
 class LotListItem {
@@ -53,10 +54,22 @@ String normalizeValidationStatus(String status) {
 final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
   ref,
 ) async {
+  final supplierId = ref.watch(authControllerProvider)?.id;
+  if (supplierId == null) {
+    return [];
+  }
+
   final db = ref.watch(dbProvider);
-  final sessions = await db.select(db.chargements).get();
+  final sessions = await (db.select(db.chargements)
+        ..where((t) => t.fournisseurId.equals(supplierId)))
+      .get();
+  if (sessions.isEmpty) {
+    return [];
+  }
+  final sessionIds = sessions.map((s) => s.id).toSet();
   final dates = {for (final s in sessions) s.id: s.dateCreation};
-  final lots = await db.select(db.lots).get();
+  final allLots = await db.select(db.lots).get();
+  final lots = allLots.where((lot) => sessionIds.contains(lot.sessionId)).toList();
   final mines = await db.select(db.mines).get();
   final mineNames = {for (final mine in mines) mine.id: mine.nom};
   final items = <LotListItem>[];

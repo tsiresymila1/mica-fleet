@@ -596,8 +596,16 @@ class SyncEngine {
   }
 
   Future<void> _pullLots() async {
+    final currentSupplierId = await _activeSupplierId();
+    if (currentSupplierId == null) {
+      // Sans session active, ne touche pas au cache lot (évite mélange).
+      return;
+    }
+
     final remoteLots = await remote.fetchLots();
+    final remotePayloadIds = <String>{};
     for (final remoteLot in remoteLots) {
+      remotePayloadIds.add(remoteLot.payloadId);
       // `remoteLot.payloadId` correspond à payload.id dans le submit. C'est
       // la clé de fusion stable entre appareils et évite tout doublon local.
       final local =
@@ -639,14 +647,15 @@ class SyncEngine {
               );
         }
 
-        final cachedSessionId = 'REMOTE-${remoteLot.sessionId}';
+        final cachedSessionId =
+            'REMOTE-$currentSupplierId-${remoteLot.sessionId}';
         await db
             .into(db.chargements)
             .insert(
               ChargementsCompanion.insert(
                 id: cachedSessionId,
                 sessionUuid: Value(remoteLot.sessionId),
-                fournisseurId: 'server',
+                fournisseurId: currentSupplierId,
                 dateCreation: remoteLot.createdAt,
                 statut: const Value('synchronise'),
               ),
@@ -677,6 +686,77 @@ class SyncEngine {
             );
       });
     }
+
+    await _deleteRemoteOnlyLotsNotInServer(
+      currentSupplierId,
+      remotePayloadIds,
+    );
+  }
+
+  Future<void> _deleteRemoteOnlyLotsNotInServer(
+    String supplierId,
+    Set<String> remotePayloadIds,
+  ) async {
+    final supplierSessions = await (db.select(db.chargements)
+          ..where((t) => t.fournisseurId.equals(supplierId)))
+        .get();
+    if (supplierSessions.isEmpty) return;
+    final sessionIds = supplierSessions.map((s) => s.id).toSet();
+    final supplierLots = await (db.select(db.lots)
+          ..where((t) => t.sessionId.isIn(sessionIds)))
+        .get();
+
+    for (final lot in supplierLots) {
+      if (lot.payloadUuid == null) continue;
+      if (remotePayloadIds.contains(lot.payloadUuid!)) continue;
+      if (await _lotHasPendingSyncQueue(lot.id)) continue;
+      if (!lot.photosUploaded && !lot.remoteOnly) continue;
+      await _deleteRemoteOnlyLotCascade(lot.id);
+    }
+
+    for (final session in supplierSessions) {
+      final hasLots = await (db.select(db.lots)
+            ..where((t) => t.sessionId.equals(session.id)))
+          .get()
+          .then((rows) => rows.isNotEmpty);
+      if (!hasLots) {
+        await (db.delete(db.chargements)..where((t) => t.id.equals(session.id)))
+            .go();
+      }
+    }
+  }
+
+  Future<bool> _lotHasPendingSyncQueue(String lotId) async {
+    final blocking = await (db.select(db.syncQueue)
+          ..where((t) =>
+              t.entityType.equals('lot') &
+              t.entityId.equals(lotId) &
+              t.status.equals('synced').not()))
+        .getSingleOrNull();
+    return blocking != null;
+  }
+
+  Future<void> _deleteRemoteOnlyLotCascade(String lotId) async {
+    await db.transaction(() async {
+      await (db.delete(
+        db.lotTraceabilityPhotos,
+      )..where((t) => t.lotId.equals(lotId))).go();
+      await (db.delete(
+        db.transbordements,
+      )..where((t) => t.lotId.equals(lotId))).go();
+      await (db.delete(
+        db.arriveesDepot,
+      )..where((t) => t.lotId.equals(lotId))).go();
+      await (db.delete(db.syncQueue)..where((t) => t.entityId.equals(lotId))).go();
+      await (db.delete(db.lots)..where((t) => t.id.equals(lotId))).go();
+    });
+  }
+
+  Future<String?> _activeSupplierId() async {
+    final sessions = await (db.select(db.fournisseurs)
+      ..where((t) => t.sessionToken.isNotNull()))
+        .get();
+    return sessions.firstOrNull?.id;
   }
 
   /// Backoff exponentiel : 1, 2, 4, 8… minutes, plafonné à 6 h.

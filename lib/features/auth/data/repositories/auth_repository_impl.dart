@@ -47,7 +47,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // alors impossible jusqu'à un nouveau login distant.
       }
       await _upsertReferentiel(r.mines, r.depots);
-      await local.saveSession(r.agentId, r.agentNom);
+      await local.setActiveSession(r.agentId, r.agentNom);
       return right(Fournisseur(id: r.agentId, nom: r.agentNom));
     } on DioException catch (e) {
       // 401 = mauvais identifiants : inutile de replier sur le hors ligne.
@@ -58,7 +58,10 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       // Autre erreur serveur/réseau : replie sur une session déjà établie.
       final offline = await _sessionHorsLigne(identifiant.trim(), password);
-      if (offline != null) return right(offline);
+      if (offline != null) {
+        await local.setActiveSession(offline.id, offline.nom);
+        return right(offline);
+      }
       final code = e.response?.statusCode;
       return left(
         Failure.network(
@@ -69,7 +72,10 @@ class AuthRepositoryImpl implements AuthRepository {
       );
     } catch (e) {
       final offline = await _sessionHorsLigne(identifiant.trim(), password);
-      if (offline != null) return right(offline);
+      if (offline != null) {
+        await local.setActiveSession(offline.id, offline.nom);
+        return right(offline);
+      }
       return left(
         const Failure.network(
           'Connexion impossible et aucune session hors ligne',
@@ -133,6 +139,11 @@ class AuthRepositoryImpl implements AuthRepository {
         );
       }
     });
+  }
+
+  @override
+  Future<void> logout() async {
+    await local.clearActiveSession();
   }
 
   @override

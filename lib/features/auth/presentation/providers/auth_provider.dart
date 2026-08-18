@@ -72,5 +72,9 @@ class AuthController extends Notifier<Fournisseur?> {
     return res;
   }
 
-  void logout() => state = null;
+  Future<void> logout() async {
+    await SecureTokenStore().clear();
+    await ref.read(authRepositoryProvider).logout();
+    state = null;
+  }
 }
