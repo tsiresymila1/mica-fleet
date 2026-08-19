@@ -6,7 +6,8 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/network/token_store.dart';
 import '../../domain/entities/fournisseur.dart';
 import '../../../sync/domain/repositories/remote_data_source.dart'
-    show PasswordChangeRejected, RemoteDataSource, RemoteDepot, RemoteMine;
+    show PasswordChangeRejected, RemoteDataSource, RemoteCommune, RemoteDepot,
+        RemoteMine;
 import '../../domain/repositories/auth_repository.dart';
 import '../auth_remote_data_source.dart';
 import '../datasources/auth_local_ds.dart';
@@ -48,6 +49,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // alors impossible jusqu'à un nouveau login distant.
       }
       await _upsertReferentiel(r.mines, r.depots);
+      await _upsertCommunes(r.communes);
       await local.setActiveSession(r.agentId, r.agentNom);
       return right(Fournisseur(id: r.agentId, nom: r.agentNom));
     } on DioException catch (e) {
@@ -157,6 +159,26 @@ class AuthRepositoryImpl implements AuthRepository {
             lon: d.lon,
             rayonMetres: Value(d.rayonMetres),
             actif: Value(d.actif),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+    });
+  }
+
+  Future<void> _upsertCommunes(List<RemoteCommune> communes) async {
+    final db = local.db;
+    await db.transaction(() async {
+      await db
+          .update(db.communes)
+          .write(const CommunesCompanion(actif: Value(false)));
+      for (final commune in communes) {
+        await db.into(db.communes).insert(
+          CommunesCompanion.insert(
+            id: Value(commune.id),
+            nom: commune.name,
+            district: Value(commune.district),
+            actif: Value(commune.actif),
           ),
           mode: InsertMode.insertOrReplace,
         );

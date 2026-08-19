@@ -101,6 +101,25 @@ void main() {
     expect(photos.every((photo) => File(photo.path).existsSync()), isTrue);
   });
 
+  test('inclut la commune quand communeId est renseigné', () async {
+    final result = await repository.create(
+      name: 'Mine avec commune',
+      photos: [for (var i = 1; i <= 5; i++) _photo(i, storage)],
+      agentLogin: 'eddy',
+      communeId: 24091,
+    );
+
+    expect(result.isRight(), isTrue);
+    final queued = (await db.select(db.syncQueue).get()).single;
+    final payload = jsonDecode(queued.payload) as Map<String, dynamic>;
+    expect(payload['commune_id'], 24091);
+    final submission = (await db.select(db.mineSubmissions).get()).singleWhere(
+      (entry) => entry.nom == 'Mine avec commune',
+      orElse: () => throw StateError('soumission introuvable'),
+    );
+    expect(submission.communeId, 24091);
+  });
+
   test('supprime la proposition, sa file et ses photos locales', () async {
     final created = await repository.create(
       name: 'Mine à supprimer',

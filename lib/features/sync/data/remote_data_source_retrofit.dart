@@ -142,6 +142,35 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
   }
 
   @override
+  Future<List<RemoteCommune>> fetchCommunes() async {
+    final communes = _requiredList(await dio.get('/api/commune').then((r) => r.data), 'communes');
+    final items = <RemoteCommune>[];
+    for (final entry in communes) {
+      final commune = entry is Map<String, dynamic> ? entry : null;
+      if (commune == null) continue;
+      final id = commune['id'];
+      final parsedId = id is int
+          ? id
+          : id is String
+          ? int.tryParse(id)
+          : null;
+      if (parsedId == null) continue;
+      final name = _asOptionalString(commune['name']);
+      if (name == null || name.isEmpty) continue;
+      final district = _asOptionalString(commune['district']);
+      items.add(
+        RemoteCommune(
+          id: parsedId,
+          name: name,
+          district: district,
+          actif: _asBool(commune['active']) ?? true,
+        ),
+      );
+    }
+    return items;
+  }
+
+  @override
   Future<List<RemoteLot>> fetchLots() async {
     final lots = _requiredList(await api.lots(), 'lots');
     final result = <RemoteLot>[];

@@ -19,6 +19,17 @@ class _RoutingAdapter implements HttpClientAdapter {
         '{"status":"ok","data":{"token":"token","agent":{"login":"eddy","name":"Eddy"}}}',
       '/api/mine' => '{"status":"ok","data":[]}',
       '/api/storage' => '{"status":"ok","data":[]}',
+      '/api/commune' => '''
+        {
+          "status":"ok",
+          "data":{
+            "communes":[
+              {"id": 24091, "name": "Andilana", "district": "Antananarivo"},
+              {"id": 24092, "name": "Ambatomena", "district": "Manjakandriana"}
+            ]
+          }
+        }
+      ''',
       _ => '{"status":"error","message":"route inconnue"}',
     };
     return ResponseBody.fromString(
@@ -65,6 +76,16 @@ class _MalformedMineAdapter implements HttpClientAdapter {
         }
         ''',
       '/api/storage' => '{"status":"ok","data":[]}',
+      '/api/commune' => '''
+        {
+          "status":"ok",
+          "data":{
+            "communes":[
+              {"id": 24091, "name":"Andilana", "district":"Antananarivo"}
+            ]
+          }
+        }
+      ''',
       _ => '{"status":"error","message":"route inconnue"}',
     };
     return ResponseBody.fromString(
@@ -81,18 +102,26 @@ class _MalformedMineAdapter implements HttpClientAdapter {
 }
 
 void main() {
-  test('le login ne charge plus le référentiel commune', () async {
+  test('le login charge mines, dépôts et communes', () async {
     final adapter = _RoutingAdapter();
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
 
-    await RetrofitAuthRemoteDataSource(AuthApi(dio)).login('eddy', 'secret');
+    final result = await RetrofitAuthRemoteDataSource(
+      AuthApi(dio),
+      dio,
+    ).login('eddy', 'secret');
 
     expect(
       adapter.paths,
-      containsAll(['/api/login', '/api/mine', '/api/storage']),
+      containsAll(['/api/login', '/api/mine', '/api/storage', '/api/commune']),
     );
-    expect(adapter.paths, isNot(contains('/api/commune')));
+    expect(adapter.paths, contains('/api/mine'));
+    expect(adapter.paths, contains('/api/storage'));
+    expect(adapter.paths, contains('/api/commune'));
+    expect(result.communes, hasLength(2));
+    expect(result.communes.first.id, 24091);
+    expect(result.communes.first.name, 'Andilana');
   });
 
   test('le login tolère les champs mine textuels non conformes', () async {
@@ -100,7 +129,7 @@ void main() {
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
 
-    final result = await RetrofitAuthRemoteDataSource(AuthApi(dio)).login(
+    final result = await RetrofitAuthRemoteDataSource(AuthApi(dio), dio).login(
       'eddy',
       'secret',
     );
@@ -112,5 +141,8 @@ void main() {
     expect(mine.district, isNull);
     expect(mine.commune, isNull);
     expect(mine.region, isNull);
+    expect(adapter.paths, contains('/api/commune'));
+    expect(result.communes, hasLength(1));
+    expect(result.communes.first.name, 'Andilana');
   });
 }

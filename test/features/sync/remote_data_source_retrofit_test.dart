@@ -146,6 +146,28 @@ void main() {
     expect(depots.single.nom, 'Dépôt Sud');
   });
 
+  test('lit les communes dans data.communes', () async {
+    final adapter = _CaptureAdapter('''
+      {
+        "status": "ok",
+        "data": {
+          "communes": [
+            {"id": 24091, "name": "Andilana", "district": "Antananarivo", "active": true}
+          ]
+        }
+      }
+    ''');
+    final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+      ..httpClientAdapter = adapter;
+    final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+
+    final communes = await remote.fetchCommunes();
+
+    expect(communes.single.id, 24091);
+    expect(communes.single.name, 'Andilana');
+    expect(communes.single.district, 'Antananarivo');
+  });
+
   test(
     'lit le payload submit enrichi retourné par GET tracking lots',
     () async {

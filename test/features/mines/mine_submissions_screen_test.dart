@@ -6,7 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/core/di/providers.dart';
+import 'package:mica_fleet/features/auth/domain/entities/fournisseur.dart';
+import 'package:mica_fleet/features/auth/presentation/providers/auth_provider.dart';
 import 'package:mica_fleet/features/mines/presentation/screens/mine_submissions_screen.dart';
+
+class _SignedInAuthController extends AuthController {
+  @override
+  Fournisseur? build() => const Fournisseur(id: 'eddy', nom: 'Eddy');
+}
 
 void main() {
   testWidgets('propose un envoi manuel pour une mine locale', (tester) async {
@@ -20,6 +27,7 @@ void main() {
             payloadId: 'payload-local',
             deviceUuid: 'device-local',
             nom: 'Mine hors ligne',
+            agentLogin: const Value('eddy'),
             createdAt: now,
             updatedAt: now,
           ),
@@ -27,7 +35,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [dbProvider.overrideWithValue(db)],
+        overrides: [
+          dbProvider.overrideWithValue(db),
+          authControllerProvider.overrideWith(_SignedInAuthController.new),
+        ],
         child: const MaterialApp(home: MineSubmissionsScreen()),
       ),
     );
@@ -65,6 +76,7 @@ void main() {
             communeId: const Value(24091),
             state: const Value('pending_validation'),
             serverId: const Value(42),
+            agentLogin: const Value('eddy'),
             createdAt: now,
             updatedAt: now,
           ),
@@ -89,7 +101,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [dbProvider.overrideWithValue(db)],
+        overrides: [
+          dbProvider.overrideWithValue(db),
+          authControllerProvider.overrideWith(_SignedInAuthController.new),
+        ],
         child: const MaterialApp(home: MineSubmissionsScreen()),
       ),
     );

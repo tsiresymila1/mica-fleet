@@ -20,9 +20,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Proposer une mine'), findsWidgets);
-    expect(find.text('Sélectionner une commune'), findsNothing);
+    expect(find.text('Sélectionner une commune'), findsOneWidget);
     expect(find.textContaining('déterminés par le serveur'), findsOneWidget);
-    expect(find.textContaining('5 photo(s) restante(s)'), findsOneWidget);
+    expect(find.textContaining('0/5 minimum'), findsOneWidget);
 
     final saveButton = tester.widget<FilledButton>(
       find.ancestor(

@@ -29,6 +29,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
     required String name,
     required List<CapturedPhoto> photos,
     String? agentLogin,
+    int? communeId,
   }) async {
     final normalizedName = name.trim();
     if (normalizedName.isEmpty) {
@@ -89,6 +90,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
         'id': payloadId,
         'name': normalizedName,
         'created_at': _odooDate(now),
+        ...communeId == null ? {} : {'commune_id': communeId},
         'positions': [
           for (final part in parts)
             {
@@ -115,6 +117,7 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                 payloadId: payloadId,
                 deviceUuid: deviceUuid,
                 nom: normalizedName,
+                communeId: Value(communeId),
                 agentLogin: Value(agentLogin),
                 createdAt: now,
                 updatedAt: now,

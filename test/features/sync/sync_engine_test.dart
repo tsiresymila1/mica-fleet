@@ -107,6 +107,9 @@ class _FakeRemote implements RemoteDataSource {
   Future<List<RemoteLot>> fetchLots() async => lots;
 
   @override
+  Future<List<RemoteCommune>> fetchCommunes() async => const [];
+
+  @override
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -692,11 +695,11 @@ void main() {
         depots.singleWhere((row) => row.id == 'ancien-depot').actif,
         isFalse,
       );
-      // Les communes ne sont plus utilisées par le formulaire mine. L'ancien
-      // cache reste intact afin de ne pas rendre la migration destructive.
+      // Les communes sont aussi rafraîchies sur synchronisation.
       final communes = await db.select(db.communes).get();
       expect(communes, hasLength(1));
       expect(communes.single.id, 1);
+      expect(communes.single.actif, isFalse);
     });
 
     test(

@@ -87,6 +87,13 @@ class MockRemoteDataSource implements RemoteDataSource {
   ];
 
   @override
+  Future<List<RemoteCommune>> fetchCommunes() async => const [
+    RemoteCommune(id: 24091, name: 'Andilana', district: 'Ambohidratrimo', actif: true),
+    RemoteCommune(id: 24092, name: 'Ambatomena', district: 'Manjakandriana', actif: true),
+    RemoteCommune(id: 24093, name: 'Sahatany', district: 'Antsirabe II', actif: true),
+  ];
+
+  @override
   Future<List<RemoteDepot>> fetchDepots() async => const [
     RemoteDepot('D001', 'Dépôt Antananarivo', -18.879, 47.5079, 20, true),
     RemoteDepot('D002', 'Dépôt Antsirabe', -19.8659, 47.0334, 20, true),

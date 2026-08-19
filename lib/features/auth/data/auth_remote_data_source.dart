@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:retrofit/retrofit.dart';
 import '../../sync/domain/repositories/remote_data_source.dart'
-    show RemoteDepot, RemoteMine;
+    show RemoteCommune, RemoteDepot, RemoteMine;
 
 part 'auth_remote_data_source.g.dart';
 
@@ -12,12 +12,14 @@ class LoginResult {
   final String agentId;
   final String agentNom;
   final List<RemoteMine> mines;
+  final List<RemoteCommune> communes;
   final List<RemoteDepot> depots;
   LoginResult({
     required this.token,
     required this.agentId,
     required this.agentNom,
     required this.mines,
+    required this.communes,
     required this.depots,
   });
 }
@@ -46,7 +48,8 @@ abstract class AuthApi {
 
 class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
   final AuthApi api;
-  RetrofitAuthRemoteDataSource(this.api);
+  final Dio dio;
+  RetrofitAuthRemoteDataSource(this.api, this.dio);
 
   @override
   Future<LoginResult> login(String login, String password) async {
@@ -68,6 +71,17 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       agentId: (agent['login'] ?? login).toString(),
       agentNom: (agent['name'] ?? login).toString(),
       mines: _mines(await _tryList(() => api.mines(bearer), 'mines')),
+      communes: _communes(
+        await _tryList(
+          () async => _listFromResponse(
+            await dio.get(
+              '/api/commune',
+              options: Options(headers: {'Authorization': bearer}),
+            ),
+          ),
+          'communes',
+        ),
+      ),
       depots: _depots(await _tryList(() => api.storages(bearer), 'depots')),
     );
   }
@@ -90,6 +104,36 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
     if (data is List) return data;
     if (data is Map) return data[cle] as List?;
     return null;
+  }
+
+  List? _listFromResponse(Response<dynamic> response) {
+    return _list(response.data, 'communes');
+  }
+
+  List<RemoteCommune> _communes(List? raw) {
+    if (raw == null) return [];
+    final communes = <RemoteCommune>[];
+    for (final entry in raw) {
+      final m = entry as Map<String, dynamic>?;
+      if (m == null) continue;
+      final id = m['id'];
+      final communeId = id is int
+          ? id
+          : id is String
+          ? int.tryParse(id)
+          : null;
+      final name = _asOptionalString(m['name']);
+      if (communeId == null || name == null || name.isEmpty) continue;
+      communes.add(
+        RemoteCommune(
+          id: communeId,
+          name: name,
+          district: _asOptionalString(m['district']),
+          actif: _asBool(m['active']) ?? true,
+        ),
+      );
+    }
+    return communes;
   }
 
   List<RemoteMine> _mines(List? raw) {
@@ -206,6 +250,26 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
     token: 'demo-token',
     agentId: 'F001',
     agentNom: 'Fournisseur Démo',
+    communes: const [
+      RemoteCommune(
+        id: 24091,
+        name: 'Andilana',
+        district: 'Ambohidratrimo',
+        actif: true,
+      ),
+      RemoteCommune(
+        id: 24092,
+        name: 'Ambatomena',
+        district: 'Manjakandriana',
+        actif: true,
+      ),
+      RemoteCommune(
+        id: 24093,
+        name: 'Sahatany',
+        district: 'Antsirabe II',
+        actif: true,
+      ),
+    ],
     mines: [
       RemoteMine(
         'M001',

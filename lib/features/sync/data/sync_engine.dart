@@ -77,6 +77,11 @@ class SyncEngine {
       // pas les deux autres ni le cache déjà disponible.
     }
     try {
+      await _pullCommunes();
+    } catch (_) {
+      // En cas d'indisponibilité, le cache local reste inchangé.
+    }
+    try {
       await _pullLots();
     } catch (_) {
       // Le cache local reste disponible si l'historique distant est en panne.
@@ -591,6 +596,27 @@ class SyncEngine {
               lon: depot.lon,
               rayonMetres: Value(depot.rayonMetres),
               actif: Value(depot.actif),
+            ),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+    });
+  }
+
+  Future<void> _pullCommunes() async {
+    final communes = await remote.fetchCommunes();
+    await db.transaction(() async {
+      await db.update(db.communes).write(const CommunesCompanion(actif: Value(false)));
+      await db.batch((batch) {
+        for (final commune in communes) {
+          batch.insert(
+            db.communes,
+            CommunesCompanion.insert(
+              id: Value(commune.id),
+              nom: commune.name,
+              district: Value(commune.district),
+              actif: Value(commune.actif),
             ),
             mode: InsertMode.insertOrReplace,
           );

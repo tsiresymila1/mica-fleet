@@ -33,6 +33,9 @@ class _ReferencesRemote implements RemoteDataSource {
   Future<List<RemoteLot>> fetchLots() async => const [];
 
   @override
+  Future<List<RemoteCommune>> fetchCommunes() async => const [];
+
+  @override
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,

@@ -41,10 +41,16 @@ class CreateMineSubmissionController {
     required String name,
     required List<CapturedPhoto> photos,
     String? agentLogin,
+    int? communeId,
   }) async {
     final result = await ref
         .read(mineSubmissionRepositoryProvider)
-        .create(name: name, photos: photos, agentLogin: agentLogin);
+        .create(
+          name: name,
+          photos: photos,
+          agentLogin: agentLogin,
+          communeId: communeId,
+        );
     if (result.isRight()) {
       ref.invalidate(mineSubmissionsProvider);
       // Le moteur absorbe les erreurs réseau et gardera l'opération en attente.

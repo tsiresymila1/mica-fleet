@@ -25,6 +25,20 @@ class RemoteMine {
   });
 }
 
+class RemoteCommune {
+  final int id;
+  final String name;
+  final String? district;
+  final bool actif;
+
+  const RemoteCommune({
+    required this.id,
+    required this.name,
+    this.district,
+    required this.actif,
+  });
+}
+
 class RemoteDepot {
   final String id, nom;
   final double lat, lon, rayonMetres;
@@ -121,6 +135,9 @@ abstract class RemoteDataSource {
 
   /// Pull du référentiel mines.
   Future<List<RemoteMine>> fetchMines();
+
+  /// Pull du référentiel communes (liste des communes autorisées/actives).
+  Future<List<RemoteCommune>> fetchCommunes() async => const [];
 
   /// Pull du référentiel dépôts.
   Future<List<RemoteDepot>> fetchDepots();

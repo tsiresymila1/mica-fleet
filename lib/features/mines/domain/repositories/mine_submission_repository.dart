@@ -9,6 +9,7 @@ abstract class MineSubmissionRepository {
     required String name,
     required List<CapturedPhoto> photos,
     String? agentLogin,
+    int? communeId,
   });
 
   Future<List<MineSubmission>> list({String? agentLogin});

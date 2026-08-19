@@ -15,7 +15,7 @@ import '../../domain/usecases/login.dart';
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   if (AppConfig.demo) return MockAuthRemoteDataSource();
   final dio = buildDio(baseUrl: AppConfig.odooBaseUrl);
-  return RetrofitAuthRemoteDataSource(AuthApi(dio));
+  return RetrofitAuthRemoteDataSource(AuthApi(dio), dio);
 });
 
 final authRepositoryProvider = Provider<AuthRepository>(
