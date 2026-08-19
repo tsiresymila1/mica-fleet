@@ -9,6 +9,8 @@ import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/domain/entities/traceability_photos.dart';
 import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../mines/domain/entities/mine.dart';
+import '../../../mines/domain/entities/mine_submission.dart';
+import '../../../mines/presentation/providers/mine_submissions_provider.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
 import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/lot.dart';
@@ -21,7 +23,7 @@ class AddMineScreen extends ConsumerStatefulWidget {
 }
 
 class _AddMineScreenState extends ConsumerState<AddMineScreen> {
-  Mine? _mine;
+  _MineChoice? _mineChoice;
   CapturedPhoto? _platePhoto;
   CapturedPhoto? _truckPhoto;
   final _couleurCtrl = TextEditingController();
@@ -75,10 +77,29 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   int get _capturedPhotoCount =>
       [_platePhoto, _truckPhoto].whereType<CapturedPhoto>().length;
 
-  bool get _canSave => _mine != null && _capturedPhotoCount == 2;
+  bool get _canSave =>
+      _mineChoice != null &&
+      _mineChoice!.id.isNotEmpty &&
+      _capturedPhotoCount == 2;
+
+  Future<void> _openMinePicker(
+    List<_MineChoice> mines,
+    String? currentId,
+  ) async {
+    final selected = await showModalBottomSheet<_MineChoice>(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (_) => _MineSelectionSheet(mines: mines, currentId: currentId),
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _mineChoice = selected);
+  }
 
   void _save() {
-    if (_mine == null || _platePhoto == null || _truckPhoto == null) {
+    if (_mineChoice == null || _platePhoto == null || _truckPhoto == null) {
       showAppMessage(
         context,
         'Choisis la mine et prends les 2 photos obligatoires',
@@ -86,12 +107,11 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       );
       return;
     }
-    // L'id définitif du lot est attribué par AddLotToChargement (<session>-L<n>).
+    // L'id définitif du lot est attribué par AddChargementScreen (<session>-L<n>).
     Navigator.of(context).pop(
       Lot(
         id: '',
-        mineId: _mine!.id,
-        // Référence fournisseur masquée pour l'instant (voir demande produit).
+        mineId: _mineChoice!.id,
         couleur: _couleurCtrl.text.trim().isEmpty
             ? null
             : _couleurCtrl.text.trim(),
@@ -107,9 +127,52 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
     );
   }
 
+  List<_MineChoice> _buildMineOptions(
+    List<Mine> mines,
+    List<dynamic> submissions,
+  ) {
+    final mineOptions = mines
+        .map(
+          (mine) => _MineChoice(
+            id: mine.id,
+            name: mine.nom,
+            reference: mine.reference,
+            note: mine.note,
+            district: mine.district,
+            commune: mine.commune,
+            fokontany: mine.fokontany,
+            lat: mine.lat,
+            lon: mine.lon,
+            createdAt: mine.createdAt,
+            fromSubmission: false,
+          ),
+        )
+        .toList();
+
+    final localMineOptions = submissions
+        .whereType<_MineSubmissionPreview>()
+        .map(
+          (submission) => _MineChoice(
+            id: submission.id,
+            name: submission.name,
+            reference: submission.reference,
+            note: submission.note,
+            lat: submission.lat,
+            lon: submission.lon,
+            createdAt: submission.createdAt,
+            fromSubmission: true,
+          ),
+        )
+        .toList();
+
+    return [...mineOptions, ...localMineOptions];
+  }
+
   @override
   Widget build(BuildContext context) {
     final minesAsync = ref.watch(minesProvider);
+    final submissionsAsync = ref.watch(mineSubmissionsProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Chargement à la mine')),
       body: ListView(
@@ -118,34 +181,83 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           StepHeader(
             numero: 1,
             titre: 'La mine',
-            sousTitre: 'Sélectionne la mine d’origine de ce lot',
+            sousTitre: 'Choisis la mine d’origine de ce lot',
           ),
           const SizedBox(height: 12),
-          minesAsync.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (e, _) => const Text('Impossible de charger les mines'),
-            data: (mines) {
-              if (ref.read(simSessionProvider) != null &&
-                  _mine == null &&
-                  mines.isNotEmpty) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _mine = mines.first);
-                });
-              }
-              return DropdownButtonFormField<Mine>(
-                initialValue: _mine,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Choisir la mine',
-                  prefixIcon: Icon(Icons.landscape),
-                ),
-                items: mines
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m.nom)))
-                    .toList(),
-                onChanged: (m) => setState(() => _mine = m),
-              );
-            },
-          ),
+          if (minesAsync.isLoading || submissionsAsync.isLoading)
+            const LinearProgressIndicator()
+          else if (minesAsync.hasError || submissionsAsync.hasError)
+            const Text('Impossible de charger les mines')
+          else
+            Builder(
+              builder: (context) {
+                final mineOptions = _buildMineOptions(
+                  minesAsync.value ?? const [],
+                  (submissionsAsync.value ?? const [])
+                      .where(
+                        (s) =>
+                            s.state == MineSubmissionState.localPending ||
+                            s.state ==
+                                MineSubmissionState.awaitingAttachments ||
+                            s.state == MineSubmissionState.pendingValidation,
+                      )
+                      .map(
+                        (s) => _MineSubmissionPreview(
+                          id: s.payloadId,
+                          name: s.nom,
+                          reference: null,
+                          note: null,
+                          createdAt: s.createdAt,
+                          lat: s.photos.isNotEmpty
+                              ? s.photos.first.photo.lat
+                              : null,
+                          lon: s.photos.isNotEmpty
+                              ? s.photos.first.photo.lon
+                              : null,
+                        ),
+                      )
+                      .toList(),
+                );
+                if (mineOptions.isEmpty) {
+                  return const Text(
+                    'Aucune mine disponible. Propose d’abord une mine.',
+                  );
+                }
+
+                if (_mineChoice == null) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() => _mineChoice = mineOptions.first);
+                    }
+                  });
+                } else if (!mineOptions.any((m) => m.id == _mineChoice!.id)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() => _mineChoice = mineOptions.first);
+                    }
+                  });
+                }
+
+                final mine = _mineChoice != null
+                    ? mineOptions.firstWhere(
+                        (m) => m.id == _mineChoice!.id,
+                        orElse: () => mineOptions.first,
+                      )
+                    : mineOptions.first;
+
+                return InkWell(
+                  onTap: () => _openMinePicker(mineOptions, mine.id),
+                  borderRadius: BorderRadius.circular(12),
+                  child: ActionTile(
+                    icon: Icons.terrain,
+                    color: AppColors.gold,
+                    titre: mine.name,
+                    sousTitre: mine.summary,
+                    trailing: const Icon(Icons.search),
+                  ),
+                );
+              },
+            ),
           const SizedBox(height: 24),
           StepHeader(
             numero: 2,
@@ -210,6 +322,162 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           icon: Icons.check,
           label: 'Enregistrer le lot',
           onPressed: _canSave ? _save : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _MineChoice {
+  const _MineChoice({
+    required this.id,
+    required this.name,
+    required this.fromSubmission,
+    this.reference,
+    this.note,
+    this.district,
+    this.commune,
+    this.fokontany,
+    this.lat,
+    this.lon,
+    this.createdAt,
+  });
+
+  final String id;
+  final String name;
+  final String? reference;
+  final String? note;
+  final String? district;
+  final String? commune;
+  final String? fokontany;
+  final double? lat;
+  final double? lon;
+  final DateTime? createdAt;
+  final bool fromSubmission;
+
+  String get summary {
+    final parts = <String>[
+      if (reference?.trim().isNotEmpty == true) 'Réf. ${reference!.trim()}',
+      if (note?.trim().isNotEmpty == true) 'Note: ${note!.trim()}',
+      if (fokontany?.trim().isNotEmpty == true)
+        'Fokontany: ${fokontany!.trim()}',
+      if (commune?.trim().isNotEmpty == true) commune!.trim(),
+      if (district?.trim().isNotEmpty == true) district!.trim(),
+      if (lat != null && lon != null)
+        'GPS ${lat!.toStringAsFixed(5)}, ${lon!.toStringAsFixed(5)}',
+      if (createdAt != null)
+        'Créé le ${createdAt!.day.toString().padLeft(2, '0')}/'
+            '${createdAt!.month.toString().padLeft(2, '0')}/${createdAt!.year}',
+      if (fromSubmission) 'Créée manuellement (non validée)',
+    ];
+    return parts.join('  •  ');
+  }
+}
+
+class _MineSubmissionPreview {
+  const _MineSubmissionPreview({
+    required this.id,
+    required this.name,
+    this.reference,
+    this.note,
+    this.createdAt,
+    this.lat,
+    this.lon,
+  });
+
+  final String id;
+  final String name;
+  final String? reference;
+  final String? note;
+  final DateTime? createdAt;
+  final double? lat;
+  final double? lon;
+}
+
+class _MineSelectionSheet extends StatefulWidget {
+  const _MineSelectionSheet({required this.mines, required this.currentId});
+
+  final List<_MineChoice> mines;
+  final String? currentId;
+
+  @override
+  State<_MineSelectionSheet> createState() => _MineSelectionSheetState();
+}
+
+class _MineSelectionSheetState extends State<_MineSelectionSheet> {
+  final _queryCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _queryCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _queryCtrl.text.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? widget.mines
+        : widget.mines.where((mine) {
+            final haystack =
+                '${mine.name} ${mine.reference ?? ''} ${mine.note ?? ''} '
+                        '${mine.district ?? ''} ${mine.commune ?? ''} '
+                        '${mine.fokontany ?? ''}'
+                    .toLowerCase();
+            return haystack.contains(q);
+          }).toList();
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.8,
+        child: Column(
+          children: [
+            TextField(
+              controller: _queryCtrl,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Rechercher une mine',
+                prefixIcon: Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('Aucun résultat'))
+                  : ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final mine = filtered[index];
+                        final selected = mine.id == widget.currentId;
+                        return ListTile(
+                          leading: Icon(
+                            mine.fromSubmission
+                                ? Icons.pending_actions
+                                : Icons.terrain,
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.inkSoft,
+                          ),
+                          title: Text(mine.name),
+                          subtitle: Text(
+                            mine.summary,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          selected: selected,
+                          onTap: () => Navigator.of(context).pop(mine),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
       ),
     );

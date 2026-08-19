@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
@@ -533,6 +532,9 @@ class SyncEngine {
               lat: mine.lat,
               lon: mine.lon,
               rayonMetres: Value(mine.rayonMetres),
+              reference: Value(mine.reference),
+              note: Value(mine.note),
+              createdAt: Value(mine.createdAt),
               district: Value(mine.district),
               fokontany: Value(mine.fokontany),
               commune: Value(mine.commune),
@@ -620,6 +622,7 @@ class SyncEngine {
           db.lots,
         )..where((table) => table.id.equals(local.id))).write(
           LotsCompanion(
+            mineId: Value(remoteLot.mineId),
             serverReference: Value(remoteLot.reference),
             validationStatus: Value(remoteLot.validationStatus),
             validationReason: Value(remoteLot.validationReason),
@@ -642,6 +645,9 @@ class SyncEngine {
                 MinesCompanion.insert(
                   id: remoteLot.mineId,
                   nom: remoteLot.mineName,
+                  reference: Value(remoteLot.reference),
+                  note: Value(remoteLot.mineNote),
+                  createdAt: Value(remoteLot.createdAt),
                   lat: 0,
                   lon: 0,
                 ),
@@ -689,38 +695,30 @@ class SyncEngine {
       });
     }
 
-    await _deleteLotsMissingOnServer(
-      currentSupplierId,
-      remotePayloadIds,
-    );
+    await _deleteLotsMissingOnServer(currentSupplierId, remotePayloadIds);
   }
 
   Future<void> _deleteLotsMissingOnServer(
     String supplierId,
     Set<String> remotePayloadIds,
   ) async {
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.every((status) => status == ConnectivityResult.none)) {
-      // Quand on est réellement hors-ligne, éviter toute suppression de cache.
-      return;
-    }
-
-    final supplierSessions = await (db.select(db.chargements)
-          ..where((t) => t.fournisseurId.equals(supplierId)))
-        .get();
+    final supplierSessions = await (db.select(
+      db.chargements,
+    )..where((t) => t.fournisseurId.equals(supplierId))).get();
     if (supplierSessions.isEmpty) return;
     final sessionIds = supplierSessions.map((s) => s.id).toSet();
-    final supplierLots = await (db.select(db.lots)
-          ..where((t) => t.sessionId.isIn(sessionIds)))
-        .get();
+    final supplierLots = await (db.select(
+      db.lots,
+    )..where((t) => t.sessionId.isIn(sessionIds))).get();
 
     for (final lot in supplierLots) {
       if (lot.payloadUuid == null) continue;
       if (!lot.remoteOnly) {
-        final hasLotSyncOp = await (db.select(db.syncQueue)
-              ..where((t) =>
-                  t.entityType.equals('lot') & t.entityId.equals(lot.id)))
-            .getSingleOrNull();
+        final hasLotSyncOp =
+            await (db.select(db.syncQueue)..where(
+                  (t) => t.entityType.equals('lot') & t.entityId.equals(lot.id),
+                ))
+                .getSingleOrNull();
         if (hasLotSyncOp == null) continue;
       }
       if (remotePayloadIds.contains(lot.payloadUuid!)) continue;
@@ -729,24 +727,28 @@ class SyncEngine {
     }
 
     for (final session in supplierSessions) {
-      final hasLots = await (db.select(db.lots)
-            ..where((t) => t.sessionId.equals(session.id)))
-          .get()
-          .then((rows) => rows.isNotEmpty);
+      final hasLots =
+          await (db.select(db.lots)
+                ..where((t) => t.sessionId.equals(session.id)))
+              .get()
+              .then((rows) => rows.isNotEmpty);
       if (!hasLots) {
-        await (db.delete(db.chargements)..where((t) => t.id.equals(session.id)))
-            .go();
+        await (db.delete(
+          db.chargements,
+        )..where((t) => t.id.equals(session.id))).go();
       }
     }
   }
 
   Future<bool> _lotHasPendingSyncQueue(String lotId) async {
-    final blocking = await (db.select(db.syncQueue)
-          ..where((t) =>
-              t.entityType.equals('lot') &
-              t.entityId.equals(lotId) &
-              t.status.equals('synced').not()))
-        .getSingleOrNull();
+    final blocking =
+        await (db.select(db.syncQueue)..where(
+              (t) =>
+                  t.entityType.equals('lot') &
+                  t.entityId.equals(lotId) &
+                  t.status.equals('synced').not(),
+            ))
+            .getSingleOrNull();
     return blocking != null;
   }
 
@@ -761,15 +763,17 @@ class SyncEngine {
       await (db.delete(
         db.arriveesDepot,
       )..where((t) => t.lotId.equals(lotId))).go();
-      await (db.delete(db.syncQueue)..where((t) => t.entityId.equals(lotId))).go();
+      await (db.delete(
+        db.syncQueue,
+      )..where((t) => t.entityId.equals(lotId))).go();
       await (db.delete(db.lots)..where((t) => t.id.equals(lotId))).go();
     });
   }
 
   Future<String?> _activeSupplierId() async {
-    final sessions = await (db.select(db.fournisseurs)
-      ..where((t) => t.sessionToken.isNotNull()))
-        .get();
+    final sessions = await (db.select(
+      db.fournisseurs,
+    )..where((t) => t.sessionToken.isNotNull())).get();
     return sessions.firstOrNull?.id;
   }
 

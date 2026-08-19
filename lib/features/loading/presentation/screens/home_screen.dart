@@ -104,7 +104,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Row(
                       children: [
                         _filterChip('all', 'Tous'),
-                        _filterChip('draft', 'Brouillons'),
+                        _filterChip('pending', 'En attente'),
                         _filterChip('validated', 'Validés'),
                         _filterChip('rejected', 'Rejetés'),
                       ],
@@ -142,7 +142,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       if (l.arrive || l.remoteOnly) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.lock_outline, size: 20, color: AppColors.inkSoft),
+                        Icon(
+                          Icons.lock_outline,
+                          size: 20,
+                          color: AppColors.inkSoft,
+                        ),
                       ] else ...[
                         const SizedBox(width: 6),
                         IconButton(
@@ -242,10 +246,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 String _validationLabel(String status) => switch (status) {
-  'draft' => 'Brouillon',
+  'pending' => 'En attente',
   'validated' => 'Validé',
   'rejected' => 'Rejeté',
-  _ => 'Brouillon',
+  _ => 'En attente',
 };
 
 class _AccountDrawer extends StatelessWidget {

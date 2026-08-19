@@ -275,10 +275,10 @@ Réponse :
 ```json
 {
   "status": "created",
-  "data": {
+    "data": {
     "id": 987,
     "payload_id": "84a0de8e-450c-46f9-a8b6-1d216f306677",
-    "validation_status": "draft",
+    "validation_status": "pending",
     "required_attachments": 8,
     "received_attachments": 0
   }
@@ -322,7 +322,7 @@ Chaque élément de `data.lots` est **strictement le même objet que
 ces trois champs à la racine de l’objet :
 
 - `traceability_reference` : référence définitive créée par le backend ;
-- `validation_status` : `draft`, `validated` ou `rejected` ;
+- `validation_status` : `pending`, `validated` ou `rejected` ;
 - `validation_reason` : motif du rejet, sinon `null`.
 
 Il ne faut donc pas renommer `payload.id` en `payload_id` dans cette réponse.
@@ -394,7 +394,7 @@ Il ne faut donc pas renommer `payload.id` en `payload_id` dans cette réponse.
 
 Valeurs canoniques de `validation_status` :
 
-- `draft` : brouillon / en cours de validation ;
+- `pending` : en attente / en cours de validation ;
 - `validated` : validé ;
 - `rejected` : rejeté, avec `validation_reason`.
 

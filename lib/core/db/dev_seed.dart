@@ -55,6 +55,7 @@ class DevSeeder {
               nom: nom,
               lat: lat,
               lon: lon,
+              createdAt: Value(DateTime(2026, 1, 1)),
               district: Value(district),
               commune: Value(commune),
               region: Value(region),

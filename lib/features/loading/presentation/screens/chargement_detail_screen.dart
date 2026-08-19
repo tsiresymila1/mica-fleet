@@ -395,10 +395,10 @@ class ChargementDetailScreen extends ConsumerWidget {
 }
 
 String _validationLabel(String status) => switch (status) {
-  'draft' => 'Brouillon',
+  'pending' => 'En attente',
   'validated' => 'Validé',
   'rejected' => 'Rejeté',
-  _ => 'Brouillon',
+  _ => 'En attente',
 };
 
 /// Carte de la trace GPS de la session (points espacés >20 m). Départ en vert,

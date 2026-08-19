@@ -42,11 +42,12 @@ class LotListItem {
 
 String normalizeValidationStatus(String status) {
   return switch (status.trim().toLowerCase()) {
-    'draft' => 'draft',
-    'in_progress' || 'en_cours' => 'draft',
+    'pending' => 'pending',
+    'draft' => 'pending',
+    'in_progress' || 'en_cours' => 'pending',
     'validated' || 'validé' || 'valide' => 'validated',
     'rejected' || 'rejeté' || 'rejete' => 'rejected',
-    _ => 'draft',
+    _ => 'pending',
   };
 }
 
@@ -60,16 +61,18 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
   }
 
   final db = ref.watch(dbProvider);
-  final sessions = await (db.select(db.chargements)
-        ..where((t) => t.fournisseurId.equals(supplierId)))
-      .get();
+  final sessions = await (db.select(
+    db.chargements,
+  )..where((t) => t.fournisseurId.equals(supplierId))).get();
   if (sessions.isEmpty) {
     return [];
   }
   final sessionIds = sessions.map((s) => s.id).toSet();
   final dates = {for (final s in sessions) s.id: s.dateCreation};
   final allLots = await db.select(db.lots).get();
-  final lots = allLots.where((lot) => sessionIds.contains(lot.sessionId)).toList();
+  final lots = allLots
+      .where((lot) => sessionIds.contains(lot.sessionId))
+      .toList();
   final mines = await db.select(db.mines).get();
   final mineNames = {for (final mine in mines) mine.id: mine.nom};
   final items = <LotListItem>[];

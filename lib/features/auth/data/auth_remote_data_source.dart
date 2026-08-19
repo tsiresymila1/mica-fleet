@@ -115,6 +115,9 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
           _asOptionalString(m['commune']),
           _asOptionalString(m['region']),
           _asBool(m['active']) ?? true,
+          reference: _asOptionalString(m['reference']),
+          note: _asOptionalString(m['note']),
+          createdAt: _parseDate(m['created_at']) ?? _parseDate(m['createdAt']),
           fokontany: _asOptionalString(m['fokontany']),
         ),
       );
@@ -152,23 +155,23 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       value is String ? (value.isEmpty ? null : value) : null;
 
   static String? _asString(dynamic value) => switch (value) {
-        String v => v.isEmpty ? null : v,
-        null => null,
-        _ => value.toString(),
-      };
+    String v => v.isEmpty ? null : v,
+    null => null,
+    _ => value.toString(),
+  };
 
   static double? _toDouble(dynamic value) => switch (value) {
-        num v => v.toDouble(),
-        String v => double.tryParse(v),
-        _ => null,
-      };
+    num v => v.toDouble(),
+    String v => double.tryParse(v),
+    _ => null,
+  };
 
   static bool? _asBool(dynamic value) => switch (value) {
-        bool v => v,
-        String v => _parseBool(v),
-        int v => v != 0,
-        _ => null,
-      };
+    bool v => v,
+    String v => _parseBool(v),
+    int v => v != 0,
+    _ => null,
+  };
 
   static bool? _parseBool(String value) {
     switch (value.trim().toLowerCase()) {
@@ -190,6 +193,10 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
         return null;
     }
   }
+
+  static DateTime? _parseDate(dynamic value) => value == null
+      ? null
+      : DateTime.tryParse(value.toString().replaceFirst(' ', 'T'));
 }
 
 /// Mock démo : token factice + référentiel seedé.
@@ -210,6 +217,9 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
         'Andilana',
         'Analamanga',
         true,
+        reference: null,
+        note: null,
+        createdAt: DateTime(2026, 1, 1),
       ),
       RemoteMine(
         'M002',
@@ -221,6 +231,9 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
         'Ambatomena',
         'Analamanga',
         true,
+        reference: null,
+        note: null,
+        createdAt: DateTime(2026, 1, 1),
       ),
       RemoteMine(
         'M003',
@@ -232,6 +245,9 @@ class MockAuthRemoteDataSource implements AuthRemoteDataSource {
         'Sahatany',
         'Vakinankaratra',
         true,
+        reference: null,
+        note: null,
+        createdAt: DateTime(2026, 1, 1),
       ),
     ],
     depots: [

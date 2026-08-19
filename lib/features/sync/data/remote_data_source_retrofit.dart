@@ -182,6 +182,8 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
               (mine['mine_name'] ?? mine['name'] ?? entry['mine_name'])
                   ?.toString() ??
               mineId,
+          mineReference: mine['reference']?.toString(),
+          mineNote: mine['note']?.toString(),
           color: (mine['color'] ?? entry['color'])?.toString(),
           estimatedQuantity:
               (mine['estimated_quantity'] ?? entry['estimated_quantity']) is num
@@ -260,6 +262,9 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       _asOptionalString(m['commune']),
       _asOptionalString(m['region']),
       _asBool(m['active']) ?? true,
+      reference: _asOptionalString(m['reference']),
+      note: _asOptionalString(m['note']),
+      createdAt: _date(m['created_at']) ?? _date(m['createdAt']),
       fokontany: _asOptionalString(m['fokontany']),
     );
   }
@@ -268,23 +273,23 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       value is String ? (value.isEmpty ? null : value) : null;
 
   static String? _asString(dynamic value) => switch (value) {
-        String v => v.isEmpty ? null : v,
-        null => null,
-        _ => value.toString(),
-      };
+    String v => v.isEmpty ? null : v,
+    null => null,
+    _ => value.toString(),
+  };
 
   static double? _toDouble(dynamic value) => switch (value) {
-        num v => v.toDouble(),
-        String v => double.tryParse(v),
-        _ => null,
-      };
+    num v => v.toDouble(),
+    String v => double.tryParse(v),
+    _ => null,
+  };
 
   static bool? _asBool(dynamic value) => switch (value) {
-        bool v => v,
-        String v => _parseBool(v),
-        int v => v != 0,
-        _ => null,
-      };
+    bool v => v,
+    String v => _parseBool(v),
+    int v => v != 0,
+    _ => null,
+  };
 
   static bool? _parseBool(String value) {
     switch (value.trim().toLowerCase()) {
@@ -327,10 +332,11 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   static String _validationStatus(String? value) =>
       switch (value?.trim().toLowerCase()) {
-        'draft' => 'draft',
+        'pending' => 'pending',
+        'draft' => 'pending',
         'validated' || 'valide' || 'validé' => 'validated',
         'rejected' || 'rejete' || 'rejeté' => 'rejected',
-        _ => 'draft',
+        _ => 'pending',
       };
 
   /// Datetime au format Odoo : 'YYYY-MM-DD HH:MM:SS' (UTC).

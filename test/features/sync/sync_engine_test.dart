@@ -702,6 +702,16 @@ void main() {
     test(
       'pull lots restaure le cache sans doublon et actualise la validation',
       () async {
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-restore-lots'),
+              ),
+            );
         final remoteLot = RemoteLot(
           payloadId: 'payload-server-1',
           sessionId: 'session-server-1',
@@ -712,6 +722,8 @@ void main() {
           updatedAt: DateTime.utc(2026, 8, 14, 10),
           mineId: 'm1',
           mineName: 'Mine 1',
+          mineReference: null,
+          mineNote: null,
           color: 'Blanc',
           estimatedQuantity: 120,
           transportStatus: 'arrive',
@@ -735,14 +747,16 @@ void main() {
     test(
       'pull lots supprime les lots synchronisés qui n’existent plus serveur',
       () async {
-        await db.into(db.fournisseurs).insert(
-          FournisseursCompanion.insert(
-            id: 'eddy',
-            nom: 'Eddy',
-            actif: const Value(true),
-            sessionToken: const Value('token-sync-lot'),
-          ),
-        );
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-sync-lot'),
+              ),
+            );
         await db
             .into(db.chargements)
             .insert(
@@ -789,14 +803,16 @@ void main() {
     test(
       'pull lots ne supprime pas les lots locaux non synchronisés',
       () async {
-        await db.into(db.fournisseurs).insert(
-          FournisseursCompanion.insert(
-            id: 'eddy',
-            nom: 'Eddy',
-            actif: const Value(true),
-            sessionToken: const Value('token-local-lot'),
-          ),
-        );
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-local-lot'),
+              ),
+            );
         await db
             .into(db.chargements)
             .insert(
@@ -830,6 +846,16 @@ void main() {
     test(
       'proposition mine : submit, 5 uploads puis ajout après approbation',
       () async {
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-mine-submission'),
+              ),
+            );
         final storage = Directory.systemTemp.createTempSync(
           'mica_submission_storage_',
         );
@@ -910,6 +936,16 @@ void main() {
         final storage = Directory.systemTemp.createTempSync(
           'mica_mine_retry_storage_',
         );
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-retry-mine'),
+              ),
+            );
         final files = <File>[];
         final photos = <CapturedPhoto>[];
         for (var i = 1; i <= 5; i++) {

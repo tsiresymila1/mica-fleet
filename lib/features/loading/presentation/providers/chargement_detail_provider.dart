@@ -183,7 +183,7 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
     quantite: l.quantiteEstimee,
     lat: l.gpsLat,
     lon: l.gpsLon,
-    date: session?.dateCreation ?? DateTime.fromMillisecondsSinceEpoch(0),
+    date: session.dateCreation,
     statut: l.statut,
     score: l.score ?? arr?.scoreTracabilite,
     minePhotos: photos('mine', 0),
@@ -231,10 +231,12 @@ String _photoRoleLabel(String role) => switch (role) {
   _ => role,
 };
 
-String _normalizeValidationStatus(String status) => switch (status.trim().toLowerCase()) {
-  'draft' => 'draft',
-  'in_progress' || 'en_cours' => 'draft',
-  'validated' || 'validé' || 'valide' => 'validated',
-  'rejected' || 'rejeté' || 'rejete' => 'rejected',
-  _ => 'draft',
-};
+String _normalizeValidationStatus(String status) =>
+    switch (status.trim().toLowerCase()) {
+      'pending' => 'pending',
+      'draft' => 'pending',
+      'in_progress' || 'en_cours' => 'pending',
+      'validated' || 'validé' || 'valide' => 'validated',
+      'rejected' || 'rejeté' || 'rejete' => 'rejected',
+      _ => 'pending',
+    };

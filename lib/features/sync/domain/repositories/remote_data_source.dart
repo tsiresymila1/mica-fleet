@@ -4,6 +4,9 @@ class RemoteMine {
   final String id, nom;
   final double lat, lon, rayonMetres;
   final String? district, fokontany, commune, region;
+  final String? reference;
+  final String? note;
+  final DateTime? createdAt;
   final bool actif;
   RemoteMine(
     this.id,
@@ -15,6 +18,9 @@ class RemoteMine {
     this.commune,
     this.region,
     this.actif, {
+    this.reference,
+    this.note,
+    this.createdAt,
     this.fokontany,
   });
 }
@@ -50,6 +56,8 @@ class RemoteLot {
   final DateTime? updatedAt;
   final String mineId;
   final String mineName;
+  final String? mineReference;
+  final String? mineNote;
   final String? color;
   final double? estimatedQuantity;
   final String transportStatus;
@@ -65,6 +73,8 @@ class RemoteLot {
     required this.updatedAt,
     required this.mineId,
     required this.mineName,
+    required this.mineReference,
+    required this.mineNote,
     required this.color,
     required this.estimatedQuantity,
     required this.transportStatus,

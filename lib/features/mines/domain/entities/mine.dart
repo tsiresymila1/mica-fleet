@@ -4,6 +4,9 @@ class Mine {
   final double lat;
   final double lon;
   final double rayonMetres;
+  final String? reference;
+  final String? note;
+  final DateTime? createdAt;
   final String? district;
   final String? fokontany;
   final String? commune;
@@ -16,6 +19,9 @@ class Mine {
     required this.lat,
     required this.lon,
     this.rayonMetres = 20,
+    this.reference,
+    this.note,
+    this.createdAt,
     this.district,
     this.fokontany,
     this.commune,

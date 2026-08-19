@@ -23,6 +23,9 @@ class Mines extends Table {
   RealColumn get lat => real()();
   RealColumn get lon => real()();
   RealColumn get rayonMetres => real().withDefault(const Constant(20))();
+  TextColumn get reference => text().nullable()();
+  TextColumn get note => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().nullable()();
   TextColumn get district => text().nullable()();
   TextColumn get fokontany => text().nullable()();
   TextColumn get commune => text().nullable()();
@@ -130,7 +133,7 @@ class Lots extends Table {
   IntColumn get photoSchemaVersion =>
       integer().withDefault(const Constant(1))();
   TextColumn get validationStatus =>
-      text().withDefault(const Constant('draft'))();
+      text().withDefault(const Constant('pending'))();
   TextColumn get validationReason => text().nullable()();
   TextColumn get serverReference => text().nullable()();
   DateTimeColumn get serverUpdatedAt => dateTime().nullable()();
@@ -288,7 +291,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 22;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -399,6 +402,11 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(lots, lots.photoSchemaVersion);
         await m.createTable(lotTraceabilityPhotos);
       }
+      if (from < 21) {
+        await m.addColumn(mines, mines.reference);
+        await m.addColumn(mines, mines.note);
+        await m.addColumn(mines, mines.createdAt);
+      }
       if (from >= 12 && from < 20) {
         await m.addColumn(mines, mines.fokontany);
         await m.addColumn(lots, lots.validationStatus);
@@ -410,6 +418,12 @@ class AppDatabase extends _$AppDatabase {
         // La migration conserve les anciennes valeurs mais autorise null pour
         // les nouvelles arrivées.
         await m.alterTable(TableMigration(arriveesDepot));
+      }
+      if (from < 22) {
+        await customStatement(
+          'UPDATE lots SET validation_status = \'pending\' '
+          'WHERE validation_status = \'draft\' OR validation_status IS NULL;',
+        );
       }
     },
   );
