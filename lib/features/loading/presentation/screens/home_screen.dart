@@ -103,10 +103,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _filterChip('all', 'Tous'),
                         _filterChip('pending', 'En attente'),
                         _filterChip('validated', 'Validés'),
                         _filterChip('rejected', 'Rejetés'),
+                        _filterChip('all', 'Tous'),
                       ],
                     ),
                   );
@@ -129,8 +129,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         l.validationReason!.trim().isNotEmpty)
                       l.validationReason!,
                   ].where((line) => line.isNotEmpty).join('\n'),
-                  trailing: Row(
+                  trailing: Column(
                     mainAxisSize: MainAxisSize.min,
+                    spacing: 6,
                     children: [
                       _SyncIcon(l.sync),
                       if (l.score != null)
