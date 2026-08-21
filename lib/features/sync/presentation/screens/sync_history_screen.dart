@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../sync_history_provider.dart';
 import '../sync_provider.dart';
+import '../widgets/sync_icon_button.dart';
 
 /// Historique de synchronisation : chaque envoi vers Odoo, son état et ses
 /// tentatives. Bouton pour relancer la synchronisation des éléments en attente.
@@ -21,9 +22,8 @@ class SyncHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Synchronisation'),
         actions: [
-          IconButton(
+          SyncIconButton(
             tooltip: 'Tout synchroniser',
-            icon: const Icon(Icons.sync),
             onPressed: () async {
               showAppToast(context, 'Synchronisation lancée');
               await ref.read(triggerSyncProvider).sync();

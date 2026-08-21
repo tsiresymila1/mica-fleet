@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
@@ -59,6 +61,18 @@ class _ReferencesRemote implements RemoteDataSource {
   ) async {}
 }
 
+class _BlockingRemote extends _ReferencesRemote {
+  final started = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<List<RemoteMine>> fetchMines() async {
+    if (!started.isCompleted) started.complete();
+    await release.future;
+    return super.fetchMines();
+  }
+}
+
 void main() {
   test('la sync invalide les providers mines et dépôts', () async {
     final db = AppDatabase.memory();
@@ -78,5 +92,28 @@ void main() {
 
     expect((await container.read(minesProvider.future)).single.id, '7');
     expect((await container.read(activeDepotsProvider.future)).single.id, '8');
+  });
+
+  test('expose l’activité pendant toute la synchronisation', () async {
+    final db = AppDatabase.memory();
+    final remote = _BlockingRemote();
+    addTearDown(db.close);
+    final container = ProviderContainer(
+      overrides: [
+        dbProvider.overrideWithValue(db),
+        remoteDataSourceProvider.overrideWithValue(remote),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final synchronization = container.read(triggerSyncProvider).sync();
+    await remote.started.future;
+
+    expect(container.read(syncInProgressProvider), isTrue);
+
+    remote.release.complete();
+    await synchronization;
+
+    expect(container.read(syncInProgressProvider), isFalse);
   });
 }

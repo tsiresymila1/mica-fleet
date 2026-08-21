@@ -6,6 +6,7 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
+import '../../../sync/presentation/widgets/sync_icon_button.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../providers/chargement_detail_provider.dart' show SyncEtat;
 import '../providers/chargements_list_provider.dart';
@@ -70,9 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: AppBar(
         title: const Text('Mes lots'),
         actions: [
-          IconButton(
-            tooltip: 'Synchroniser',
-            icon: const Icon(Icons.sync),
+          SyncIconButton(
             onPressed: () async {
               showAppToast(context, 'Synchronisation lancée');
               await ref.read(triggerSyncProvider).sync();

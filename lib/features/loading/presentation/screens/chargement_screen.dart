@@ -7,6 +7,7 @@ import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/loading_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
+import '../../../sync/presentation/widgets/sync_icon_button.dart';
 import '../../domain/entities/lot.dart';
 import 'add_mine_screen.dart';
 
@@ -77,9 +78,7 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
       appBar: AppBar(
         title: const Text('Chargement'),
         actions: [
-          IconButton(
-            tooltip: 'Synchroniser',
-            icon: const Icon(Icons.sync),
+          SyncIconButton(
             onPressed: () async {
               showAppToast(context, 'Synchronisation lancée');
               await ref.read(triggerSyncProvider).sync();

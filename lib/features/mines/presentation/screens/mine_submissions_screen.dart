@@ -7,6 +7,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../sync/presentation/sync_provider.dart';
+import '../../../sync/presentation/widgets/sync_icon_button.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../providers/mine_submissions_provider.dart';
 import '../providers/mines_provider.dart';
@@ -43,9 +44,7 @@ class MineSubmissionsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Mines proposées'),
         actions: [
-          IconButton(
-            tooltip: 'Synchroniser',
-            icon: const Icon(Icons.sync),
+          SyncIconButton(
             onPressed: () async {
               showAppToast(context, 'Synchronisation lancée');
               await _refresh(ref);
