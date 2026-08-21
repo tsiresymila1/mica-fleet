@@ -825,6 +825,54 @@ void main() {
           estimatedQuantity: 120,
           transportStatus: 'arrive',
           score: 96,
+          minePlate: '1234 TBR',
+          mineLat: -18.91,
+          mineLon: 47.52,
+          mineGpsAccuracy: 5,
+          mineCapturedAt: DateTime.utc(2026, 8, 14, 8),
+          minePhotos: [
+            RemoteLotPhoto(
+              role: 'plate',
+              key: 'mine_plate',
+              url: 'https://example.test/web/image/1',
+              hash: 'hash-mine-plate',
+              lat: -18.91,
+              lon: 47.52,
+              gpsAccuracy: 5,
+              capturedAt: DateTime.utc(2026, 8, 14, 8),
+            ),
+          ],
+          transloads: const [
+            RemoteTransload(
+              order: 1,
+              plateBefore: '1234 TBR',
+              plateAfter: '5678 TBE',
+              unloadLat: -18.91,
+              unloadLon: 47.52,
+              reloadLat: -18.90,
+              reloadLon: 47.53,
+              distanceMeters: 14.5,
+              compliant: true,
+            ),
+          ],
+          arrival: const RemoteLotArrival(
+            driver: 'Rabe',
+            licenseNumber: 'PERMIS-1',
+            lat: -18.879,
+            lon: 47.508,
+            gpsStatus: 'pending_server',
+            plate: '5678 TBE',
+            plateConsistent: true,
+            score: 96,
+            licensePhotoUrl: null,
+          ),
+          track: [
+            RemoteTrackPoint(
+              lat: -18.91,
+              lon: 47.52,
+              capturedAt: DateTime.utc(2026, 8, 14, 8),
+            ),
+          ],
         );
         final engine = SyncEngine(store, _FakeRemote(lots: [remoteLot]), db);
 
@@ -838,6 +886,24 @@ void main() {
         expect(lots.single.validationStatus, 'validated');
         expect(lots.single.remoteOnly, isTrue);
         expect(lots.single.score, 96);
+        expect(lots.single.plaqueDepart, '1234 TBR');
+        expect(lots.single.gpsLat, -18.91);
+        expect(lots.single.photoPath, contains('/web/image/1'));
+        expect(await db.select(db.transbordements).get(), hasLength(1));
+        expect(
+          (await db.select(db.transbordements).get()).single.distanceMetres,
+          14.5,
+        );
+        expect(
+          (await db.select(db.arriveesDepot).get()).single.chauffeur,
+          'Rabe',
+        );
+        expect(await db.select(db.lotTraceabilityPhotos).get(), hasLength(1));
+        expect(
+          (await db.select(db.lotTraceabilityPhotos).get()).single.path,
+          contains('/web/image/1'),
+        );
+        expect(await db.select(db.trajetPoints).get(), hasLength(1));
         final mine = await (db.select(
           db.mines,
         )..where((table) => table.id.equals('m1'))).getSingle();

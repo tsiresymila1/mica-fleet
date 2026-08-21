@@ -45,4 +45,26 @@ void main() {
     expect(find.byIcon(Icons.image_not_supported), findsOneWidget);
     expect(find.byIcon(Icons.zoom_in), findsNothing);
   });
+
+  testWidgets('une URL serveur est cliquable et ouvre le zoom', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: PhotoThumb(
+            path: 'https://example.test/web/image/42?access_token=test',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(Icons.zoom_in), findsOneWidget);
+    openPhoto(
+      tester.element(find.byType(PhotoThumb)),
+      'https://example.test/web/image/42?access_token=test',
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+  });
 }

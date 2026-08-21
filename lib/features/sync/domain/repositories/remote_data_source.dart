@@ -54,12 +54,106 @@ class RemoteDepot {
   );
 }
 
+class RemoteLotPhoto {
+  final String role;
+  final String key;
+  final String? url;
+  final String hash;
+  final double lat;
+  final double lon;
+  final double gpsAccuracy;
+  final DateTime capturedAt;
+  final double? headingDegrees;
+  final double? headingAccuracy;
+  final String? headingReference;
+
+  const RemoteLotPhoto({
+    required this.role,
+    required this.key,
+    required this.url,
+    required this.hash,
+    required this.lat,
+    required this.lon,
+    required this.gpsAccuracy,
+    required this.capturedAt,
+    this.headingDegrees,
+    this.headingAccuracy,
+    this.headingReference,
+  });
+}
+
+class RemoteTransload {
+  final int order;
+  final String? plateBefore;
+  final String? plateAfter;
+  final double? unloadLat;
+  final double? unloadLon;
+  final double? reloadLat;
+  final double? reloadLon;
+  final double? distanceMeters;
+  final bool compliant;
+  final List<RemoteLotPhoto> unloadPhotos;
+  final List<RemoteLotPhoto> reloadPhotos;
+
+  const RemoteTransload({
+    required this.order,
+    required this.plateBefore,
+    required this.plateAfter,
+    required this.unloadLat,
+    required this.unloadLon,
+    required this.reloadLat,
+    required this.reloadLon,
+    required this.distanceMeters,
+    required this.compliant,
+    this.unloadPhotos = const [],
+    this.reloadPhotos = const [],
+  });
+}
+
+class RemoteLotArrival {
+  final String driver;
+  final String licenseNumber;
+  final double lat;
+  final double lon;
+  final String gpsStatus;
+  final String? plate;
+  final bool plateConsistent;
+  final int? score;
+  final String? licensePhotoUrl;
+  final List<RemoteLotPhoto> unloadPhotos;
+
+  const RemoteLotArrival({
+    required this.driver,
+    required this.licenseNumber,
+    required this.lat,
+    required this.lon,
+    required this.gpsStatus,
+    required this.plate,
+    required this.plateConsistent,
+    required this.score,
+    required this.licensePhotoUrl,
+    this.unloadPhotos = const [],
+  });
+}
+
+class RemoteTrackPoint {
+  final double lat;
+  final double lon;
+  final DateTime capturedAt;
+
+  const RemoteTrackPoint({
+    required this.lat,
+    required this.lon,
+    required this.capturedAt,
+  });
+}
+
 /// Vue utile du payload renvoyé par `GET /api/tracking/lots`.
 ///
 /// Le backend renvoie le même objet que `payload` dans le submit, enrichi de
-/// la référence et de la décision de validation. Seuls les champs nécessaires
-/// au cache et aux listes sont projetés ici ; les champs supplémentaires du
-/// payload restent volontairement tolérés par le parseur.
+/// la référence et de la décision de validation. La projection conserve les
+/// données nécessaires à la liste, au détail et à leur consultation en cache ;
+/// les champs supplémentaires restent volontairement tolérés par le parseur.
 class RemoteLot {
   final String payloadId;
   final String sessionId;
@@ -76,6 +170,16 @@ class RemoteLot {
   final double? estimatedQuantity;
   final String transportStatus;
   final int? score;
+  final int photoSchemaVersion;
+  final String? minePlate;
+  final double? mineLat;
+  final double? mineLon;
+  final double? mineGpsAccuracy;
+  final DateTime? mineCapturedAt;
+  final List<RemoteLotPhoto> minePhotos;
+  final List<RemoteTransload> transloads;
+  final RemoteLotArrival? arrival;
+  final List<RemoteTrackPoint> track;
 
   const RemoteLot({
     required this.payloadId,
@@ -93,6 +197,16 @@ class RemoteLot {
     required this.estimatedQuantity,
     required this.transportStatus,
     required this.score,
+    this.photoSchemaVersion = 3,
+    this.minePlate,
+    this.mineLat,
+    this.mineLon,
+    this.mineGpsAccuracy,
+    this.mineCapturedAt,
+    this.minePhotos = const [],
+    this.transloads = const [],
+    this.arrival,
+    this.track = const [],
   });
 }
 

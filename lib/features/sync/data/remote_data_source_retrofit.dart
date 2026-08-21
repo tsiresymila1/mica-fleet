@@ -196,42 +196,44 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
           : const <dynamic, dynamic>{};
       final mineId = (mine['mine_id'] ?? entry['mine_id'])?.toString();
       if (mineId == null || mineId.isEmpty) continue;
+      final mineLat = _toDouble(mine['lat']);
+      final mineLon = _toDouble(mine['lon']);
       result.add(
         RemoteLot(
           payloadId: payloadId,
           sessionId: sessionId,
-          reference: (entry['traceability_reference'] ?? entry['lot_reference'])
-              ?.toString(),
+          reference:
+              _asOptionalString(entry['traceability_reference']) ??
+              _asOptionalString(entry['lot_reference']),
           validationStatus: _validationStatus(
             entry['validation_status']?.toString(),
           ),
           validationReason:
-              (entry['validation_reason'] ?? entry['rejection_reason'])
-                  ?.toString(),
+              _asOptionalString(entry['validation_reason']) ??
+              _asOptionalString(entry['rejection_reason']),
           createdAt:
               _date(entry['created_at']) ??
               DateTime.fromMillisecondsSinceEpoch(0),
           updatedAt: _date(entry['updated_at']),
           mineId: mineId,
           mineName:
-              (mine['mine_name'] ?? mine['name'] ?? entry['mine_name'])
-                  ?.toString() ??
+              _asOptionalString(mine['mine_name']) ??
+              _asOptionalString(mine['name']) ??
+              _asOptionalString(entry['mine_name']) ??
               mineId,
-          mineReference: (mine['reference'] ?? entry['mine_reference'])
-              ?.toString(),
-          mineNote: (mine['note'] ?? entry['mine_note'] ?? entry['note'])
-              ?.toString(),
-          color: (mine['color'] ?? entry['color'])?.toString(),
-          estimatedQuantity:
-              (mine['estimated_quantity'] ?? entry['estimated_quantity']) is num
-              ? ((mine['estimated_quantity'] ?? entry['estimated_quantity'])
-                        as num)
-                    .toDouble()
-              : double.tryParse(
-                  (mine['estimated_quantity'] ?? entry['estimated_quantity'])
-                          ?.toString() ??
-                      '',
-                ),
+          mineReference:
+              _asOptionalString(mine['reference']) ??
+              _asOptionalString(entry['mine_reference']),
+          mineNote:
+              _asOptionalString(mine['note']) ??
+              _asOptionalString(entry['mine_note']) ??
+              _asOptionalString(entry['note']),
+          color:
+              _asOptionalString(mine['color']) ??
+              _asOptionalString(entry['color']),
+          estimatedQuantity: _toDouble(
+            mine['estimated_quantity'] ?? entry['estimated_quantity'],
+          ),
           transportStatus:
               entry['status']?.toString() ??
               entry['transport_status']?.toString() ??
@@ -241,6 +243,20 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
                 arrival['traceability_score'] ??
                 entry['score'],
           ),
+          photoSchemaVersion: _asInt(entry['photo_schema_version']) ?? 3,
+          minePlate: _asOptionalString(mine['plate']),
+          mineLat: mineLat,
+          mineLon: mineLon,
+          mineGpsAccuracy: _toDouble(mine['gps_accuracy']),
+          mineCapturedAt: _date(mine['captured_at']),
+          minePhotos: _lotPhotos(mine['photos']),
+          transloads: _transloads(entry['transloads']),
+          arrival: _lotArrival(
+            arrival,
+            fallbackLat: mineLat,
+            fallbackLon: mineLon,
+          ),
+          track: _track(entry['track']),
         ),
       );
     }
@@ -249,6 +265,105 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   static int? _asInt(dynamic value) =>
       value is num ? value.round() : int.tryParse(value?.toString() ?? '');
+
+  static List<RemoteLotPhoto> _lotPhotos(dynamic raw) {
+    if (raw is! Map) return const [];
+    final photos = <RemoteLotPhoto>[];
+    for (final entry in raw.entries) {
+      final value = entry.value;
+      if (value is! Map) continue;
+      final role = entry.key.toString();
+      photos.add(
+        RemoteLotPhoto(
+          role: role,
+          key: _asString(value['key']) ?? role,
+          url: _asOptionalString(value['url']),
+          hash: _asString(value['hash']) ?? '',
+          lat: _toDouble(value['lat']) ?? 0,
+          lon: _toDouble(value['lon']) ?? 0,
+          gpsAccuracy: _toDouble(value['gps_accuracy']) ?? 0,
+          capturedAt:
+              _date(value['captured_at']) ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+          headingDegrees: _toDouble(value['heading_deg']),
+          headingAccuracy: _toDouble(value['heading_accuracy']),
+          headingReference: _asOptionalString(value['heading_reference']),
+        ),
+      );
+    }
+    return photos;
+  }
+
+  static List<RemoteTransload> _transloads(dynamic raw) {
+    if (raw is! List) return const [];
+    final result = <RemoteTransload>[];
+    for (final entry in raw) {
+      if (entry is! Map) continue;
+      final order = _asInt(entry['order']);
+      if (order == null) continue;
+      final unload = _gps(entry['gps_unload']);
+      final reload = _gps(entry['gps_reload']);
+      result.add(
+        RemoteTransload(
+          order: order,
+          plateBefore: _asOptionalString(entry['plate_before']),
+          plateAfter: _asOptionalString(entry['plate_after']),
+          unloadLat: unload.$1,
+          unloadLon: unload.$2,
+          reloadLat: reload.$1,
+          reloadLon: reload.$2,
+          distanceMeters: _toDouble(entry['distance_m']),
+          compliant: _asBool(entry['compliant']) ?? false,
+          unloadPhotos: _lotPhotos(entry['photos_unload']),
+          reloadPhotos: _lotPhotos(entry['photos_reload']),
+        ),
+      );
+    }
+    return result;
+  }
+
+  static RemoteLotArrival? _lotArrival(
+    Map arrival, {
+    required double? fallbackLat,
+    required double? fallbackLon,
+  }) {
+    if (arrival.isEmpty) return null;
+    final gps = _gps(arrival['gps']);
+    final licensePhoto = arrival['photo_license'] is Map
+        ? arrival['photo_license'] as Map
+        : const <dynamic, dynamic>{};
+    return RemoteLotArrival(
+      driver: _asString(arrival['driver']) ?? '',
+      licenseNumber: _asString(arrival['license_number']) ?? '',
+      lat: gps.$1 ?? fallbackLat ?? 0,
+      lon: gps.$2 ?? fallbackLon ?? 0,
+      gpsStatus: _asString(arrival['gps_status']) ?? 'pending_server',
+      plate: _asOptionalString(arrival['plate_arrival']),
+      plateConsistent: _asBool(arrival['plate_consistent']) ?? false,
+      score: _asInt(arrival['traceability_score']),
+      licensePhotoUrl: _asOptionalString(licensePhoto['url']),
+      unloadPhotos: _lotPhotos(arrival['photos_unload']),
+    );
+  }
+
+  static List<RemoteTrackPoint> _track(dynamic raw) {
+    if (raw is! List) return const [];
+    final result = <RemoteTrackPoint>[];
+    for (final point in raw) {
+      if (point is! List || point.length < 3) continue;
+      final lat = _toDouble(point[0]);
+      final lon = _toDouble(point[1]);
+      final capturedAt = _date(point[2]);
+      if (lat == null || lon == null || capturedAt == null) continue;
+      result.add(RemoteTrackPoint(lat: lat, lon: lon, capturedAt: capturedAt));
+    }
+    return result;
+  }
+
+  static (double?, double?) _gps(dynamic raw) {
+    if (raw is! List || raw.length < 2) return (null, null);
+    return (_toDouble(raw[0]), _toDouble(raw[1]));
+  }
 
   @override
   Future<void> changePassword({

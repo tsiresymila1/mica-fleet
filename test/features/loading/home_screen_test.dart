@@ -7,7 +7,7 @@ import 'package:mica_fleet/features/loading/presentation/screens/home_screen.dar
 
 void main() {
   testWidgets('place le filtre Tous après les statuts métier', (tester) async {
-    tester.view.physicalSize = const Size(1000, 800);
+    tester.view.physicalSize = const Size(1000, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -33,6 +33,7 @@ void main() {
                 validationReason: null,
                 serverReference: 'MICA-2026-0042',
                 remoteOnly: true,
+                plate: '1234 TBR',
               ),
             ],
           ),
@@ -50,5 +51,7 @@ void main() {
     expect(pendingX, lessThan(validatedX));
     expect(validatedX, lessThan(rejectedX));
     expect(rejectedX, lessThan(allX));
+    expect(find.textContaining('Plaque : 1234 TBR'), findsOneWidget);
+    expect(find.textContaining('Transport : Arrivé'), findsOneWidget);
   });
 }

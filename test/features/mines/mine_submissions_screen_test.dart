@@ -128,7 +128,8 @@ void main() {
     await tester.tap(find.text('Supprimer'));
     await tester.pumpAndSettle();
 
-    expect(await db.select(db.mineSubmissions).get(), isEmpty);
+    final hiddenSubmission = (await db.select(db.mineSubmissions).get()).single;
+    expect(hiddenSubmission.state, 'hidden');
     expect(find.text('Aucune mine proposée'), findsOneWidget);
   });
 }

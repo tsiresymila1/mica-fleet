@@ -46,6 +46,25 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
   bool get _structuredPhotos => _photoSchemaVersion >= 2;
   bool get _requiresMicaPhoto => _photoSchemaVersion == 2;
 
+  int get _requiredPhotoCountPerStep =>
+      !_structuredPhotos ? 1 : (_requiresMicaPhoto ? 3 : 2);
+
+  int get _dechargePhotoCount => !_structuredPhotos
+      ? (_decharge != null || _dechargePathInit != null ? 1 : 0)
+      : [
+          _dechargePlaque,
+          if (_requiresMicaPhoto) _dechargeMica,
+          _dechargeCamion,
+        ].whereType<CapturedPhoto>().length;
+
+  int get _rechargePhotoCount => !_structuredPhotos
+      ? (_recharge != null || _rechargePathInit != null ? 1 : 0)
+      : [
+          _rechargePlaque,
+          if (_requiresMicaPhoto) _rechargeMica,
+          _rechargeCamion,
+        ].whereType<CapturedPhoto>().length;
+
   bool get _edition => widget.ordre != null;
 
   @override
@@ -272,8 +291,14 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
         children: [
           StepHeader(
             numero: 1,
-            titre: 'Le déchargement',
+            titre:
+                'Le déchargement — $_dechargePhotoCount/$_requiredPhotoCountPerStep',
             sousTitre: 'Camion qui portait ce lot',
+          ),
+          const SizedBox(height: 12),
+          PhotoCaptureProgress(
+            captured: _dechargePhotoCount,
+            total: _requiredPhotoCountPerStep,
           ),
           const SizedBox(height: 12),
           if (!_structuredPhotos)
@@ -340,8 +365,14 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
           const SizedBox(height: 24),
           StepHeader(
             numero: 2,
-            titre: 'Le rechargement',
+            titre:
+                'Le rechargement — $_rechargePhotoCount/$_requiredPhotoCountPerStep',
             sousTitre: 'Nouveau camion pour ce lot',
+          ),
+          const SizedBox(height: 12),
+          PhotoCaptureProgress(
+            captured: _rechargePhotoCount,
+            total: _requiredPhotoCountPerStep,
           ),
           const SizedBox(height: 12),
           if (!_structuredPhotos)

@@ -5,7 +5,8 @@ enum MineSubmissionState {
   awaitingAttachments('awaiting_attachments'),
   pendingValidation('pending_validation'),
   approved('approved'),
-  rejected('rejected');
+  rejected('rejected'),
+  hidden('hidden');
 
   final String apiValue;
   const MineSubmissionState(this.apiValue);

@@ -111,6 +111,17 @@ l’identifiant serveur d’une proposition dans cette liste valide la propositi
 `reference` et `created_at` sont affichés dans la fiche mine du compte. La note
 canonique est fournie par `mine.note` dans `GET /api/tracking/lots`.
 
+Quand l'id Odoo d'une proposition apparaît dans ce référentiel, l'application
+affiche uniquement cette mine canonique dans le compte et les sélecteurs. Le
+placeholder local reste invisible en base jusqu'à la fin des éventuels lots
+hors ligne qui le référencent, afin d'éviter toute rupture de relation locale.
+
+Dès que `POST /api/mine` renvoie `data.id`, le mobile utilise cet identifiant
+comme mine serveur dans les listes, même si la validation n'est pas encore
+visible dans `GET /api/mine`. Si l'agent supprime ensuite la fiche locale, une
+correspondance technique invisible est conservée : la mine serveur reste donc
+sélectionnable et un refetch ne la fait pas disparaître.
+
 ### `GET /api/commune`
 
 Retourne les communes actives. L'application remplace ce cache sans doublon

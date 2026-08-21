@@ -88,7 +88,14 @@ class ChargementDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(lotDetailProvider(lotId));
     return Scaffold(
-      appBar: AppBar(title: Text(lotId)),
+      appBar: AppBar(
+        title: Text(
+          detail.maybeWhen(
+            data: (value) => value.serverReference ?? value.id,
+            orElse: () => lotId,
+          ),
+        ),
+      ),
       body: detail.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Erreur : $e')),
@@ -104,7 +111,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _kv('Session', d.sessionId),
+                    _kv('Session', d.displaySessionId),
                     _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
                     _kv('Réf. traçabilité', d.serverReference ?? 'À attribuer'),
                     _kv('Statut transport', d.statut),
@@ -142,6 +149,9 @@ class ChargementDetailScreen extends ConsumerWidget {
                             d.mineName,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
+                          if (d.reference != null &&
+                              d.reference!.trim().isNotEmpty)
+                            Text('Réf. mine : ${d.reference}'),
                           Text(
                             [
                               if (d.couleur != null) d.couleur,
@@ -184,9 +194,29 @@ class ChargementDetailScreen extends ConsumerWidget {
                           alignment: Alignment.centerLeft,
                           child: Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: StatusPill(
-                              kind: t.conforme ? PillKind.ok : PillKind.warn,
-                              label: t.conforme ? 'GPS ok' : 'Hors zone',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (t.distanceMetres != null)
+                                  Text(
+                                    'Distance : ${t.distanceMetres!.toStringAsFixed(1)} m',
+                                  ),
+                                if (t.gpsDechargeLat != null &&
+                                    t.gpsRechargeLat != null)
+                                  Text(
+                                    'GPS ${t.gpsDechargeLat!.toStringAsFixed(4)}, '
+                                    '${t.gpsDechargeLon!.toStringAsFixed(4)} → '
+                                    '${t.gpsRechargeLat!.toStringAsFixed(4)}, '
+                                    '${t.gpsRechargeLon!.toStringAsFixed(4)}',
+                                  ),
+                                const SizedBox(height: 4),
+                                StatusPill(
+                                  kind: t.conforme
+                                      ? PillKind.ok
+                                      : PillKind.warn,
+                                  label: t.conforme ? 'GPS ok' : 'Hors zone',
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -288,6 +318,11 @@ class ChargementDetailScreen extends ConsumerWidget {
                         _kv('N° de lot', d.arrivee!.numLot),
                       if (d.arrivee!.plaqueArrivee != null)
                         _kv('Plaque', d.arrivee!.plaqueArrivee!),
+                      _kv(
+                        'GPS',
+                        '${d.arrivee!.gpsLat.toStringAsFixed(5)}, '
+                            '${d.arrivee!.gpsLon.toStringAsFixed(5)}',
+                      ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,

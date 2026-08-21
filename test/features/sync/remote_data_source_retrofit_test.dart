@@ -193,21 +193,46 @@ void main() {
               "lat": -18.91,
               "lon": 47.52,
               "gps_accuracy": 5,
+              "captured_at": "2026-08-14 08:00:01",
               "photos": {
-                "plate": {"key": "mine_plate", "hash": "hash-1"},
+                "plate": {
+                  "key": "mine_plate",
+                  "hash": "hash-1",
+                  "url": "https://example.test/web/image/1",
+                  "lat": -18.91,
+                  "lon": 47.52,
+                  "gps_accuracy": 5,
+                  "captured_at": "2026-08-14 08:00:01"
+                },
                 "truck_with_mica": {
                   "key": "mine_truck_with_mica",
-                  "hash": "hash-2"
+                  "hash": "hash-2",
+                  "url": "https://example.test/web/image/2"
                 }
               }
             },
-            "transloads": [],
+            "transloads": [{
+              "order": 1,
+              "plate_before": "1234 TBR",
+              "plate_after": "5678 TBE",
+              "gps_unload": [-18.91, 47.52],
+              "gps_reload": [-18.90, 47.53],
+              "distance_m": 14.5,
+              "compliant": true,
+              "photos_unload": {},
+              "photos_reload": {}
+            }],
             "arrival": {
               "gps": [-18.879, 47.508],
+              "driver": "Rabe",
+              "license_number": "PERMIS-1",
               "gps_status": "pending_server",
+              "plate_arrival": "5678 TBE",
+              "plate_consistent": true,
+              "traceability_score": 96,
               "photos_unload": {}
             },
-            "track": [],
+            "track": [[-18.91, 47.52, "2026-08-14 08:00:00"]],
             "traceability_score": 96,
             "traceability_reference": "MICA-2026-0042",
             "validation_status": "validated",
@@ -230,6 +255,17 @@ void main() {
       expect(lots.single.mineNote, 'Note issue de la traçabilité');
       expect(lots.single.estimatedQuantity, 120);
       expect(lots.single.score, 96);
+      expect(lots.single.minePlate, '1234 TBR');
+      expect(
+        lots.single.minePhotos
+            .singleWhere((photo) => photo.role == 'plate')
+            .url,
+        contains('/web/image/1'),
+      );
+      expect(lots.single.transloads.single.distanceMeters, 14.5);
+      expect(lots.single.arrival?.driver, 'Rabe');
+      expect(lots.single.arrival?.plateConsistent, isTrue);
+      expect(lots.single.track, hasLength(1));
     },
   );
 

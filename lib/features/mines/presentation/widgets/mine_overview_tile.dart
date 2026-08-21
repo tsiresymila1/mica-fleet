@@ -44,7 +44,6 @@ class MineOverviewTile extends StatelessWidget {
       color: color,
       titre: name,
       sousTitre: [
-        'Référence : ${_valueOrDash(reference)}',
         'Créée le : $date',
         'Note : ${_valueOrDash(note)}',
         ...details.where((detail) => detail.trim().isNotEmpty),

@@ -20,12 +20,13 @@ void main() {
         ProviderScope(
           overrides: [
             minesProvider.overrideWith(
-              (ref) async => const [
+              (ref) async => [
                 Mine(
                   id: '1',
                   nom: 'Mine Antsahabe',
                   lat: -18.91,
                   lon: 47.52,
+                  createdAt: DateTime.utc(2026, 8, 20),
                   reference: 'REF-1',
                   district: 'Ambilobe',
                   commune: 'Ambakirano',
@@ -77,6 +78,104 @@ void main() {
       expect(find.textContaining('Ambilobe'), findsWidgets);
       expect(find.text('Mine locale hors ligne'), findsOneWidget);
       expect(find.textContaining('Créée manuellement'), findsOneWidget);
+    },
+  );
+
+  testWidgets('sélectionne par défaut la mine créée le plus récemment', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1080, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          minesProvider.overrideWith(
+            (ref) async => [
+              Mine(
+                id: 'older',
+                nom: 'Mine ancienne',
+                lat: -18.91,
+                lon: 47.52,
+                createdAt: DateTime.utc(2026, 8, 10),
+              ),
+              const Mine(
+                id: 'without-date',
+                nom: 'Mine sans date',
+                lat: -18.91,
+                lon: 47.52,
+              ),
+              Mine(
+                id: 'newer',
+                nom: 'Mine récente',
+                lat: -18.91,
+                lon: 47.52,
+                createdAt: DateTime.utc(2026, 8, 20),
+              ),
+            ],
+          ),
+          mineSubmissionsProvider.overrideWith((ref) async => const []),
+        ],
+        child: const MaterialApp(home: AddMineScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mine récente'), findsOneWidget);
+    expect(find.text('Mine ancienne'), findsNothing);
+    expect(find.text('Mine sans date'), findsNothing);
+  });
+
+  testWidgets(
+    'n’affiche qu’une fois une proposition ayant déjà un id serveur',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            minesProvider.overrideWith(
+              (ref) async => const [
+                Mine(
+                  id: '77',
+                  nom: 'Mine déjà envoyée',
+                  lat: -18.91,
+                  lon: 47.52,
+                ),
+              ],
+            ),
+            mineSubmissionsProvider.overrideWith(
+              (ref) async => [
+                MineSubmission(
+                  payloadId: 'local-payload',
+                  deviceUuid: 'local-device',
+                  nom: 'Mine déjà envoyée',
+                  state: MineSubmissionState.pendingValidation,
+                  serverId: 77,
+                  createdAt: DateTime.utc(2026, 8, 21),
+                  updatedAt: DateTime.utc(2026, 8, 21),
+                  photos: const [],
+                ),
+              ],
+            ),
+          ],
+          child: const MaterialApp(home: AddMineScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Mine déjà envoyée'), findsOneWidget);
+      await tester.tap(find.text('Mine déjà envoyée'));
+      await tester.pumpAndSettle();
+
+      // Une occurrence dans la carte sélectionnée et une dans le sheet.
+      expect(find.text('Mine déjà envoyée'), findsNWidgets(2));
+      expect(find.textContaining('Créée manuellement'), findsNothing);
     },
   );
 }

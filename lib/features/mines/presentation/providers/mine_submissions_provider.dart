@@ -17,13 +17,30 @@ final mineSubmissionRepositoryProvider = Provider<MineSubmissionRepository>(
   (ref) => MineSubmissionRepositoryImpl(ref.watch(dbProvider)),
 );
 
-final mineSubmissionsProvider = FutureProvider<List<MineSubmission>>(
-  (ref) {
-    final agentLogin = ref.watch(authControllerProvider)?.id;
-    if (agentLogin == null) return Future.value([]);
-    return ref.watch(mineSubmissionRepositoryProvider).list(agentLogin: agentLogin);
-  },
-);
+final mineSubmissionsProvider = FutureProvider<List<MineSubmission>>((
+  ref,
+) async {
+  final agentLogin = ref.watch(authControllerProvider)?.id;
+  if (agentLogin == null) return [];
+  final submissions = await ref
+      .watch(mineSubmissionRepositoryProvider)
+      .list(agentLogin: agentLogin);
+  final canonicalMineIds = (await ref.watch(
+    minesProvider.future,
+  )).map((mine) => mine.id).toSet();
+  final visibleSubmissions = submissions
+      .where(
+        (submission) =>
+            submission.state != MineSubmissionState.hidden &&
+            (submission.approvedMineId == null ||
+                !canonicalMineIds.contains(submission.approvedMineId)),
+      )
+      .toList();
+  visibleSubmissions.sort(
+    (first, second) => second.createdAt.compareTo(first.createdAt),
+  );
+  return visibleSubmissions;
+});
 
 final createMineSubmissionProvider = Provider<CreateMineSubmissionController>(
   (ref) => CreateMineSubmissionController(ref),
@@ -73,7 +90,10 @@ class MineSubmissionActionsController {
     final result = await ref
         .read(mineSubmissionRepositoryProvider)
         .delete(payloadId);
-    if (result.isRight()) ref.invalidate(mineSubmissionsProvider);
+    if (result.isRight()) {
+      ref.invalidate(mineSubmissionsProvider);
+      ref.invalidate(minesProvider);
+    }
     return result;
   }
 

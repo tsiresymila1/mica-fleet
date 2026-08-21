@@ -59,7 +59,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Choisir le dépôt'), findsNothing);
-    expect(find.text('Les 2 photos du déchargement'), findsOneWidget);
+    expect(find.text('Photos du déchargement — 0/2'), findsOneWidget);
+    final progress = tester.widget<LinearProgressIndicator>(
+      find.byType(LinearProgressIndicator),
+    );
+    expect(progress.value, 0);
     expect(find.text('Photo de la plaque'), findsOneWidget);
     expect(find.text('Photo du mica'), findsNothing);
     expect(find.text('Photo du camion avec mica'), findsOneWidget);

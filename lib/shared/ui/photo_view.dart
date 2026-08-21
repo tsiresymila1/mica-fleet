@@ -2,6 +2,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 
+bool _isNetworkPhoto(String path) {
+  final uri = Uri.tryParse(path);
+  return uri != null && (uri.scheme == 'https' || uri.scheme == 'http');
+}
+
+Widget _photoImage(String path, {required BoxFit fit}) => _isNetworkPhoto(path)
+    ? Image.network(
+        path,
+        fit: fit,
+        errorBuilder: (_, _, _) => const Center(
+          child: Icon(Icons.broken_image, color: AppColors.inkSoft),
+        ),
+      )
+    : Image.file(File(path), fit: fit);
+
 /// Ouvre une photo en plein écran, zoomable (InteractiveViewer).
 /// Animation : la vignette « grandit » vers le plein écran (Hero) + fond en fondu.
 void openPhoto(BuildContext context, String path) {
@@ -23,7 +38,7 @@ class _PhotoViewer extends StatelessWidget {
   const _PhotoViewer({required this.path});
   @override
   Widget build(BuildContext context) {
-    final exists = File(path).existsSync();
+    final available = _isNetworkPhoto(path) || File(path).existsSync();
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -32,13 +47,13 @@ class _PhotoViewer extends StatelessWidget {
         elevation: 0,
       ),
       body: Center(
-        child: exists
+        child: available
             ? Hero(
                 tag: path,
                 child: InteractiveViewer(
                   minScale: 0.8,
                   maxScale: 5,
-                  child: Image.file(File(path), fit: BoxFit.contain),
+                  child: _photoImage(path, fit: BoxFit.contain),
                 ),
               )
             : const Text(
@@ -57,7 +72,8 @@ class PhotoThumb extends StatelessWidget {
   const PhotoThumb({super.key, required this.path, this.size = 64});
   @override
   Widget build(BuildContext context) {
-    final ok = path != null && File(path!).existsSync();
+    final ok =
+        path != null && (_isNetworkPhoto(path!) || File(path!).existsSync());
     final thumb = ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
@@ -66,7 +82,7 @@ class PhotoThumb extends StatelessWidget {
         child: ok
             ? Hero(
                 tag: path!,
-                child: Image.file(File(path!), fit: BoxFit.cover),
+                child: _photoImage(path!, fit: BoxFit.cover),
               )
             : Container(
                 color: AppColors.line,

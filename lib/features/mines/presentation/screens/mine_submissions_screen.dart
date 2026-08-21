@@ -159,6 +159,12 @@ class _SubmissionTile extends StatelessWidget {
     color: AppColors.danger,
     icon: Icons.block_outlined,
   ),
+  MineSubmissionState.hidden => (
+    label: 'Masquée',
+    kind: PillKind.neutral,
+    color: AppColors.inkSoft,
+    icon: Icons.visibility_off_outlined,
+  ),
 };
 
 class _SubmissionDetailsSheet extends ConsumerStatefulWidget {

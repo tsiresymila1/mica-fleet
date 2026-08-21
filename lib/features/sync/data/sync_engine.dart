@@ -825,12 +825,42 @@ class SyncEngine {
                 (table) => table.payloadUuid.equals(remoteLot.payloadId),
               ))
               .getSingleOrNull();
+      final remoteMinePlate = _photoByRole(remoteLot.minePhotos, 'plate');
       if (local != null) {
+        final keepLocalMinePhoto =
+            local.photoPath != null &&
+            !local.photoPath!.startsWith('http') &&
+            File(local.photoPath!).existsSync();
         await (db.update(
           db.lots,
         )..where((table) => table.id.equals(local.id))).write(
           LotsCompanion(
             mineId: Value(remoteLot.mineId),
+            reference: Value(remoteLot.mineReference),
+            couleur: Value(remoteLot.color),
+            quantiteEstimee: Value(remoteLot.estimatedQuantity),
+            plaqueDepart: Value(remoteLot.minePlate),
+            gpsLat: Value(remoteLot.mineLat),
+            gpsLon: Value(remoteLot.mineLon),
+            gpsPrecision: Value(remoteLot.mineGpsAccuracy),
+            dateHeure: Value(remoteLot.mineCapturedAt),
+            photoPath: keepLocalMinePhoto
+                ? const Value.absent()
+                : Value(remoteMinePlate?.url),
+            photoHash: keepLocalMinePhoto
+                ? const Value.absent()
+                : Value(remoteMinePlate?.hash),
+            photoHeadingDegrees: keepLocalMinePhoto
+                ? const Value.absent()
+                : Value(remoteMinePlate?.headingDegrees),
+            photoHeadingAccuracy: keepLocalMinePhoto
+                ? const Value.absent()
+                : Value(remoteMinePlate?.headingAccuracy),
+            photoHeadingReference: keepLocalMinePhoto
+                ? const Value.absent()
+                : Value(remoteMinePlate?.headingReference),
+            statut: Value(remoteLot.transportStatus),
+            photoSchemaVersion: Value(remoteLot.photoSchemaVersion),
             serverReference: Value(remoteLot.reference),
             validationStatus: Value(remoteLot.validationStatus),
             validationReason: Value(remoteLot.validationReason),
@@ -840,12 +870,14 @@ class SyncEngine {
             score: Value(remoteLot.score),
           ),
         );
+        await _replaceRemoteLotDetails(local.id, local.sessionId, remoteLot);
         continue;
       }
 
+      final cachedSessionId =
+          'REMOTE-$currentSupplierId-${remoteLot.sessionId}';
+      final cachedLotId = 'REMOTE-${remoteLot.payloadId}';
       await db.transaction(() async {
-        final cachedSessionId =
-            'REMOTE-$currentSupplierId-${remoteLot.sessionId}';
         await db
             .into(db.chargements)
             .insert(
@@ -863,16 +895,27 @@ class SyncEngine {
             .into(db.lots)
             .insert(
               LotsCompanion.insert(
-                id: 'REMOTE-${remoteLot.payloadId}',
+                id: cachedLotId,
                 payloadUuid: Value(remoteLot.payloadId),
                 sessionId: cachedSessionId,
                 mineId: remoteLot.mineId,
+                reference: Value(remoteLot.mineReference),
                 couleur: Value(remoteLot.color),
                 quantiteEstimee: Value(remoteLot.estimatedQuantity),
+                plaqueDepart: Value(remoteLot.minePlate),
+                gpsLat: Value(remoteLot.mineLat),
+                gpsLon: Value(remoteLot.mineLon),
+                gpsPrecision: Value(remoteLot.mineGpsAccuracy),
+                dateHeure: Value(remoteLot.mineCapturedAt),
+                photoPath: Value(remoteMinePlate?.url),
+                photoHash: Value(remoteMinePlate?.hash),
+                photoHeadingDegrees: Value(remoteMinePlate?.headingDegrees),
+                photoHeadingAccuracy: Value(remoteMinePlate?.headingAccuracy),
+                photoHeadingReference: Value(remoteMinePlate?.headingReference),
                 statut: Value(remoteLot.transportStatus),
                 score: Value(remoteLot.score),
                 photosUploaded: const Value(true),
-                photoSchemaVersion: const Value(3),
+                photoSchemaVersion: Value(remoteLot.photoSchemaVersion),
                 validationStatus: Value(remoteLot.validationStatus),
                 validationReason: Value(remoteLot.validationReason),
                 serverReference: Value(remoteLot.reference),
@@ -882,10 +925,172 @@ class SyncEngine {
               mode: InsertMode.insertOrIgnore,
             );
       });
+      await _replaceRemoteLotDetails(cachedLotId, cachedSessionId, remoteLot);
     }
 
     await _deleteLotsMissingOnServer(currentSupplierId, remotePayloadIds);
   }
+
+  Future<void> _replaceRemoteLotDetails(
+    String lotId,
+    String sessionId,
+    RemoteLot remoteLot,
+  ) async {
+    await db.transaction(() async {
+      await (db.delete(
+        db.transbordements,
+      )..where((table) => table.lotId.equals(lotId))).go();
+      for (final transload in remoteLot.transloads) {
+        await db
+            .into(db.transbordements)
+            .insert(
+              TransbordementsCompanion.insert(
+                lotId: lotId,
+                ordre: transload.order,
+                plaqueAvant: Value(transload.plateBefore),
+                plaqueApres: Value(transload.plateAfter),
+                gpsDechargeLat: Value(transload.unloadLat),
+                gpsDechargeLon: Value(transload.unloadLon),
+                gpsRechargeLat: Value(transload.reloadLat),
+                gpsRechargeLon: Value(transload.reloadLon),
+                distanceMetres: Value(transload.distanceMeters),
+                conforme: Value(transload.compliant),
+                photoDechargePath: Value(
+                  _photoUrl(transload.unloadPhotos, 'plate'),
+                ),
+                photoRechargePath: Value(
+                  _photoUrl(transload.reloadPhotos, 'plate'),
+                ),
+              ),
+            );
+        await _mergeRemotePhotos(
+          lotId,
+          'transload_unload',
+          transload.order,
+          transload.unloadPhotos,
+        );
+        await _mergeRemotePhotos(
+          lotId,
+          'transload_reload',
+          transload.order,
+          transload.reloadPhotos,
+        );
+      }
+
+      final arrival = remoteLot.arrival;
+      if (arrival == null) {
+        await (db.delete(
+          db.arriveesDepot,
+        )..where((table) => table.lotId.equals(lotId))).go();
+      } else {
+        final arrivalPlatePhoto = _photoByRole(arrival.unloadPhotos, 'plate');
+        await db
+            .into(db.arriveesDepot)
+            .insertOnConflictUpdate(
+              ArriveesDepotCompanion.insert(
+                lotId: lotId,
+                chauffeur: arrival.driver,
+                numPermis: arrival.licenseNumber,
+                numLot: '',
+                gpsLat: arrival.lat,
+                gpsLon: arrival.lon,
+                statutGps: arrival.gpsStatus,
+                photoArriveePath: Value(arrivalPlatePhoto?.url),
+                photoArriveeHeadingDegrees: Value(
+                  arrivalPlatePhoto?.headingDegrees,
+                ),
+                photoArriveeHeadingAccuracy: Value(
+                  arrivalPlatePhoto?.headingAccuracy,
+                ),
+                photoArriveeHeadingReference: Value(
+                  arrivalPlatePhoto?.headingReference,
+                ),
+                photoPermisPath: Value(arrival.licensePhotoUrl),
+                plaqueArrivee: Value(arrival.plate),
+                plaqueCoherente: Value(arrival.plateConsistent),
+                scoreTracabilite: Value(arrival.score ?? remoteLot.score),
+              ),
+            );
+        await _mergeRemotePhotos(
+          lotId,
+          'depot_unload',
+          0,
+          arrival.unloadPhotos,
+        );
+      }
+
+      await _mergeRemotePhotos(lotId, 'mine', 0, remoteLot.minePhotos);
+
+      await (db.delete(
+        db.trajetPoints,
+      )..where((table) => table.chargementId.equals(sessionId))).go();
+      for (final point in remoteLot.track) {
+        await db
+            .into(db.trajetPoints)
+            .insert(
+              TrajetPointsCompanion.insert(
+                chargementId: sessionId,
+                lat: point.lat,
+                lon: point.lon,
+                capturedAt: point.capturedAt,
+              ),
+            );
+      }
+    });
+  }
+
+  Future<void> _mergeRemotePhotos(
+    String lotId,
+    String stage,
+    int stageOrder,
+    List<RemoteLotPhoto> photos,
+  ) async {
+    for (final photo in photos) {
+      final url = photo.url;
+      if (url == null) continue;
+      final existing =
+          await (db.select(db.lotTraceabilityPhotos)..where(
+                (table) =>
+                    table.lotId.equals(lotId) &
+                    table.stage.equals(stage) &
+                    table.stageOrder.equals(stageOrder) &
+                    table.role.equals(photo.role),
+              ))
+              .getSingleOrNull();
+      if (existing != null &&
+          !existing.path.startsWith('http') &&
+          File(existing.path).existsSync()) {
+        continue;
+      }
+      await db
+          .into(db.lotTraceabilityPhotos)
+          .insertOnConflictUpdate(
+            LotTraceabilityPhotosCompanion.insert(
+              lotId: lotId,
+              stage: stage,
+              stageOrder: Value(stageOrder),
+              role: photo.role,
+              path: url,
+              hash: photo.hash,
+              lat: photo.lat,
+              lon: photo.lon,
+              gpsAccuracy: photo.gpsAccuracy,
+              capturedAt: photo.capturedAt,
+              headingDegrees: Value(photo.headingDegrees),
+              headingAccuracy: Value(photo.headingAccuracy),
+              headingReference: Value(photo.headingReference),
+            ),
+          );
+    }
+  }
+
+  static RemoteLotPhoto? _photoByRole(
+    List<RemoteLotPhoto> photos,
+    String role,
+  ) => photos.where((photo) => photo.role == role).firstOrNull;
+
+  static String? _photoUrl(List<RemoteLotPhoto> photos, String role) =>
+      _photoByRole(photos, role)?.url;
 
   /// `GET /api/tracking/lots` est la source de la note affichée pour une
   /// mine. La fusion s'applique aussi si GET /api/mine a déjà créé la ligne.
@@ -902,9 +1107,9 @@ class SyncEngine {
               nom: remoteLot.mineName,
               reference: Value(remoteLot.mineReference),
               note: Value(remoteLot.mineNote),
-              createdAt: Value(remoteLot.createdAt),
-              lat: 0,
-              lon: 0,
+              createdAt: Value(remoteLot.mineCapturedAt ?? remoteLot.createdAt),
+              lat: remoteLot.mineLat ?? 0,
+              lon: remoteLot.mineLon ?? 0,
             ),
             mode: InsertMode.insertOrIgnore,
           );
@@ -921,6 +1126,12 @@ class SyncEngine {
         reference: remoteLot.mineReference == null
             ? const Value.absent()
             : Value(remoteLot.mineReference),
+        lat: remoteLot.mineLat == null
+            ? const Value.absent()
+            : Value(remoteLot.mineLat!),
+        lon: remoteLot.mineLon == null
+            ? const Value.absent()
+            : Value(remoteLot.mineLon!),
         // La valeur de tracking est autoritaire, y compris null.
         note: Value(remoteLot.mineNote),
       ),

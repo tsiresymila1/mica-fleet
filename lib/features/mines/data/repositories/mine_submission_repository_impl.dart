@@ -256,6 +256,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
   @override
   Future<Either<Failure, Unit>> delete(String payloadId) async {
     try {
+      final submission = await (db.select(
+        db.mineSubmissions,
+      )..where((table) => table.payloadId.equals(payloadId))).getSingleOrNull();
       final dependentLot = await (db.select(
         db.lots,
       )..where((table) => table.mineId.equals(payloadId))).getSingleOrNull();
@@ -269,6 +272,8 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
       final photos = await (db.select(
         db.mineSubmissionPhotos,
       )..where((table) => table.payloadId.equals(payloadId))).get();
+      final keepServerLink =
+          submission?.serverId != null && submission?.state != 'rejected';
       await db.transaction(() async {
         await (db.delete(
           db.mineSubmissionPhotos,
@@ -279,12 +284,26 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
                   table.entityId.equals(payloadId),
             ))
             .go();
-        await (db.delete(
-          db.mineSubmissions,
-        )..where((table) => table.payloadId.equals(payloadId))).go();
-        await (db.delete(
-          db.mines,
-        )..where((table) => table.id.equals(payloadId))).go();
+        if (keepServerLink) {
+          // La ligne devient un tombstone invisible. Elle conserve le lien
+          // payload local → id Odoo tant que GET /api/mine ne retourne pas
+          // encore la mine validée, y compris après un refetch.
+          await (db.update(
+            db.mineSubmissions,
+          )..where((table) => table.payloadId.equals(payloadId))).write(
+            MineSubmissionsCompanion(
+              state: const Value('hidden'),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+        } else {
+          await (db.delete(
+            db.mineSubmissions,
+          )..where((table) => table.payloadId.equals(payloadId))).go();
+          await (db.delete(
+            db.mines,
+          )..where((table) => table.id.equals(payloadId))).go();
+        }
       });
       // La base est la source de vérité pour l'interface. Le nettoyage des
       // fichiers est volontairement non bloquant afin que la fiche se ferme

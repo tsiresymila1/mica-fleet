@@ -122,6 +122,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       if (l.couleur != null) l.couleur!,
                       if (l.tonnage != null) '${l.tonnage} kg',
                     ].join('  •  '),
+                    if (l.plate != null && l.plate!.trim().isNotEmpty)
+                      'Plaque : ${l.plate}',
+                    'Transport : ${l.arrive ? 'Arrivé' : 'En route'}',
                     'Créé le ${df.format(l.date)}',
                     'Réf. traçabilité : ${l.serverReference ?? 'à attribuer'}',
                     'Validation : ${_validationLabel(l.validationStatus)}',

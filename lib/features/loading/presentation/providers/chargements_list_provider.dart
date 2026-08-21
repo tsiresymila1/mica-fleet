@@ -21,6 +21,7 @@ class LotListItem {
   final String? validationReason;
   final String? serverReference;
   final bool remoteOnly;
+  final String? plate;
   const LotListItem({
     required this.id,
     required this.sessionId,
@@ -37,6 +38,7 @@ class LotListItem {
     required this.validationReason,
     required this.serverReference,
     required this.remoteOnly,
+    this.plate,
   });
 }
 
@@ -105,10 +107,14 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         validationReason: l.validationReason,
         serverReference: l.serverReference,
         remoteOnly: l.remoteOnly,
+        plate: l.plaqueDepart,
       ),
     );
   }
-  items.sort((a, b) => b.date.compareTo(a.date));
+  items.sort((first, second) {
+    final byDate = second.date.compareTo(first.date);
+    return byDate != 0 ? byDate : first.id.compareTo(second.id);
+  });
   return items;
 });
 

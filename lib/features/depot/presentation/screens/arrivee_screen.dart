@@ -41,6 +41,15 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   bool get _structuredPhotos => _photoSchemaVersion >= 2;
   bool get _requiresMicaPhoto => _photoSchemaVersion == 2;
 
+  int get _requiredArrivalPhotoCount =>
+      !_structuredPhotos ? 1 : (_requiresMicaPhoto ? 3 : 2);
+
+  int get _arrivalPhotoCount => [
+    _platePhoto,
+    if (_requiresMicaPhoto) _micaPhoto,
+    if (_structuredPhotos) _truckPhoto,
+  ].whereType<CapturedPhoto>().length;
+
   @override
   void initState() {
     super.initState();
@@ -237,15 +246,18 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
           StepHeader(
             numero: 1,
             titre: _structuredPhotos
-                ? (_requiresMicaPhoto
-                      ? 'Les 3 photos du déchargement'
-                      : 'Les 2 photos du déchargement')
-                : 'La photo d’arrivée',
+                ? 'Photos du déchargement — $_arrivalPhotoCount/$_requiredArrivalPhotoCount'
+                : 'Photo d’arrivée — $_arrivalPhotoCount/$_requiredArrivalPhotoCount',
             sousTitre: _structuredPhotos
                 ? (_requiresMicaPhoto
                       ? 'Plaque, mica et camion avec mica'
                       : 'Plaque et camion avec mica')
                 : 'Capture historique v1',
+          ),
+          const SizedBox(height: 12),
+          PhotoCaptureProgress(
+            captured: _arrivalPhotoCount,
+            total: _requiredArrivalPhotoCount,
           ),
           const SizedBox(height: 12),
           ActionTile(

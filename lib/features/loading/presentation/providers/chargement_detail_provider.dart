@@ -12,6 +12,8 @@ class PhotoLine {
 class TransLine {
   final int ordre;
   final String? plaqueAvant, plaqueApres, photoDecharge, photoRecharge;
+  final double? distanceMetres;
+  final double? gpsDechargeLat, gpsDechargeLon, gpsRechargeLat, gpsRechargeLon;
   final List<PhotoLine> photosDecharge, photosRecharge;
   final bool conforme;
   const TransLine(
@@ -23,6 +25,11 @@ class TransLine {
     this.photoRecharge,
     this.photosDecharge,
     this.photosRecharge,
+    this.distanceMetres,
+    this.gpsDechargeLat,
+    this.gpsDechargeLon,
+    this.gpsRechargeLat,
+    this.gpsRechargeLon,
   );
 }
 
@@ -33,6 +40,7 @@ class ArriveeLine {
   final List<PhotoLine> photosDecharge;
   final bool plaqueCoherente;
   final int? score;
+  final double gpsLat, gpsLon;
   const ArriveeLine(
     this.depotId,
     this.chauffeur,
@@ -45,6 +53,8 @@ class ArriveeLine {
     this.photoArrivee,
     this.photoPermis,
     this.photosDecharge,
+    this.gpsLat,
+    this.gpsLon,
   );
 }
 
@@ -71,6 +81,7 @@ SyncEtat syncEtatFrom(String? opStatus, bool photosUploaded) =>
 class LotDetail {
   final String id;
   final String sessionId;
+  final String displaySessionId;
   final String mineId;
   final String mineName;
   final String? reference, couleur, plaqueDepart, photoPath;
@@ -89,6 +100,7 @@ class LotDetail {
   const LotDetail({
     required this.id,
     required this.sessionId,
+    required this.displaySessionId,
     required this.mineId,
     required this.mineName,
     required this.reference,
@@ -174,6 +186,7 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
   return LotDetail(
     id: l.id,
     sessionId: l.sessionId,
+    displaySessionId: session.sessionUuid ?? session.id,
     mineId: l.mineId,
     mineName: mine?.nom ?? l.mineId,
     reference: l.reference,
@@ -199,6 +212,11 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             t.photoRechargePath,
             photos('transload_unload', t.ordre),
             photos('transload_reload', t.ordre),
+            t.distanceMetres,
+            t.gpsDechargeLat,
+            t.gpsDechargeLon,
+            t.gpsRechargeLat,
+            t.gpsRechargeLon,
           ),
         )
         .toList(),
@@ -216,6 +234,8 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             arr.photoArriveePath,
             arr.photoPermisPath,
             photos('depot_unload', 0),
+            arr.gpsLat,
+            arr.gpsLon,
           ),
     sync: sync,
     validationStatus: _normalizeValidationStatus(l.validationStatus),

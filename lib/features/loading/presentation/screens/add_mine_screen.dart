@@ -165,7 +165,9 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         )
         .toList();
 
-    return [...mineOptions, ...localMineOptions];
+    final options = [...mineOptions, ...localMineOptions];
+    options.sort(_compareMineChoiceCreatedAtDescending);
+    return options;
   }
 
   @override
@@ -196,10 +198,12 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                   (submissionsAsync.value ?? const [])
                       .where(
                         (s) =>
-                            s.state == MineSubmissionState.localPending ||
-                            s.state ==
-                                MineSubmissionState.awaitingAttachments ||
-                            s.state == MineSubmissionState.pendingValidation,
+                            s.serverId == null &&
+                            (s.state == MineSubmissionState.localPending ||
+                                s.state ==
+                                    MineSubmissionState.awaitingAttachments ||
+                                s.state ==
+                                    MineSubmissionState.pendingValidation),
                       )
                       .map(
                         (s) => _MineSubmissionPreview(
@@ -265,14 +269,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             sousTitre: 'Appuie sur chaque ligne pour prendre la photo demandée',
           ),
           const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: _capturedPhotoCount / 2,
-              minHeight: 6,
-              backgroundColor: AppColors.inkSoft.withValues(alpha: 0.15),
-            ),
-          ),
+          PhotoCaptureProgress(captured: _capturedPhotoCount, total: 2),
           const SizedBox(height: 12),
           _CaptureTile(
             title: 'Photo de la plaque',
@@ -372,6 +369,22 @@ class _MineChoice {
     ];
     return parts.join('  •  ');
   }
+}
+
+int _compareMineChoiceCreatedAtDescending(
+  _MineChoice first,
+  _MineChoice second,
+) {
+  final firstDate = first.createdAt;
+  final secondDate = second.createdAt;
+  if (firstDate == null && secondDate == null) {
+    return first.name.compareTo(second.name);
+  }
+  if (firstDate == null) return 1;
+  if (secondDate == null) return -1;
+
+  final byDate = secondDate.compareTo(firstDate);
+  return byDate != 0 ? byDate : first.name.compareTo(second.name);
 }
 
 class _MineSubmissionPreview {

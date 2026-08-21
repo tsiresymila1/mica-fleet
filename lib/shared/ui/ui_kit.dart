@@ -46,6 +46,28 @@ class StepHeader extends StatelessWidget {
   );
 }
 
+/// Progression commune aux étapes de capture photo.
+class PhotoCaptureProgress extends StatelessWidget {
+  final int captured;
+  final int total;
+
+  const PhotoCaptureProgress({
+    super.key,
+    required this.captured,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) => ClipRRect(
+    borderRadius: BorderRadius.circular(4),
+    child: LinearProgressIndicator(
+      value: total <= 0 ? 0 : (captured / total).clamp(0, 1),
+      minHeight: 6,
+      backgroundColor: AppColors.inkSoft.withValues(alpha: 0.15),
+    ),
+  );
+}
+
 enum PillKind { ok, warn, danger, neutral }
 
 /// Pastille de statut : couleur + icône + un mot. Lisible sans lire.
