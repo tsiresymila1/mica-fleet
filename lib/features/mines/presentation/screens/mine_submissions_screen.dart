@@ -10,6 +10,7 @@ import '../../../sync/presentation/sync_provider.dart';
 import '../../domain/entities/mine_submission.dart';
 import '../providers/mine_submissions_provider.dart';
 import '../providers/mines_provider.dart';
+import '../widgets/mine_overview_tile.dart';
 
 class MineSubmissionsScreen extends ConsumerWidget {
   const MineSubmissionsScreen({super.key});
@@ -99,18 +100,19 @@ class _SubmissionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final uploaded = submission.photos.where((p) => p.uploaded).length;
     final status = _submissionStatus(submission.state);
-    final date = DateFormat('dd/MM/yyyy HH:mm').format(submission.createdAt);
-    return ActionTile(
+    return MineOverviewTile(
+      name: submission.nom,
+      reference: null,
+      note: null,
+      createdAt: submission.createdAt,
       icon: status.icon,
       color: status.color,
-      titre: submission.nom,
-      sousTitre: [
+      details: [
         '${submission.photos.length} positions',
         if (submission.state == MineSubmissionState.awaitingAttachments)
           'Photos $uploaded/${submission.photos.length}',
-        date,
         if (submission.rejectionReason != null) submission.rejectionReason!,
-      ].join(' • '),
+      ],
       onTap: onTap,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -266,12 +268,11 @@ class _SubmissionDetailsSheetState
             StatusPill(kind: status.kind, label: status.label),
             const SizedBox(height: 18),
             _DetailRow(label: 'Créée le', value: date),
-            _DetailRow(
-              label: 'Commune',
-              value: submission.communeId == null
-                  ? 'Non renseignée'
-                  : '#${submission.communeId}',
-            ),
+            if (submission.communeId != null)
+              _DetailRow(
+                label: 'Commune historique',
+                value: '#${submission.communeId}',
+              ),
             _DetailRow(label: 'Payload', value: submission.payloadId),
             if (submission.serverId != null)
               _DetailRow(

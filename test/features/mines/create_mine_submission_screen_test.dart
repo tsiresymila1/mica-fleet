@@ -20,7 +20,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Proposer une mine'), findsWidgets);
-    expect(find.text('Sélectionner une commune'), findsOneWidget);
+    expect(find.text('Commune'), findsNothing);
+    expect(find.text('Sélectionner une commune'), findsNothing);
+    expect(find.text('Rechercher une commune'), findsNothing);
     expect(find.textContaining('déterminés par le serveur'), findsOneWidget);
     expect(find.textContaining('0/5 minimum'), findsOneWidget);
 

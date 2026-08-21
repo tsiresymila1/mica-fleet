@@ -23,7 +23,7 @@ Référence unique pour l’application Flutter Android et le backend.
 | `POST` | `/api/login` | Connexion |
 | `POST` | `/api/password/change` | Modifier le mot de passe |
 | `GET` | `/api/mine` | Mines validées |
-| `GET` | `/api/commune` | Communes disponibles pour une proposition |
+| `GET` | `/api/commune` | Référentiel des communes (hors proposition de mine) |
 | `GET` | `/api/storage` | Dépôts, affichage informatif |
 | `POST` | `/api/mine` | Proposer une mine |
 | `POST` | `/api/tracking/submit` | Envoyer un lot complet |
@@ -90,6 +90,8 @@ Retourne uniquement les mines validées et visibles par l’utilisateur :
       {
         "id": 42,
         "name": "Mine Andilana",
+        "reference": "REF-MINE-42",
+        "created_at": "2026-08-14 07:30:00",
         "fokontany": "Andilana",
         "commune": "Ambohidratrimo",
         "district": "Ambohidratrimo",
@@ -106,6 +108,8 @@ Retourne uniquement les mines validées et visibles par l’utilisateur :
 
 Le cache est remplacé sans doublon à chaque synchronisation. La présence de
 l’identifiant serveur d’une proposition dans cette liste valide la proposition.
+`reference` et `created_at` sont affichés dans la fiche mine du compte. La note
+canonique est fournie par `mine.note` dans `GET /api/tracking/lots`.
 
 ### `GET /api/commune`
 
@@ -156,8 +160,9 @@ GPS d’arrivée. Ce référentiel reste disponible pour affichage informatif.
 
 ### `POST /api/mine`
 
-La commune choisie depuis le cache est envoyée par son identifiant. Le backend
-déduit le district et les autres informations administratives.
+L'application ne demande aucune commune à l'agent et n'envoie pas de
+`commune_id`. Le backend détermine le fokontany, la commune, le district et la
+région à partir des positions GPS de la proposition.
 
 ```json
 {
@@ -167,7 +172,6 @@ déduit le district et les autres informations administratives.
   "payload": {
     "id": "af266f45-f338-4d48-b4fc-a9a86bc62546",
     "name": "Nouvelle mine",
-    "commune_id": 24091,
     "positions": [
       {
         "key": "position_1",
@@ -451,6 +455,10 @@ dans cette réponse. Le score visible sur les cartes et dans le détail d'un lot
 provient exclusivement de `traceability_score` retourné ici. Le score calculé
 sur le mobile à l'arrivée reste provisoire et n'est pas affiché comme score
 final.
+
+Dans l'écran du compte, une mine affiche son nom, sa référence, sa date de
+création et cette note, sans coordonnées GPS. Un appui ouvre un sheet contenant
+les lots dont `payload.mine.mine_id` correspond à l'id de la mine.
 
 ## Mise à jour Android
 

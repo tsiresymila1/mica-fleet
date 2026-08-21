@@ -1,6 +1,6 @@
 # Base de données — Mica Fleet
 
-Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 19**.
+Base **SQLite locale** (chiffrée SQLCipher), gérée avec **Drift**. Schéma **version 22**.
 Source de vérité de l'app (offline-first) ; les données remontent ensuite vers Odoo
 via la file de synchronisation.
 
@@ -12,7 +12,7 @@ erDiagram
     CHARGEMENTS  ||--o{ MINE_CHARGEMENTS : "contient (1..3)"
     MINE_CHARGEMENTS ||--o{ LOT_TRACEABILITY_PHOTOS : "preuves photo v2"
     MINES        ||--o{ MINE_CHARGEMENTS : "source"
-    COMMUNES     ||--o{ MINE_SUBMISSIONS : "localise"
+    COMMUNES     ||--o{ MINE_SUBMISSIONS : "compatibilité historique"
     CHARGEMENTS  ||--o{ TRANSBORDEMENTS : "chaîne (0..N)"
     CHARGEMENTS  ||--|| ARRIVEES_DEPOT : "arrive (0..1)"
     DEPOTS       ||--o{ ARRIVEES_DEPOT : "réceptionne"
@@ -30,7 +30,11 @@ erDiagram
         real lat
         real lon
         real rayonMetres
+        text reference
+        text note
+        datetime createdAt
         text district
+        text fokontany
         text commune
         text region
         bool actif
@@ -174,7 +178,10 @@ Référentiel des carrières (synchronisé depuis Odoo). Sert au contrôle GPS d
 | nom | text | non nul | Nom carrière |
 | lat, lon | real | non nul | Coordonnées officielles |
 | rayonMetres | real | défaut 20 | Rayon autorisé autour du point |
-| district, commune, region | text | nullable | Localisation administrative |
+| reference | text | nullable | Référence attribuée par le backend |
+| note | text | nullable | Note canonique issue de `GET /api/tracking/lots` |
+| createdAt | datetime | nullable | Date de création fournie par le backend |
+| district, fokontany, commune, region | text | nullable | Localisation administrative |
 | actif | bool | défaut true | Mine autorisée/active |
 
 ### MineSubmissions
@@ -186,7 +193,7 @@ Propositions créées manuellement sur le terrain. Elles restent séparées de
 | payloadId | text | **PK**, UUID | `payload.id` de la proposition |
 | deviceUuid | text | UUID | Idempotence du submit et des photos |
 | nom | text | non nul | Nom proposé |
-| communeId | int | nullable, FK logique → Communes | Commune choisie ; nullable pour les données historiques |
+| communeId | int | nullable, FK logique → Communes | Ancienne valeur conservée pour compatibilité ; non renseignée par le formulaire actuel |
 | agentLogin | text | nullable | Agent ayant créé la proposition |
 | state | text | défaut `local_pending` | État local/serveur de validation |
 | serverId | int | nullable | Identifiant technique Odoo |
@@ -196,14 +203,15 @@ Propositions créées manuellement sur le terrain. Elles restent séparées de
 
 ### Communes
 
-Référentiel chargé par `GET /api/commune` après connexion et conservé pour la
-création hors ligne d'une proposition de mine.
+Référentiel historique chargé par `GET /api/commune`. Il peut rester en cache
+pour les anciennes données, mais le formulaire actuel déduit la localisation
+depuis les preuves GPS et ne l'utilise plus.
 
 | Colonne | Type | Contrainte | Rôle |
 |---|---|---|---|
-| id | int | **PK** | Identifiant Odoo envoyé comme `commune_id` |
-| nom | text | non nul | Libellé recherchable dans le formulaire |
-| district | text | nullable | Contexte affiché, non envoyé au submit |
+| id | int | **PK** | Identifiant Odoo historique |
+| nom | text | non nul | Libellé conservé en cache |
+| district | text | nullable | Contexte administratif historique |
 | actif | bool | défaut true | Commune proposée ou masquée |
 
 ### MineSubmissionPhotos

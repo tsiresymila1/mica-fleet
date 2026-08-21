@@ -44,6 +44,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.textContaining('Référence : —'), findsOneWidget);
+    expect(find.textContaining('Créée le : 05/08/2026'), findsOneWidget);
+    expect(find.textContaining('Note : —'), findsOneWidget);
     await tester.tap(find.text('Mine hors ligne'));
     await tester.pumpAndSettle();
 
@@ -118,6 +121,8 @@ void main() {
     expect(find.textContaining('Cap 125°'), findsOneWidget);
     expect(find.text('Supprimer de cet appareil'), findsOneWidget);
 
+    await tester.ensureVisible(find.text('Supprimer de cet appareil'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Supprimer de cet appareil'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Supprimer'));

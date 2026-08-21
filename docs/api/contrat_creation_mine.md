@@ -8,8 +8,9 @@ preuves de la mine continue indépendamment et ne bloque pas le lot.
 
 ## Principes
 
-- Une proposition contient une commune, un nom et au moins **5 photos prises
-  dans l'app**.
+- Une proposition contient un nom et au moins **5 photos prises dans l'app**.
+- L'agent ne choisit pas la commune. Odoo détermine le fokontany, la commune,
+  le district et la région à partir des positions GPS reçues.
 - Chaque photo possède sa position GPS, sa précision, son horodatage et son
   hash SHA-256. Son cap magnétique est ajouté lorsque le capteur est disponible.
 - Les métadonnées sont envoyées avant les fichiers binaires.
@@ -39,7 +40,6 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
   "payload": {
     "id": "de305d54-75b4-431b-adb2-eb6b9e546014",
     "name": "Mine Antsahabe",
-    "commune_id": 24091,
     "created_at": "2026-07-30 08:00:00",
     "positions": [
       {
@@ -104,11 +104,10 @@ Crée ou rejoue une proposition de mine. L'endpoint exige un Bearer token.
 
 ### Validation serveur
 
-- `device_uuid`, `payload.id`, `name`, `commune_id` et `positions` sont
-  obligatoires.
+- `device_uuid`, `payload.id`, `name` et `positions` sont obligatoires.
 - `device_uuid` et `payload.id` doivent être des UUID valides.
-- `commune_id` doit référencer une commune connue et active. Le district est
-  déduit de cette commune par Odoo et n'est pas envoyé dans le payload.
+- `commune_id` n'est pas envoyé. Odoo résout les informations administratives
+  depuis les coordonnées des preuves GPS.
 - `positions` doit contenir au moins 5 entrées.
 - Les `key` doivent être uniques dans le payload.
 - Chaque position doit contenir `key`, `hash`, `lat`, `lon`, `gps_accuracy` et

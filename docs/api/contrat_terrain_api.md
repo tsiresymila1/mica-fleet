@@ -84,11 +84,11 @@ chaque login et à chaque synchronisation.
   de la mine ou du dépôt. Sans lui, elle applique 20 m par défaut.
 - **`active: false`** masque l'entrée sans casser les chargements passés.
 
-### `GET /api/commune`
+### `GET /api/commune` — compatibilité historique
 
-Le même Bearer token permet de charger les communes proposées lors de l'ajout
-manuel d'une mine. L'app met cette réponse en cache après le login afin que le
-champ de recherche reste disponible hors ligne.
+L'application peut encore conserver ce référentiel en cache pour rester
+compatible avec les anciennes installations, mais il n'est plus utilisé lors
+de la création d'une proposition de mine.
 
 ```json
 {
@@ -104,9 +104,9 @@ champ de recherche reste disponible hors ligne.
 }
 ```
 
-Champs requis : `id` entier et `name`. `district` est uniquement affiché pour
-aider l'agent ; `active: false` masque la commune. La création d'une mine
-envoie ensuite uniquement cet identifiant sous la clé `payload.commune_id`.
+Pour une nouvelle proposition, aucun `commune_id` n'est envoyé. Le backend
+détermine le fokontany, la commune, le district et la région à partir des
+positions GPS des cinq preuves photographiques.
 
 ---
 

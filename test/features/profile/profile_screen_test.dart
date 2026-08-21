@@ -1,9 +1,12 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/core/di/providers.dart';
 import 'package:mica_fleet/features/auth/data/password_secret_store.dart';
+import 'package:mica_fleet/features/auth/domain/entities/fournisseur.dart';
+import 'package:mica_fleet/features/auth/presentation/providers/auth_provider.dart';
 import 'package:mica_fleet/features/profile/presentation/screens/profile_screen.dart';
 import 'package:mica_fleet/features/sync/domain/entities/sync_operation.dart';
 import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
@@ -11,6 +14,11 @@ import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.
 class _NoPasswordSecretStore extends PasswordSecretStore {
   @override
   Future<PendingPasswordChange?> pending() async => null;
+}
+
+class _SignedInAuthController extends AuthController {
+  @override
+  Fournisseur? build() => const Fournisseur(id: 'eddy', nom: 'Eddy');
 }
 
 class _ReferencesRemote implements RemoteDataSource {
@@ -31,6 +39,10 @@ class _ReferencesRemote implements RemoteDataSource {
         null,
         null,
         true,
+        reference: 'REF-MINE-7',
+        note: 'Note remplacée par le tracking',
+        createdAt: DateTime.utc(2026, 8, 14, 7, 30),
+        fokontany: 'Andilana',
       ),
     ];
   }
@@ -42,7 +54,25 @@ class _ReferencesRemote implements RemoteDataSource {
   }
 
   @override
-  Future<List<RemoteLot>> fetchLots() async => const [];
+  Future<List<RemoteLot>> fetchLots() async => [
+    RemoteLot(
+      payloadId: 'payload-lot-7',
+      sessionId: 'session-lot-7',
+      reference: 'MICA-2026-0042',
+      validationStatus: 'validated',
+      validationReason: null,
+      createdAt: DateTime.utc(2026, 8, 14, 8),
+      updatedAt: DateTime.utc(2026, 8, 14, 10),
+      mineId: '7',
+      mineName: 'Mine synchronisée',
+      mineReference: 'REF-MINE-7',
+      mineNote: 'Note du backend tracking',
+      color: 'Blanc',
+      estimatedQuantity: 120,
+      transportStatus: 'arrive',
+      score: 96,
+    ),
+  ];
 
   @override
   Future<List<RemoteCommune>> fetchCommunes() async => const [];
@@ -83,9 +113,19 @@ void main() {
       final db = AppDatabase.memory();
       final remote = _ReferencesRemote();
       addTearDown(db.close);
+      await db
+          .into(db.fournisseurs)
+          .insert(
+            FournisseursCompanion.insert(
+              id: 'eddy',
+              nom: 'Eddy',
+              sessionToken: const Value('token'),
+            ),
+          );
       final container = ProviderContainer(
         overrides: [
           dbProvider.overrideWithValue(db),
+          authControllerProvider.overrideWith(_SignedInAuthController.new),
           remoteDataSourceProvider.overrideWithValue(remote),
           passwordSecretStoreProvider.overrideWithValue(
             _NoPasswordSecretStore(),
@@ -118,6 +158,22 @@ void main() {
         (await db.select(db.depots).get()).single.nom,
         'Dépôt synchronisé',
       );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Référence : REF-MINE-7'), findsOneWidget);
+      expect(find.textContaining('Créée le : 14/08/2026'), findsOneWidget);
+      expect(
+        find.textContaining('Note : Note du backend tracking'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('GPS -18.90000'), findsNothing);
+
+      await tester.tap(find.text('Mine synchronisée'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lots rattachés à Mine synchronisée'), findsOneWidget);
+      expect(find.text('MICA-2026-0042'), findsOneWidget);
+      expect(find.textContaining('Blanc'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

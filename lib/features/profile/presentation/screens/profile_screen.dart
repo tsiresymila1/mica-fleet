@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/di/providers.dart';
 import '../../../../core/network/api_error_details.dart';
@@ -8,13 +10,29 @@ import '../../../../shared/ui/map_dialog.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../depot/presentation/providers/depot_provider.dart';
+import '../../../loading/presentation/providers/chargements_list_provider.dart';
+import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
+import '../../../mines/presentation/widgets/mine_overview_tile.dart';
 import '../../../sync/presentation/sync_provider.dart';
 
 /// Profil du fournisseur connecté : ses mines et ses dépôts autorisés
 /// (référentiel synchronisé depuis Odoo). Lecture seule.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _openMineLots(BuildContext context, Mine mine) async {
+    final lotId = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _MineLotsSheet(mine: mine),
+    );
+    if (lotId != null && context.mounted) {
+      await context.push('/detail/$lotId');
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,25 +72,12 @@ class ProfileScreen extends ConsumerWidget {
                           .map(
                             (m) => Padding(
                               padding: const EdgeInsets.only(bottom: 8),
-                              child: ActionTile(
-                                icon: Icons.terrain,
-                                color: AppColors.gold,
-                                titre: m.nom,
-                                sousTitre: [
-                                  if (m.fokontany != null)
-                                    'Fokontany : ${m.fokontany!}',
-                                  if (m.commune != null) m.commune!,
-                                  if (m.region != null) m.region!,
-                                  'GPS ${m.lat.toStringAsFixed(5)}, ${m.lon.toStringAsFixed(5)}',
-                                ].join('\n'),
-                                trailing: _Coord(lat: m.lat, lon: m.lon),
-                                onTap: () => showLocationMap(
-                                  context,
-                                  titre: m.nom,
-                                  lat: m.lat,
-                                  lon: m.lon,
-                                  rayonMetres: m.rayonMetres,
-                                ),
+                              child: MineOverviewTile(
+                                name: m.nom,
+                                reference: m.reference,
+                                note: m.note,
+                                createdAt: m.createdAt,
+                                onTap: () => _openMineLots(context, m),
                               ),
                             ),
                           )
@@ -119,6 +124,85 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _MineLotsSheet extends ConsumerWidget {
+  const _MineLotsSheet({required this.mine});
+
+  final Mine mine;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final lots = ref.watch(lotsForMineProvider(mine.id));
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.78,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Lots rattachés à ${mine.nom}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Fermer',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: lots.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, _) =>
+                    const Center(child: Text('Impossible de charger les lots')),
+                data: (items) => items.isEmpty
+                    ? const Center(
+                        child: Text('Aucun lot rattaché à cette mine'),
+                      )
+                    : ListView.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final lot = items[index];
+                          return ActionTile(
+                            icon: Icons.inventory_2_outlined,
+                            color: AppColors.primary,
+                            titre: lot.serverReference ?? lot.id,
+                            sousTitre: [
+                              'Créé le ${dateFormat.format(lot.date)}',
+                              [
+                                if (lot.couleur?.trim().isNotEmpty == true)
+                                  lot.couleur!.trim(),
+                                if (lot.tonnage != null) '${lot.tonnage} kg',
+                              ].join(' • '),
+                              'Validation : ${_validationLabel(lot.validationStatus)}',
+                              if (lot.score != null) 'Score : ${lot.score}/100',
+                            ].where((line) => line.isNotEmpty).join('\n'),
+                            onTap: () => Navigator.of(context).pop(lot.id),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _validationLabel(String status) => switch (status) {
+    'validated' => 'Validé',
+    'rejected' => 'Rejeté',
+    _ => 'En attente',
+  };
 }
 
 class _ChangePasswordTile extends ConsumerStatefulWidget {
@@ -366,9 +450,8 @@ class _PasswordChangeSheetState extends ConsumerState<_PasswordChangeSheet> {
                 icon: Icon(
                   _currentHidden ? Icons.visibility_off : Icons.visibility,
                 ),
-                onPressed: () => setState(
-                  () => _currentHidden = !_currentHidden,
-                ),
+                onPressed: () =>
+                    setState(() => _currentHidden = !_currentHidden),
               ),
             ),
           ),
@@ -380,7 +463,9 @@ class _PasswordChangeSheetState extends ConsumerState<_PasswordChangeSheet> {
               labelText: 'Nouveau mot de passe',
               helperText: '8 caractères minimum',
               suffixIcon: IconButton(
-                icon: Icon(_nextHidden ? Icons.visibility_off : Icons.visibility),
+                icon: Icon(
+                  _nextHidden ? Icons.visibility_off : Icons.visibility,
+                ),
                 onPressed: () => setState(() => _nextHidden = !_nextHidden),
               ),
             ),
@@ -393,13 +478,10 @@ class _PasswordChangeSheetState extends ConsumerState<_PasswordChangeSheet> {
               labelText: 'Confirmation',
               suffixIcon: IconButton(
                 icon: Icon(
-                  _confirmationHidden
-                      ? Icons.visibility_off
-                      : Icons.visibility,
+                  _confirmationHidden ? Icons.visibility_off : Icons.visibility,
                 ),
-                onPressed: () => setState(
-                  () => _confirmationHidden = !_confirmationHidden,
-                ),
+                onPressed: () =>
+                    setState(() => _confirmationHidden = !_confirmationHidden),
               ),
             ),
           ),
@@ -413,7 +495,10 @@ class _PasswordChangeSheetState extends ConsumerState<_PasswordChangeSheet> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Annuler'),
                 ),
-                FilledButton(onPressed: _submit, child: const Text('Enregistrer')),
+                FilledButton(
+                  onPressed: _submit,
+                  child: const Text('Enregistrer'),
+                ),
               ],
             ),
           ),

@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/db/app_database.dart';
-import '../../../../core/di/providers.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/ui/photo_view.dart';
@@ -14,11 +12,6 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../data/repositories/mine_submission_repository_impl.dart';
 import '../providers/mine_submissions_provider.dart';
-
-final _activeCommunesProvider = FutureProvider<List<CommuneRow>>((ref) async {
-  final db = ref.watch(dbProvider);
-  return (db.select(db.communes)..where((c) => c.actif.equals(true))).get();
-});
 
 class CreateMineSubmissionScreen extends ConsumerStatefulWidget {
   const CreateMineSubmissionScreen({super.key});
@@ -31,7 +24,6 @@ class CreateMineSubmissionScreen extends ConsumerStatefulWidget {
 class _CreateMineSubmissionScreenState
     extends ConsumerState<CreateMineSubmissionScreen> {
   final _nameController = TextEditingController();
-  CommuneRow? _selectedCommune;
   final List<CapturedPhoto> _photos = [];
   bool _saving = false;
 
@@ -75,7 +67,6 @@ class _CreateMineSubmissionScreenState
           name: _nameController.text,
           photos: List.unmodifiable(_photos),
           agentLogin: agent?.id,
-          communeId: _selectedCommune?.id,
         );
     if (!mounted) return;
     await result.match(
@@ -97,36 +88,6 @@ class _CreateMineSubmissionScreenState
     );
     if (mounted) setState(() => _saving = false);
   }
-
-  Future<void> _selectCommune() async {
-    final communes = await ref.read(_activeCommunesProvider.future);
-    if (!mounted) return;
-    if (communes.isEmpty) {
-      showAppMessage(
-        context,
-        'Aucune commune en cache. Connectez-vous pour les charger.',
-        kind: AppMsgKind.warning,
-      );
-      return;
-    }
-
-    final selected = await showModalBottomSheet<CommuneRow?>(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      useSafeArea: true,
-      builder: (_) => _CommunePickerSheet(
-        communes: communes,
-        currentId: _selectedCommune?.id,
-      ),
-    );
-    if (selected == null || !mounted) return;
-    setState(() => _selectedCommune = selected);
-  }
-
-  String? get _selectedCommuneLabel => _selectedCommune == null
-      ? null
-      : '${_selectedCommune!.nom} (${_selectedCommune!.district ?? 'District inconnu'})';
 
   @override
   Widget build(BuildContext context) {
@@ -154,14 +115,6 @@ class _CreateMineSubmissionScreenState
           const SizedBox(height: 8),
           const Text(
             'Le fokontany, la commune et la région seront déterminés par le serveur à partir des positions GPS.',
-          ),
-          const SizedBox(height: 16),
-          ActionTile(
-            icon: Icons.location_city_outlined,
-            titre: 'Commune',
-            color: AppColors.primary,
-            sousTitre: _selectedCommuneLabel ?? 'Sélectionner une commune',
-            onTap: _selectCommune,
           ),
           const SizedBox(height: 28),
           StepHeader(
@@ -209,79 +162,6 @@ class _CreateMineSubmissionScreenState
               ? null
               : _save,
         ),
-      ),
-    );
-  }
-}
-
-class _CommunePickerSheet extends ConsumerStatefulWidget {
-  final List<CommuneRow> communes;
-  final int? currentId;
-  const _CommunePickerSheet({
-    required this.communes,
-    required this.currentId,
-  });
-
-  @override
-  ConsumerState<_CommunePickerSheet> createState() => _CommunePickerSheetState();
-}
-
-class _CommunePickerSheetState extends ConsumerState<_CommunePickerSheet> {
-  final _query = TextEditingController();
-  String _text = '';
-
-  @override
-  void dispose() {
-    _query.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final q = _text.trim().toLowerCase();
-    final rows = widget.communes.where((commune) {
-      if (q.isEmpty) return true;
-      final haystack =
-          '${commune.nom} ${commune.district ?? ''}'.toLowerCase();
-      return haystack.contains(q);
-    }).toList()
-      ..sort((a, b) => a.nom.toLowerCase().compareTo(b.nom.toLowerCase()));
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 8, 12),
-            child: TextField(
-              controller: _query,
-              onChanged: (value) => setState(() => _text = value),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Rechercher une commune',
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: rows.length,
-              itemBuilder: (context, index) {
-                final commune = rows[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(commune.nom),
-                  subtitle: commune.district == null
-                      ? null
-                      : Text(commune.district!),
-                  trailing: commune.id == widget.currentId
-                      ? const Icon(Icons.check, color: AppColors.ok)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(commune),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -111,3 +111,10 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
   items.sort((a, b) => b.date.compareTo(a.date));
   return items;
 });
+
+/// Lots visibles par l'agent connecté et rattachés à une mine canonique.
+final lotsForMineProvider = FutureProvider.autoDispose
+    .family<List<LotListItem>, String>((ref, mineId) async {
+      final lots = await ref.watch(lotsListProvider.future);
+      return lots.where((lot) => lot.mineId == mineId).toList();
+    });
