@@ -23,6 +23,7 @@ Référence unique pour l’application Flutter Android et le backend.
 | `POST` | `/api/login` | Connexion |
 | `POST` | `/api/password/change` | Modifier le mot de passe |
 | `GET` | `/api/mine` | Mines validées |
+| `GET` | `/api/commune` | Communes disponibles pour une proposition |
 | `GET` | `/api/storage` | Dépôts, affichage informatif |
 | `POST` | `/api/mine` | Proposer une mine |
 | `POST` | `/api/tracking/submit` | Envoyer un lot complet |
@@ -106,6 +107,28 @@ Retourne uniquement les mines validées et visibles par l’utilisateur :
 Le cache est remplacé sans doublon à chaque synchronisation. La présence de
 l’identifiant serveur d’une proposition dans cette liste valide la proposition.
 
+### `GET /api/commune`
+
+Retourne les communes actives. L'application remplace ce cache sans doublon
+après la connexion et à chaque synchronisation ; la recherche reste donc
+disponible hors ligne.
+
+```json
+{
+  "status": "ok",
+  "data": {
+    "communes": [
+      {
+        "id": 24091,
+        "name": "Andilana",
+        "district": "Ambohidratrimo",
+        "active": true
+      }
+    ]
+  }
+}
+```
+
 ### `GET /api/storage`
 
 ```json
@@ -133,8 +156,8 @@ GPS d’arrivée. Ce référentiel reste disponible pour affichage informatif.
 
 ### `POST /api/mine`
 
-La localité n’est pas envoyée : le backend détermine fokontany, commune,
-district et région depuis les positions GPS.
+La commune choisie depuis le cache est envoyée par son identifiant. Le backend
+déduit le district et les autres informations administratives.
 
 ```json
 {
@@ -144,6 +167,7 @@ district et région depuis les positions GPS.
   "payload": {
     "id": "af266f45-f338-4d48-b4fc-a9a86bc62546",
     "name": "Nouvelle mine",
+    "commune_id": 24091,
     "positions": [
       {
         "key": "position_1",
@@ -151,7 +175,7 @@ district et région depuis les positions GPS.
         "lat": -18.91001,
         "lon": 47.52001,
         "gps_accuracy": 4.2,
-        "heading": 126.4,
+        "heading_deg": 126.4,
         "heading_accuracy": 8.0,
         "heading_reference": "magnetic",
         "captured_at": "2026-08-14 07:20:00"
@@ -166,6 +190,22 @@ district et région depuis les positions GPS.
 - La réponse contient l’id de la mine proposée dans `data.id`.
 - Après les photos, la proposition reste `pending_validation` jusqu’à ce que
   son id apparaisse dans `GET /api/mine`.
+
+### Dépendance d'un lot à une proposition locale
+
+Une proposition non synchronisée peut être choisie pour créer un lot hors
+ligne. Le mobile n'envoie toutefois jamais son UUID local dans
+`payload.mine.mine_id`. Avant `POST /api/tracking/submit`, il exécute :
+
+1. `POST /api/mine` ;
+2. la sauvegarde locale de `data.id` renvoyé par Odoo ;
+3. le remplacement de `payload.mine.mine_id` par cet id numérique ;
+4. `POST /api/tracking/submit` dans la même synchronisation.
+
+Les photos de position sont synchronisées indépendamment et ne bloquent pas le
+lot. Seul l'échec de `POST /api/mine`, donc l'absence de `data.id`, maintient le
+lot `pending` sans consommer de tentative d'envoi. Une mine rejetée bloque
+définitivement le lot avec le motif du rejet.
 
 ## Envoi d’un lot v3
 
@@ -317,13 +357,15 @@ Paramètres optionnels : `updated_since` UTC et pagination standard backend.
 Le backend retourne tous les lots accessibles à l’utilisateur connecté, y
 compris ceux créés sur un autre téléphone.
 
-Chaque élément de `data.lots` est **strictement le même objet que
-`payload` envoyé dans `POST /api/tracking/submit`**. Le backend ajoute seulement
-ces trois champs à la racine de l’objet :
+Chaque élément de `data.lots` reprend l'objet `payload` envoyé dans
+`POST /api/tracking/submit`. Le backend ajoute ou actualise les informations
+canoniques suivantes :
 
 - `traceability_reference` : référence définitive créée par le backend ;
 - `validation_status` : `pending`, `validated` ou `rejected` ;
 - `validation_reason` : motif du rejet, sinon `null`.
+- `mine.note` : note de la mine affichée par le mobile ;
+- `traceability_score` : score final calculé par le serveur.
 
 Il ne faut donc pas renommer `payload.id` en `payload_id` dans cette réponse.
 
@@ -342,6 +384,7 @@ Il ne faut donc pas renommer `payload.id` en `payload_id` dans cette réponse.
         "mine": {
           "mine_id": 42,
           "reference": null,
+          "note": "Observation issue de la traçabilité",
           "color": "Blanc",
           "estimated_quantity": 120.0,
           "plate": "1234 TBR",
@@ -403,6 +446,12 @@ distinct de la validation métier. Le mobile fusionne sur `payload.id`, met à
 jour référence/statut/score sans doublon, et crée une ligne de cache distante
 si le lot n’existe pas sur l’appareil.
 
+La note affichée dans les fiches mine provient exclusivement de `mine.note`
+dans cette réponse. Le score visible sur les cartes et dans le détail d'un lot
+provient exclusivement de `traceability_score` retourné ici. Le score calculé
+sur le mobile à l'arrivée reste provisoire et n'est pas affiché comme score
+final.
+
 ## Mise à jour Android
 
 ### `GET /api/app/version`
@@ -446,10 +495,12 @@ Quand une connexion est disponible, puis à chaque retour du réseau et action
 manuelle, l’application exécute dans cet ordre :
 
 1. changement de mot de passe en attente ;
-2. envoi FIFO des lots et propositions ;
-3. upload unitaire des photos ;
-4. `GET /api/mine` ;
-5. `GET /api/storage` ;
-6. `GET /api/tracking/lots`.
+2. envoi des propositions requises par les lots ;
+3. envoi immédiat des lots avec le `mine_id` Odoo résolu ;
+4. upload unitaire des photos de lots et de mines ;
+5. `GET /api/mine` ;
+6. `GET /api/storage` ;
+7. `GET /api/commune` ;
+8. `GET /api/tracking/lots`.
 
 Chaque endpoint est indépendant : un échec conserve le cache et sera rejoué.

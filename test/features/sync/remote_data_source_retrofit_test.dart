@@ -186,6 +186,7 @@ void main() {
               "mine_id": 42,
               "reference": null,
               "mine_name": "Mine Andilana",
+              "note": "Note issue de la traçabilité",
               "color": "Blanc",
               "estimated_quantity": 120,
               "plate": "1234 TBR",
@@ -226,7 +227,9 @@ void main() {
       expect(lots.single.reference, 'MICA-2026-0042');
       expect(lots.single.validationStatus, 'validated');
       expect(lots.single.mineName, 'Mine Andilana');
+      expect(lots.single.mineNote, 'Note issue de la traçabilité');
       expect(lots.single.estimatedQuantity, 120);
+      expect(lots.single.score, 96);
     },
   );
 
@@ -242,8 +245,7 @@ void main() {
   });
 
   test('fetchMines ignore les lignes mines malformées', () async {
-    final adapter = _CaptureAdapter(
-      '''
+    final adapter = _CaptureAdapter('''
         {
           "status":"ok",
           "data":{
@@ -254,8 +256,7 @@ void main() {
             ]
           }
         }
-      ''',
-    );
+      ''');
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
     final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);

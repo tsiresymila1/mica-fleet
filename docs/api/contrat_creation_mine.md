@@ -1,8 +1,10 @@
 # Contrat API — Proposition et validation d'une mine
 
 Ce document décrit le flux permettant à un agent terrain de proposer une mine
-depuis l'application mobile. Une proposition peut être créée hors ligne, mais
-la mine ne devient utilisable dans un chargement qu'après validation côté Odoo.
+depuis l'application mobile. Une proposition peut être créée hors ligne et
+sélectionnée immédiatement dans un lot local. Ce lot ne sera envoyé qu'après
+la création de la mine côté Odoo et l'obtention de son `data.id`. L'upload des
+preuves de la mine continue indépendamment et ne bloque pas le lot.
 
 ## Principes
 
@@ -17,6 +19,9 @@ la mine ne devient utilisable dans un chargement qu'après validation côté Odo
   tous les uploads de cette proposition.
 - Une proposition `awaiting_attachments`, `pending_validation` ou `rejected`
   ne doit jamais être renvoyée comme mine active par `GET /api/mine`.
+- Un lot local dépendant utilise l'UUID de proposition uniquement comme lien
+  local. Son `payload.mine.mine_id` utilise toujours l'id numérique renvoyé
+  dans `data.id` par `POST /api/mine`.
 
 ---
 

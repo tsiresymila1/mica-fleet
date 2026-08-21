@@ -25,6 +25,7 @@ class _Remote implements AuthRemoteDataSource {
         true,
       ),
     ],
+    communes: const [],
     depots: const [],
   );
 }

@@ -83,12 +83,10 @@ class DepotRepositoryImpl implements DepotRepository {
             photos: a.photosDecharge!,
           );
         }
-        // Le lot est arrivé : statut + score figés sur le lot.
+        // Le score calculé ici reste provisoire dans l'arrivée et le payload.
+        // Lots.score est réservé au score canonique de GET tracking/lots.
         await (db.update(db.lots)..where((t) => t.id.equals(a.lotId))).write(
-          LotsCompanion(
-            statut: const Value('arrive'),
-            score: Value(a.scoreTracabilite),
-          ),
+          const LotsCompanion(statut: Value('arrive')),
         );
       });
 

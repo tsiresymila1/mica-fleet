@@ -21,6 +21,100 @@ SyncOperation _op(String id, DateTime at) => SyncOperation(
   createdAt: at,
 );
 
+Future<File> _seedLotDependingOnLocalMine(
+  AppDatabase db,
+  DriftLocalSyncStore store,
+) async {
+  final now = DateTime.utc(2026, 8, 20, 8);
+  final photo = File(
+    '${Directory.systemTemp.path}/mica_dependent_mine_${DateTime.now().microsecondsSinceEpoch}.jpg',
+  )..writeAsBytesSync([1, 2, 3]);
+
+  await db
+      .into(db.mines)
+      .insert(
+        MinesCompanion.insert(
+          id: 'local-mine-payload',
+          nom: 'Mine locale',
+          lat: -18.91,
+          lon: 47.52,
+          actif: const Value(false),
+        ),
+      );
+  await db
+      .into(db.mineSubmissions)
+      .insert(
+        MineSubmissionsCompanion.insert(
+          payloadId: 'local-mine-payload',
+          deviceUuid: 'local-mine-device',
+          nom: 'Mine locale',
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  await db
+      .into(db.mineSubmissionPhotos)
+      .insert(
+        MineSubmissionPhotosCompanion.insert(
+          payloadId: 'local-mine-payload',
+          key: 'position_1',
+          path: photo.path,
+          hash: 'mine-position-hash',
+          lat: -18.91,
+          lon: 47.52,
+          gpsAccuracy: 4,
+          capturedAt: now,
+        ),
+      );
+  await db
+      .into(db.chargements)
+      .insert(
+        ChargementsCompanion.insert(
+          id: 'LOCAL-SESSION',
+          sessionUuid: const Value('bfc1487b-9e8a-4944-aa28-e19573b7dc02'),
+          fournisseurId: 'offline-agent',
+          dateCreation: now,
+        ),
+      );
+  await db
+      .into(db.lots)
+      .insert(
+        LotsCompanion.insert(
+          id: 'LOCAL-LOT',
+          payloadUuid: const Value('84a0de8e-450c-46f9-a8b6-1d216f306677'),
+          sessionId: 'LOCAL-SESSION',
+          mineId: 'local-mine-payload',
+          deviceUuid: const Value('local-lot-device'),
+          photosUploaded: const Value(true),
+        ),
+      );
+  await store.enqueue(
+    SyncOperation(
+      opId: 'local-mine-device',
+      entityType: 'mine_submission',
+      entityId: 'local-mine-payload',
+      opType: SyncOpType.create,
+      payload: const {'id': 'local-mine-payload', 'name': 'Mine locale'},
+      createdAt: now,
+    ),
+  );
+  await store.enqueue(
+    SyncOperation(
+      opId: 'local-lot-device',
+      entityType: 'lot',
+      entityId: 'LOCAL-LOT',
+      opType: SyncOpType.create,
+      payload: const {
+        'id': '84a0de8e-450c-46f9-a8b6-1d216f306677',
+        'session_id': 'bfc1487b-9e8a-4944-aa28-e19573b7dc02',
+        'mine': {'mine_id': 'local-mine-payload'},
+      },
+      createdAt: now.add(const Duration(seconds: 1)),
+    ),
+  );
+  return photo;
+}
+
 class _FakeRemote implements RemoteDataSource {
   final List<String> pushed = [];
   final List<SyncOperation> pushedOperations = [];
@@ -726,7 +820,7 @@ void main() {
           mineId: 'm1',
           mineName: 'Mine 1',
           mineReference: null,
-          mineNote: null,
+          mineNote: 'Note serveur de traçabilité',
           color: 'Blanc',
           estimatedQuantity: 120,
           transportStatus: 'arrive',
@@ -744,6 +838,86 @@ void main() {
         expect(lots.single.validationStatus, 'validated');
         expect(lots.single.remoteOnly, isTrue);
         expect(lots.single.score, 96);
+        final mine = await (db.select(
+          db.mines,
+        )..where((table) => table.id.equals('m1'))).getSingle();
+        expect(mine.note, 'Note serveur de traçabilité');
+      },
+    );
+
+    test(
+      'pull lots efface le score provisoire si le serveur renvoie null',
+      () async {
+        await db
+            .into(db.fournisseurs)
+            .insert(
+              FournisseursCompanion.insert(
+                id: 'eddy',
+                nom: 'Eddy',
+                actif: const Value(true),
+                sessionToken: const Value('token-server-score'),
+              ),
+            );
+        await db
+            .into(db.mines)
+            .insert(
+              MinesCompanion.insert(
+                id: 'm1',
+                nom: 'Mine locale',
+                lat: -18.9,
+                lon: 47.5,
+                note: const Value('Ancienne note'),
+              ),
+            );
+        await db
+            .into(db.chargements)
+            .insert(
+              ChargementsCompanion.insert(
+                id: 'LOCAL-SESSION-SCORE',
+                fournisseurId: 'eddy',
+                dateCreation: DateTime.utc(2026, 8, 14),
+              ),
+            );
+        await db
+            .into(db.lots)
+            .insert(
+              LotsCompanion.insert(
+                id: 'LOCAL-LOT-SCORE',
+                payloadUuid: const Value('payload-score-null'),
+                sessionId: 'LOCAL-SESSION-SCORE',
+                mineId: 'm1',
+                score: const Value(88),
+              ),
+            );
+        final remoteLot = RemoteLot(
+          payloadId: 'payload-score-null',
+          sessionId: 'session-score-null',
+          reference: 'MICA-2026-0099',
+          validationStatus: 'pending',
+          validationReason: null,
+          createdAt: DateTime.utc(2026, 8, 14),
+          updatedAt: null,
+          mineId: 'm1',
+          mineName: 'Mine serveur',
+          mineReference: null,
+          mineNote: 'Nouvelle note tracking',
+          color: 'Blanc',
+          estimatedQuantity: 50,
+          transportStatus: 'arrive',
+          score: null,
+        );
+
+        await SyncEngine(store, _FakeRemote(lots: [remoteLot]), db).sync();
+
+        final lot = await (db.select(
+          db.lots,
+        )..where((table) => table.id.equals('LOCAL-LOT-SCORE'))).getSingle();
+        expect(lot.score, isNull);
+        expect(lot.serverUpdatedAt, isNotNull);
+        final mine = await (db.select(
+          db.mines,
+        )..where((table) => table.id.equals('m1'))).getSingle();
+        expect(mine.note, 'Nouvelle note tracking');
       },
     );
 
@@ -934,6 +1108,113 @@ void main() {
     );
 
     test(
+      'un lot attend sa mine locale puis utilise le mine_id renvoyé par Odoo',
+      () async {
+        final photo = await _seedLotDependingOnLocalMine(db, store);
+        addTearDown(() {
+          if (photo.existsSync()) photo.deleteSync();
+        });
+        final remote = _FakeRemote();
+
+        await SyncEngine(store, remote, db).sync();
+
+        expect(remote.pushedOperations.map((op) => op.entityType), [
+          'mine_submission',
+          'lot',
+        ]);
+        final lotPayload = remote.pushedOperations.last.payload;
+        expect((lotPayload['mine'] as Map<String, dynamic>)['mine_id'], 42);
+        expect(remote.uploadedMinePhotos.map((part) => part.key), [
+          'position_1',
+        ]);
+        final localSubmission =
+            await (db.select(db.mineSubmissions)..where(
+                  (table) => table.payloadId.equals('local-mine-payload'),
+                ))
+                .getSingle();
+        expect(localSubmission.serverId, 42);
+        expect(localSubmission.state, 'pending_validation');
+        final localLotOperation = await (db.select(
+          db.syncQueue,
+        )..where((table) => table.opId.equals('local-lot-device'))).getSingle();
+        expect(localLotOperation.status, 'synced');
+        expect(
+          (jsonDecode(localLotOperation.payload)['mine']
+              as Map<String, dynamic>)['mine_id'],
+          42,
+        );
+      },
+    );
+
+    test(
+      'une photo mine en échec ne bloque pas le lot après obtention du mine_id',
+      () async {
+        final photo = await _seedLotDependingOnLocalMine(db, store);
+        addTearDown(() {
+          if (photo.existsSync()) photo.deleteSync();
+        });
+        final remote = _FakeRemote(failPhotoKey: 'position_1');
+
+        await SyncEngine(store, remote, db).sync();
+
+        expect(remote.pushedOperations.map((op) => op.entityType), [
+          'mine_submission',
+          'lot',
+        ]);
+        final lotOperation = await (db.select(
+          db.syncQueue,
+        )..where((table) => table.opId.equals('local-lot-device'))).getSingle();
+        expect(lotOperation.status, 'synced');
+        expect(lotOperation.attempts, 0);
+        expect(lotOperation.lastError, isNull);
+        final mineOperation =
+            await (db.select(db.syncQueue)
+                  ..where((table) => table.opId.equals('local-mine-device')))
+                .getSingle();
+        expect(mineOperation.lastError, contains('position_1'));
+      },
+    );
+
+    test(
+      'une mine déjà synchronisée libère le lot sans nouveau POST mine',
+      () async {
+        final photo = await _seedLotDependingOnLocalMine(db, store);
+        addTearDown(() {
+          if (photo.existsSync()) photo.deleteSync();
+        });
+        await (db.update(db.mineSubmissions)
+              ..where((table) => table.payloadId.equals('local-mine-payload')))
+            .write(
+              MineSubmissionsCompanion(
+                state: const Value('awaiting_attachments'),
+                serverId: const Value(42),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+        await store.updateStatus(
+          'local-mine-device',
+          SyncStatus.synced,
+          odooId: 42,
+          syncedAt: DateTime.now(),
+        );
+        final remote = _FakeRemote(failPhotoKey: 'position_1');
+
+        await SyncEngine(store, remote, db).sync();
+
+        expect(remote.pushedOperations.map((op) => op.entityType), ['lot']);
+        expect(
+          (remote.pushedOperations.single.payload['mine']
+              as Map<String, dynamic>)['mine_id'],
+          42,
+        );
+        final lotOperation = await (db.select(
+          db.syncQueue,
+        )..where((table) => table.opId.equals('local-lot-device'))).getSingle();
+        expect(lotOperation.status, 'synced');
+      },
+    );
+
+    test(
       'un échec photo mine reprend uniquement les preuves restantes',
       () async {
         final storage = Directory.systemTemp.createTempSync(
@@ -1060,6 +1341,39 @@ void main() {
         isNull,
       );
     });
+
+    test(
+      'l\'envoi manuel d\'une mine réveille immédiatement son lot',
+      () async {
+        final photo = await _seedLotDependingOnLocalMine(db, store);
+        addTearDown(() {
+          if (photo.existsSync()) photo.deleteSync();
+        });
+        await store.updateStatus(
+          'local-mine-device',
+          SyncStatus.failed,
+          attempts: 5,
+          lastError: 'ancien échec mine',
+        );
+        final remote = _FakeRemote();
+
+        final result = await SyncEngine(
+          store,
+          remote,
+          db,
+        ).sendMineSubmissionNow('local-mine-payload');
+
+        expect(result.success, isTrue);
+        expect(remote.pushedOperations.map((op) => op.entityType), [
+          'mine_submission',
+          'lot',
+        ]);
+        final lotOperation = await (db.select(
+          db.syncQueue,
+        )..where((table) => table.opId.equals('local-lot-device'))).getSingle();
+        expect(lotOperation.status, 'synced');
+      },
+    );
 
     test('envoi manuel force une proposition en échec et ses photos', () async {
       final photo = File(

@@ -19,7 +19,8 @@ class _RoutingAdapter implements HttpClientAdapter {
         '{"status":"ok","data":{"token":"token","agent":{"login":"eddy","name":"Eddy"}}}',
       '/api/mine' => '{"status":"ok","data":[]}',
       '/api/storage' => '{"status":"ok","data":[]}',
-      '/api/commune' => '''
+      '/api/commune' =>
+        '''
         {
           "status":"ok",
           "data":{
@@ -46,16 +47,20 @@ class _RoutingAdapter implements HttpClientAdapter {
 }
 
 class _MalformedMineAdapter implements HttpClientAdapter {
+  final paths = <String>[];
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    paths.add(options.path);
     final body = switch (options.path) {
       '/api/login' =>
         '{"status":"ok","data":{"token":"token","agent":{"login":"eddy","name":"Eddy"}}}',
-      '/api/mine' => '''
+      '/api/mine' =>
+        '''
         {
           "status":"ok",
           "data":{
@@ -76,7 +81,8 @@ class _MalformedMineAdapter implements HttpClientAdapter {
         }
         ''',
       '/api/storage' => '{"status":"ok","data":[]}',
-      '/api/commune' => '''
+      '/api/commune' =>
+        '''
         {
           "status":"ok",
           "data":{
@@ -129,10 +135,10 @@ void main() {
     final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
       ..httpClientAdapter = adapter;
 
-    final result = await RetrofitAuthRemoteDataSource(AuthApi(dio), dio).login(
-      'eddy',
-      'secret',
-    );
+    final result = await RetrofitAuthRemoteDataSource(
+      AuthApi(dio),
+      dio,
+    ).login('eddy', 'secret');
 
     expect(result.mines, hasLength(1));
     final mine = result.mines.single;

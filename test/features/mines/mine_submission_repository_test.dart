@@ -68,7 +68,10 @@ void main() {
     expect(Uuid.isValidUUID(fromString: submission.payloadId), isTrue);
     expect(Uuid.isValidUUID(fromString: submission.deviceUuid), isTrue);
     expect(submission.state, 'local_pending');
-    expect(await db.select(db.mines).get(), isEmpty);
+    final localMine = (await db.select(db.mines).get()).single;
+    expect(localMine.id, submission.payloadId);
+    expect(localMine.nom, 'Mine Antsahabe');
+    expect(localMine.actif, isFalse);
 
     final photos = await db.select(db.mineSubmissionPhotos).get();
     expect(photos, hasLength(5));
@@ -137,6 +140,7 @@ void main() {
     expect(await db.select(db.mineSubmissions).get(), isEmpty);
     expect(await db.select(db.mineSubmissionPhotos).get(), isEmpty);
     expect(await db.select(db.syncQueue).get(), isEmpty);
+    expect(await db.select(db.mines).get(), isEmpty);
     for (var attempt = 0; attempt < 50; attempt++) {
       if (storedPaths.every((path) => !File(path).existsSync())) break;
       await Future<void>.delayed(const Duration(milliseconds: 10));

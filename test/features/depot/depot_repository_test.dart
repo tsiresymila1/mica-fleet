@@ -111,7 +111,7 @@ void main() {
     expect(rows.single.photoPermisHeadingDegrees, 315);
 
     // Envoi unique : à l'arrivée, une seule op 'lot' (snapshot complet du lot).
-    final pending = await sync.pending();
+    final pending = await sync.pending(agentLogin: 'F001');
     expect(pending.single.entityType, 'lot');
     expect(
       Uuid.isValidUUID(fromString: pending.single.payload['id'] as String),
@@ -208,7 +208,7 @@ void main() {
     );
 
     expect(result.isRight(), isTrue);
-    final payload = (await sync.pending()).single.payload;
+    final payload = (await sync.pending(agentLogin: 'F001')).single.payload;
     expect(payload['photo_schema_version'], 2);
     final mine = payload['mine'] as Map<String, dynamic>;
     final minePhotos = mine['photos'] as Map<String, dynamic>;

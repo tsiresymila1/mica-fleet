@@ -95,7 +95,8 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         tonnage: l.quantiteEstimee,
         date: dates[l.sessionId] ?? DateTime.fromMillisecondsSinceEpoch(0),
         statut: l.statut,
-        score: l.score ?? arr?.scoreTracabilite,
+        // Le badge n'affiche que le score canonique reçu par GET tracking.
+        score: l.score,
         arrive: arr != null,
         sync: l.remoteOnly
             ? SyncEtat.synchronise

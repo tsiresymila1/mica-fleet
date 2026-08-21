@@ -152,6 +152,14 @@ class SyncEngine {
       )..where((table) => table.opId.equals(operation.opId))).getSingle();
       await _pushPendingOperation(_operationFromRow(refreshedOperation));
     }
+    final submittedMine = await (db.select(
+      db.mineSubmissions,
+    )..where((table) => table.payloadId.equals(payloadId))).getSingleOrNull();
+    if (submittedMine?.serverId != null) {
+      // L'id Odoo suffit pour libérer les lots. Les photos de la mine suivent
+      // leur propre reprise et ne bloquent pas POST /api/tracking/submit.
+      await _resumeLotsDependingOnMine(payloadId);
+    }
     try {
       await _uploadPendingMinePhotos(payloadId: payloadId);
     } catch (_) {
@@ -179,6 +187,7 @@ class SyncEngine {
     final state = updatedSubmission?.state;
     if ((state == 'pending_validation' || state == 'approved') &&
         remainingPhotos.isEmpty) {
+      await _resumeLotsDependingOnMine(payloadId);
       return const MineSubmissionSendResult.sent();
     }
     return MineSubmissionSendResult.failed(
@@ -190,48 +199,218 @@ class SyncEngine {
   }
 
   Future<void> _pushPendingOperation(SyncOperation op) async {
+    final preparedOperation = await _prepareOperationDependencies(op);
+    if (preparedOperation == null) return;
+
     // Réservation atomique : si un autre process (sync en arrière-plan) l'a
     // déjà prise, on saute — pas de double envoi.
-    if (!await store.claim(op.opId)) return;
+    if (!await store.claim(preparedOperation.opId)) return;
     try {
-      final operation = await _normalizePendingLotIdentifiers(op);
+      final operation = await _normalizePendingLotIdentifiers(
+        preparedOperation,
+      );
       final odooId = await remote.pushOperation(operation);
       await store.updateStatus(
-        op.opId,
+        preparedOperation.opId,
         SyncStatus.synced,
         odooId: odooId,
         syncedAt: DateTime.now(),
       );
-      if (op.entityType == 'mine_submission') {
+      if (preparedOperation.entityType == 'mine_submission') {
         await (db.update(
           db.mineSubmissions,
-        )..where((t) => t.payloadId.equals(op.entityId))).write(
+        )..where((t) => t.payloadId.equals(preparedOperation.entityId))).write(
           MineSubmissionsCompanion(
             state: const Value('awaiting_attachments'),
             serverId: Value(odooId),
             updatedAt: Value(DateTime.now()),
           ),
         );
+        if (odooId != null) {
+          // Réveille les lots dès que POST /api/mine fournit son identifiant.
+          // L'upload des preuves mine continue ensuite indépendamment.
+          await _resumeLotsDependingOnMine(preparedOperation.entityId);
+        }
       }
     } catch (error) {
-      final attempts = op.attempts + 1;
+      final attempts = preparedOperation.attempts + 1;
       if (attempts >= maxAttempts) {
         // Échec terminal après N tentatives → intervention manuelle.
         await store.updateStatus(
-          op.opId,
+          preparedOperation.opId,
           SyncStatus.failed,
           attempts: attempts,
           lastError: apiErrorDetails(error),
         );
       } else {
         await store.updateStatus(
-          op.opId,
+          preparedOperation.opId,
           SyncStatus.pending,
           attempts: attempts,
           lastError: apiErrorDetails(error),
           nextRetryAt: _backoff(attempts),
         );
       }
+    }
+  }
+
+  /// Un lot créé avec une proposition locale ne peut partir qu'après la
+  /// création de cette mine. Le lot conserve l'UUID local comme relation
+  /// stable ; seul son payload de sync reçoit l'id Odoo renvoyé par
+  /// POST /api/mine. Les photos de la mine ne font pas partie de cette
+  /// dépendance et conservent leur propre reprise.
+  Future<SyncOperation?> _prepareOperationDependencies(SyncOperation op) async {
+    if (op.entityType != 'lot') return op;
+
+    final lot = await (db.select(
+      db.lots,
+    )..where((table) => table.id.equals(op.entityId))).getSingleOrNull();
+    if (lot == null) return op;
+
+    var submission = await (db.select(
+      db.mineSubmissions,
+    )..where((table) => table.payloadId.equals(lot.mineId))).getSingleOrNull();
+    // Mine issue du référentiel : aucune dépendance locale.
+    if (submission == null) return op;
+
+    if (submission.state == 'rejected') {
+      await store.updateStatus(
+        op.opId,
+        SyncStatus.failed,
+        lastError:
+            'Lot bloqué : la mine « ${submission.nom} » a été rejetée.'
+            '${submission.rejectionReason == null ? '' : '\n${submission.rejectionReason}'}',
+      );
+      return null;
+    }
+
+    var mineOperation =
+        await (db.select(db.syncQueue)..where(
+              (table) =>
+                  table.entityType.equals('mine_submission') &
+                  table.entityId.equals(submission!.payloadId),
+            ))
+            .getSingleOrNull();
+    if (mineOperation == null) {
+      await _keepLotWaitingForMine(
+        op,
+        'Lot en attente : opération locale de la mine introuvable.',
+      );
+      return null;
+    }
+
+    // Répare le cas d'un arrêt entre la confirmation de la queue et la mise
+    // à jour de mine_submissions.
+    if (submission.serverId == null &&
+        mineOperation.status == 'synced' &&
+        mineOperation.odooId != null) {
+      await (db.update(
+        db.mineSubmissions,
+      )..where((table) => table.payloadId.equals(submission!.payloadId))).write(
+        MineSubmissionsCompanion(
+          state: const Value('awaiting_attachments'),
+          serverId: Value(mineOperation.odooId),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      submission =
+          await (db.select(db.mineSubmissions)..where(
+                (table) => table.payloadId.equals(submission!.payloadId),
+              ))
+              .getSingle();
+    }
+
+    if (submission.serverId == null && mineOperation.status == 'pending') {
+      final retryAt = mineOperation.nextRetryAt;
+      if (retryAt == null || !retryAt.isAfter(DateTime.now())) {
+        await _pushPendingOperation(_operationFromRow(mineOperation));
+        submission =
+            await (db.select(db.mineSubmissions)..where(
+                  (table) => table.payloadId.equals(submission!.payloadId),
+                ))
+                .getSingle();
+        mineOperation =
+            await (db.select(db.syncQueue)
+                  ..where((table) => table.opId.equals(mineOperation!.opId)))
+                .getSingle();
+      }
+    }
+
+    if (submission.serverId == null) {
+      final detail = mineOperation.lastError?.trim();
+      await _keepLotWaitingForMine(
+        op,
+        'Lot en attente de synchronisation de la mine « ${submission.nom} ».'
+        '${detail == null || detail.isEmpty ? '' : '\n$detail'}',
+      );
+      return null;
+    }
+
+    final payload = Map<String, dynamic>.from(op.payload);
+    final rawMine = payload['mine'];
+    if (rawMine is! Map) {
+      await _keepLotWaitingForMine(
+        op,
+        'Lot bloqué : la section payload.mine est absente.',
+      );
+      return null;
+    }
+    final minePayload = Map<String, dynamic>.from(
+      rawMine.cast<String, dynamic>(),
+    )..['mine_id'] = submission.serverId;
+    payload['mine'] = minePayload;
+
+    if (jsonEncode(payload) != jsonEncode(op.payload)) {
+      await (db.update(
+        db.syncQueue,
+      )..where((table) => table.opId.equals(op.opId))).write(
+        SyncQueueCompanion(
+          payload: Value(jsonEncode(payload)),
+          lastError: const Value(null),
+          nextRetryAt: const Value(null),
+        ),
+      );
+    }
+    return op.copyWith(payload: payload, lastError: null, nextRetryAt: null);
+  }
+
+  Future<void> _keepLotWaitingForMine(
+    SyncOperation lotOperation,
+    String message,
+  ) => store.updateStatus(
+    lotOperation.opId,
+    SyncStatus.pending,
+    lastError: message,
+    nextRetryAt: lotOperation.nextRetryAt,
+  );
+
+  /// L'envoi manuel d'une mine doit réveiller immédiatement les lots qui
+  /// l'attendaient, sans attendre le prochain cycle réseau.
+  Future<void> _resumeLotsDependingOnMine(String payloadId) async {
+    final lots = await (db.select(
+      db.lots,
+    )..where((table) => table.mineId.equals(payloadId))).get();
+    if (lots.isEmpty) return;
+
+    final now = DateTime.now();
+    for (final lot in lots) {
+      final operation =
+          await (db.select(db.syncQueue)..where(
+                (table) =>
+                    table.entityType.equals('lot') &
+                    table.entityId.equals(lot.id) &
+                    table.status.equals('pending'),
+              ))
+              .getSingleOrNull();
+      if (operation == null) continue;
+      final retryAt = operation.nextRetryAt;
+      if (retryAt != null && retryAt.isAfter(now)) continue;
+      await _pushPendingOperation(_operationFromRow(operation));
+    }
+    try {
+      await _uploadPendingPhotos();
+    } catch (_) {
+      // Les photos de lot restantes gardent leur reprise idempotente normale.
     }
   }
 
@@ -607,7 +786,9 @@ class SyncEngine {
   Future<void> _pullCommunes() async {
     final communes = await remote.fetchCommunes();
     await db.transaction(() async {
-      await db.update(db.communes).write(const CommunesCompanion(actif: Value(false)));
+      await db
+          .update(db.communes)
+          .write(const CommunesCompanion(actif: Value(false)));
       await db.batch((batch) {
         for (final commune in communes) {
           batch.insert(
@@ -636,6 +817,7 @@ class SyncEngine {
     final remotePayloadIds = <String>{};
     for (final remoteLot in remoteLots) {
       remotePayloadIds.add(remoteLot.payloadId);
+      await _mergeMineMetadataFromRemoteLot(remoteLot);
       // `remoteLot.payloadId` correspond à payload.id dans le submit. C'est
       // la clé de fusion stable entre appareils et évite tout doublon local.
       final local =
@@ -653,34 +835,15 @@ class SyncEngine {
             validationStatus: Value(remoteLot.validationStatus),
             validationReason: Value(remoteLot.validationReason),
             serverUpdatedAt: Value(remoteLot.updatedAt ?? DateTime.now()),
-            score: Value(remoteLot.score ?? local.score),
+            // Après un GET tracking, le score serveur est la seule valeur
+            // canonique. Un null serveur efface donc le score provisoire local.
+            score: Value(remoteLot.score),
           ),
         );
         continue;
       }
 
       await db.transaction(() async {
-        final mine =
-            await (db.select(db.mines)
-                  ..where((table) => table.id.equals(remoteLot.mineId)))
-                .getSingleOrNull();
-        if (mine == null) {
-          await db
-              .into(db.mines)
-              .insert(
-                MinesCompanion.insert(
-                  id: remoteLot.mineId,
-                  nom: remoteLot.mineName,
-                  reference: Value(remoteLot.reference),
-                  note: Value(remoteLot.mineNote),
-                  createdAt: Value(remoteLot.createdAt),
-                  lat: 0,
-                  lon: 0,
-                ),
-                mode: InsertMode.insertOrIgnore,
-              );
-        }
-
         final cachedSessionId =
             'REMOTE-$currentSupplierId-${remoteLot.sessionId}';
         await db
@@ -722,6 +885,46 @@ class SyncEngine {
     }
 
     await _deleteLotsMissingOnServer(currentSupplierId, remotePayloadIds);
+  }
+
+  /// `GET /api/tracking/lots` est la source de la note affichée pour une
+  /// mine. La fusion s'applique aussi si GET /api/mine a déjà créé la ligne.
+  Future<void> _mergeMineMetadataFromRemoteLot(RemoteLot remoteLot) async {
+    final mine = await (db.select(
+      db.mines,
+    )..where((table) => table.id.equals(remoteLot.mineId))).getSingleOrNull();
+    if (mine == null) {
+      await db
+          .into(db.mines)
+          .insert(
+            MinesCompanion.insert(
+              id: remoteLot.mineId,
+              nom: remoteLot.mineName,
+              reference: Value(remoteLot.mineReference),
+              note: Value(remoteLot.mineNote),
+              createdAt: Value(remoteLot.createdAt),
+              lat: 0,
+              lon: 0,
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+      return;
+    }
+
+    await (db.update(
+      db.mines,
+    )..where((table) => table.id.equals(remoteLot.mineId))).write(
+      MinesCompanion(
+        nom: remoteLot.mineName == remoteLot.mineId
+            ? const Value.absent()
+            : Value(remoteLot.mineName),
+        reference: remoteLot.mineReference == null
+            ? const Value.absent()
+            : Value(remoteLot.mineReference),
+        // La valeur de tracking est autoritaire, y compris null.
+        note: Value(remoteLot.mineNote),
+      ),
+    );
   }
 
   Future<void> _deleteLotsMissingOnServer(

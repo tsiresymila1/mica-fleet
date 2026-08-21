@@ -185,7 +185,8 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
     lon: l.gpsLon,
     date: session.dateCreation,
     statut: l.statut,
-    score: l.score ?? arr?.scoreTracabilite,
+    // Le cercle n'affiche que le score canonique reçu par GET tracking.
+    score: l.score,
     minePhotos: photos('mine', 0),
     transbordements: trans
         .map(

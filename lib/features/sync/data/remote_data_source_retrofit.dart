@@ -143,7 +143,10 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
 
   @override
   Future<List<RemoteCommune>> fetchCommunes() async {
-    final communes = _requiredList(await dio.get('/api/commune').then((r) => r.data), 'communes');
+    final communes = _requiredList(
+      await dio.get('/api/commune').then((r) => r.data),
+      'communes',
+    );
     final items = <RemoteCommune>[];
     for (final entry in communes) {
       final commune = entry is Map<String, dynamic> ? entry : null;
@@ -188,6 +191,9 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
         continue;
       }
       final mine = entry['mine'] is Map ? entry['mine'] as Map : entry;
+      final arrival = entry['arrival'] is Map
+          ? entry['arrival'] as Map
+          : const <dynamic, dynamic>{};
       final mineId = (mine['mine_id'] ?? entry['mine_id'])?.toString();
       if (mineId == null || mineId.isEmpty) continue;
       result.add(
@@ -211,8 +217,10 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
               (mine['mine_name'] ?? mine['name'] ?? entry['mine_name'])
                   ?.toString() ??
               mineId,
-          mineReference: mine['reference']?.toString(),
-          mineNote: mine['note']?.toString(),
+          mineReference: (mine['reference'] ?? entry['mine_reference'])
+              ?.toString(),
+          mineNote: (mine['note'] ?? entry['mine_note'] ?? entry['note'])
+              ?.toString(),
           color: (mine['color'] ?? entry['color'])?.toString(),
           estimatedQuantity:
               (mine['estimated_quantity'] ?? entry['estimated_quantity']) is num
@@ -228,14 +236,19 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
               entry['status']?.toString() ??
               entry['transport_status']?.toString() ??
               'arrive',
-          score: entry['traceability_score'] is num
-              ? (entry['traceability_score'] as num).round()
-              : int.tryParse(entry['traceability_score']?.toString() ?? ''),
+          score: _asInt(
+            entry['traceability_score'] ??
+                arrival['traceability_score'] ??
+                entry['score'],
+          ),
         ),
       );
     }
     return result;
   }
+
+  static int? _asInt(dynamic value) =>
+      value is num ? value.round() : int.tryParse(value?.toString() ?? '');
 
   @override
   Future<void> changePassword({

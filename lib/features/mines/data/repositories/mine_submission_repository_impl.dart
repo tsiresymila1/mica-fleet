@@ -110,6 +110,23 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
         ],
       };
       await db.transaction(() async {
+        // Le lot peut référencer cette proposition avant sa synchronisation.
+        // Une ligne inactive satisfait la relation locale Lots.mineId sans
+        // faire apparaître la proposition dans le référentiel validé.
+        final firstPosition = parts.first.photo;
+        await db
+            .into(db.mines)
+            .insert(
+              MinesCompanion.insert(
+                id: payloadId,
+                nom: normalizedName,
+                lat: firstPosition.lat,
+                lon: firstPosition.lon,
+                createdAt: Value(now),
+                actif: const Value(false),
+              ),
+              mode: InsertMode.insertOrIgnore,
+            );
         await db
             .into(db.mineSubmissions)
             .insert(
@@ -239,6 +256,16 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
   @override
   Future<Either<Failure, Unit>> delete(String payloadId) async {
     try {
+      final dependentLot = await (db.select(
+        db.lots,
+      )..where((table) => table.mineId.equals(payloadId))).getSingleOrNull();
+      if (dependentLot != null) {
+        return left(
+          const Failure.validation(
+            'Cette mine est utilisée par un lot local et ne peut pas être supprimée.',
+          ),
+        );
+      }
       final photos = await (db.select(
         db.mineSubmissionPhotos,
       )..where((table) => table.payloadId.equals(payloadId))).get();
@@ -255,6 +282,9 @@ class MineSubmissionRepositoryImpl implements MineSubmissionRepository {
         await (db.delete(
           db.mineSubmissions,
         )..where((table) => table.payloadId.equals(payloadId))).go();
+        await (db.delete(
+          db.mines,
+        )..where((table) => table.id.equals(payloadId))).go();
       });
       // La base est la source de vérité pour l'interface. Le nettoyage des
       // fichiers est volontairement non bloquant afin que la fiche se ferme
