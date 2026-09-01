@@ -58,7 +58,6 @@ class LoadingRepositoryImpl implements LoadingRepository {
                   sessionId: c.id,
                   mineId: l.mineId,
                   reference: Value(l.reference),
-                  couleur: Value(l.couleur),
                   quantiteEstimee: Value(l.quantiteEstimee),
                   plaqueDepart: Value(l.plaqueDepart),
                   gpsLat: Value(primaryPhoto?.lat),
@@ -99,7 +98,6 @@ class LoadingRepositoryImpl implements LoadingRepository {
               (l) => {
                 'lot_id': l.id,
                 'mine_id': l.mineId,
-                'color': l.couleur,
                 'estimated_quantity': l.quantiteEstimee,
                 'plate': l.plaqueDepart,
                 'hash': l.photos?.plate.sha256 ?? l.photo?.sha256,

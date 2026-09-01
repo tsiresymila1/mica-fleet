@@ -67,7 +67,6 @@ class _ReferencesRemote implements RemoteDataSource {
       mineName: 'Mine synchronisée',
       mineReference: 'REF-MINE-7',
       mineNote: 'Note du backend tracking',
-      color: 'Blanc',
       estimatedQuantity: 120,
       transportStatus: 'arrive',
       score: 96,

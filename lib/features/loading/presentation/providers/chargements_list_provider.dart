@@ -10,7 +10,6 @@ class LotListItem {
   final String sessionId;
   final String mineId;
   final String mineName;
-  final String? couleur;
   final double? tonnage;
   final DateTime date;
   final String statut; // en_cours / arrive
@@ -27,7 +26,6 @@ class LotListItem {
     required this.sessionId,
     required this.mineId,
     required this.mineName,
-    required this.couleur,
     required this.tonnage,
     required this.date,
     required this.statut,
@@ -93,7 +91,6 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         sessionId: l.sessionId,
         mineId: l.mineId,
         mineName: mineNames[l.mineId] ?? l.mineId,
-        couleur: l.couleur,
         tonnage: l.quantiteEstimee,
         date: dates[l.sessionId] ?? DateTime.fromMillisecondsSinceEpoch(0),
         statut: l.statut,

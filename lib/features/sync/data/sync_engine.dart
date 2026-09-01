@@ -837,7 +837,6 @@ class SyncEngine {
           LotsCompanion(
             mineId: Value(remoteLot.mineId),
             reference: Value(remoteLot.mineReference),
-            couleur: Value(remoteLot.color),
             quantiteEstimee: Value(remoteLot.estimatedQuantity),
             plaqueDepart: Value(remoteLot.minePlate),
             gpsLat: Value(remoteLot.mineLat),
@@ -900,7 +899,6 @@ class SyncEngine {
                 sessionId: cachedSessionId,
                 mineId: remoteLot.mineId,
                 reference: Value(remoteLot.mineReference),
-                couleur: Value(remoteLot.color),
                 quantiteEstimee: Value(remoteLot.estimatedQuantity),
                 plaqueDepart: Value(remoteLot.minePlate),
                 gpsLat: Value(remoteLot.mineLat),

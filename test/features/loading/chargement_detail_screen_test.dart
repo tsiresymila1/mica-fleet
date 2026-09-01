@@ -20,7 +20,6 @@ void main() {
       mineId: '15',
       mineName: 'Mine serveur',
       reference: 'MINE-15',
-      couleur: 'Bleu',
       plaqueDepart: '1234 TBR',
       photoPath: null,
       quantite: 420,

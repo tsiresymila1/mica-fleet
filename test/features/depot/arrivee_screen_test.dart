@@ -24,7 +24,7 @@ class _FakeDepotRepository implements DepotRepository {
   Future<LotResume?> lotResume(String lotId) async => null;
 
   @override
-  Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
+  Future<List<({String id, String mineId})>> lotsEnCours(
     String sessionId,
   ) async => const [];
 

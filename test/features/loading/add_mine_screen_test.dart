@@ -58,6 +58,7 @@ void main() {
       expect(find.text('Photo de la plaque'), findsOneWidget);
       expect(find.text('Photo du mica'), findsNothing);
       expect(find.text('Photo du camion avec mica'), findsOneWidget);
+      expect(find.text('Couleur du mica'), findsNothing);
       expect(
         find.textContaining('Appuyer pour prendre la photo'),
         findsNWidgets(2),

@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/di/providers.dart';
-import '../../../../core/network/api_error_details.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../shared/ui/map_dialog.dart';
 import '../../../../shared/ui/ui_kit.dart';
@@ -15,6 +13,8 @@ import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
 import '../../../mines/presentation/widgets/mine_overview_tile.dart';
 import '../../../sync/presentation/sync_provider.dart';
+import '../../../update/presentation/app_update_provider.dart';
+import '../../../update/presentation/app_update_ui.dart';
 
 /// Profil du fournisseur connecté : ses mines et ses dépôts autorisés
 /// (référentiel synchronisé depuis Odoo). Lecture seule.
@@ -179,8 +179,6 @@ class _MineLotsSheet extends ConsumerWidget {
                             sousTitre: [
                               'Créé le ${dateFormat.format(lot.date)}',
                               [
-                                if (lot.couleur?.trim().isNotEmpty == true)
-                                  lot.couleur!.trim(),
                                 if (lot.tonnage != null) '${lot.tonnage} kg',
                               ].join(' • '),
                               'Validation : ${_validationLabel(lot.validationStatus)}',
@@ -213,98 +211,40 @@ class _ChangePasswordTile extends ConsumerStatefulWidget {
       _ChangePasswordTileState();
 }
 
-class _AppUpdateTile extends ConsumerStatefulWidget {
+class _AppUpdateTile extends ConsumerWidget {
   const _AppUpdateTile();
 
   @override
-  ConsumerState<_AppUpdateTile> createState() => _AppUpdateTileState();
-}
-
-class _AppUpdateTileState extends ConsumerState<_AppUpdateTile> {
-  bool _busy = false;
-  double? _progress;
-
-  Future<void> _update() async {
-    setState(() {
-      _busy = true;
-      _progress = null;
-    });
-    try {
-      final service = ref.read(appUpdateServiceProvider);
-      final check = await service.check();
-      final update = check.update;
-      if (!mounted) return;
-      if (update == null) {
-        await showAppMessage(
-          context,
-          'La version ${check.currentVersion} (${check.currentBuild}) est à jour.',
-          kind: AppMsgKind.success,
-        );
-        return;
-      }
-      final accepted = await showConfirm(
-        context,
-        [
-          'Version ${update.version} (${update.build}) disponible.',
-          if (update.releaseNotes?.trim().isNotEmpty == true)
-            update.releaseNotes!.trim(),
-          'L’installation sera confirmée dans l’écran sécurisé d’Android.',
-        ].join('\n\n'),
-        titre: update.mandatory ? 'Mise à jour requise' : 'Nouvelle version',
-        confirmLabel: 'Télécharger',
-      );
-      if (!accepted || !mounted) return;
-      final status = await service.downloadAndInstall(
-        update,
-        onProgress: (received, total) {
-          if (!mounted || total <= 0) return;
-          setState(() => _progress = received / total);
-        },
-      );
-      if (!mounted) return;
-      if (status == 'permission_required') {
-        await showAppMessage(
-          context,
-          'Autorise MICA Fleet à installer cette mise à jour, puis appuie de nouveau sur le bouton.',
-          kind: AppMsgKind.warning,
-        );
-      } else {
-        showAppToast(context, 'Installateur Android ouvert');
-      }
-    } catch (error) {
-      if (mounted) {
-        await showAppMessage(
-          context,
-          apiErrorDetails(error),
-          kind: AppMsgKind.error,
-          titre: 'Mise à jour impossible',
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _progress = null;
-        });
-      }
-    }
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(appUpdateControllerProvider);
+    final update = state.update;
+    final busy = state.checking || state.downloading;
+    return ActionTile(
+      icon: Icons.system_update_alt,
+      color: update?.mandatory == true ? AppColors.danger : AppColors.gold,
+      titre: busy
+          ? 'Mise à jour en cours…'
+          : update == null
+          ? 'Mettre à jour l’application'
+          : 'Version ${update.version} disponible',
+      sousTitre: state.checking
+          ? 'Vérification de la version…'
+          : state.downloading
+          ? 'Téléchargement en cours…'
+          : update == null
+          ? 'Vérifier et installer une nouvelle version'
+          : update.mandatory
+          ? 'Mise à jour obligatoire'
+          : 'Appuyer pour télécharger',
+      trailing: busy
+          ? const SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      onTap: busy ? null : () => checkAndOpenAppUpdate(context, ref),
+    );
   }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      ActionTile(
-        icon: Icons.system_update_alt,
-        color: AppColors.gold,
-        titre: _busy ? 'Mise à jour en cours…' : 'Mettre à jour l’application',
-        sousTitre: _progress == null
-            ? 'Vérifier et installer une nouvelle version'
-            : 'Téléchargement ${(_progress! * 100).round()} %',
-        onTap: _busy ? null : _update,
-      ),
-      if (_progress != null) LinearProgressIndicator(value: _progress),
-    ],
-  );
 }
 
 class _ChangePasswordTileState extends ConsumerState<_ChangePasswordTile> {

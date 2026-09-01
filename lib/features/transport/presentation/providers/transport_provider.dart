@@ -25,6 +25,6 @@ final removeTransbordementProvider = Provider((ref) => RemoveTransbordement());
 
 /// Lots encore en route d'une session (candidats à un transbordement).
 final lotsEnCoursProvider = FutureProvider.autoDispose
-    .family<List<({String id, String mineId, String? couleur})>, String>(
+    .family<List<({String id, String mineId})>, String>(
       (ref, sessionId) => ref.read(depotRepoProvider).lotsEnCours(sessionId),
     );

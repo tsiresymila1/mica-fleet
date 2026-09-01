@@ -129,6 +129,7 @@ void main() {
     );
     expect(pending.single.payload['arrival'], isNot(null));
     final mine = pending.single.payload['mine'] as Map<String, dynamic>;
+    expect(mine.containsKey('color'), isFalse);
     expect((mine['photo'] as Map)['heading_deg'], 15);
     final transload =
         (pending.single.payload['transloads'] as List).single as Map;

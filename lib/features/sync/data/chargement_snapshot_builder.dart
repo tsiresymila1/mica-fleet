@@ -147,7 +147,6 @@ class LotSnapshotBuilder {
       'mine': {
         'mine_id': _id(lot.mineId),
         'reference': lot.reference,
-        'color': lot.couleur,
         'estimated_quantity': lot.quantiteEstimee,
         'plate': lot.plaqueDepart,
         'lat': lot.gpsLat,
@@ -179,8 +178,7 @@ class LotSnapshotBuilder {
               'driver': arr.chauffeur,
               'license_number': arr.numPermis,
               if (lot.photoSchemaVersion < 3) 'lot_number': arr.numLot,
-              if (lot.photoSchemaVersion < 3)
-                'lots': {lot.couleur ?? 'lot': arr.numLot},
+              if (lot.photoSchemaVersion < 3) 'lots': {'lot': arr.numLot},
               'gps': [arr.gpsLat, arr.gpsLon],
               'gps_status': arr.statutGps,
               'plate_arrival': arr.plaqueArrivee,

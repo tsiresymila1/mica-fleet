@@ -135,7 +135,6 @@ class _ChargementScreenState extends ConsumerState<ChargementScreen> {
                               color: AppColors.primary,
                               titre: 'Lot ${i + 1} · ${l.mineId}',
                               sousTitre: [
-                                if (l.couleur != null) l.couleur,
                                 if (l.plaqueDepart != null) l.plaqueDepart,
                                 if (l.quantiteEstimee != null)
                                   '${l.quantiteEstimee} kg',

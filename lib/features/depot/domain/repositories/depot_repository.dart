@@ -9,7 +9,6 @@ typedef LotResume = ({
   String mineId,
   DateTime? cree,
   String? plaqueDepart,
-  String? couleur,
 });
 
 abstract class DepotRepository {
@@ -18,13 +17,11 @@ abstract class DepotRepository {
   /// Enregistre l'arrivée d'UN lot et journalise la sync.
   Future<Either<Failure, Unit>> persistArrivee(ArriveeDepot arrivee);
 
-  /// Infos du lot : session, mine, date, plaque de départ, couleur.
+  /// Infos du lot : session, mine, date et plaque de départ.
   Future<LotResume?> lotResume(String lotId);
 
   Future<int> photoSchemaVersionForLot(String lotId);
 
   /// Lots d'une session encore en cours (non arrivés).
-  Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
-    String sessionId,
-  );
+  Future<List<({String id, String mineId})>> lotsEnCours(String sessionId);
 }

@@ -22,7 +22,6 @@ void main() {
                 sessionId: 'session-1',
                 mineId: 'mine-1',
                 mineName: 'Mine 1',
-                couleur: 'Blanc',
                 tonnage: 120,
                 date: DateTime.utc(2026, 8, 21),
                 statut: 'arrive',

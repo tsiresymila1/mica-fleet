@@ -154,7 +154,6 @@ class ChargementDetailScreen extends ConsumerWidget {
                             Text('Réf. mine : ${d.reference}'),
                           Text(
                             [
-                              if (d.couleur != null) d.couleur,
                               if (d.plaqueDepart != null) d.plaqueDepart,
                               if (d.quantite != null) '${d.quantite} kg',
                             ].whereType<String>().join('  •  '),

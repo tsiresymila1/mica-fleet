@@ -149,7 +149,6 @@ magnétique lorsqu'il a pu être mesuré.
   "mine": {
     "mine_id": 1,
     "reference": "REF-1",
-    "color": "Blanc",
     "estimated_quantity": 120,
     "plate": "1234 TBR",
     "lat": -18.91000, "lon": 47.52000, "gps_accuracy": 5.0,
@@ -208,7 +207,7 @@ magnétique lorsqu'il a pu être mesuré.
     "driver": "Rakoto",
     "license_number": "P-123",
     "lot_number": "LOT-2026-0042",
-    "lots": { "Blanc": "LOT-2026-0042" },
+    "lots": { "lot": "LOT-2026-0042" },
     "gps": [-18.87900, 47.50800],
     "gps_status": "valide",
     "plate_arrival": "9012 DEF",
@@ -249,8 +248,7 @@ magnétique lorsqu'il a pu être mesuré.
 >   `transloads[1]` = B→C ; `arrival.plate_arrival` = dernier camion. Cohérence :
 >   `plate_after[i] == plate_before[i+1]`.
 > - **`lot_number`** (à l'arrivée) = numéro de lot officiel. **1 lot = 1 lot_number**.
->   `lots` reprend le même numéro indexé par couleur de mica (un seul couple,
->   puisqu'un lot n'a qu'une couleur).
+>   Le mica n'a plus de champ de couleur dans le contrat mobile.
 > - **`traceability_score`** est calculé **par lot**. Il est répété dans
 >   `arrival` et à la racine du payload (même valeur).
 > - **`mine_id`** et **`depot_id`** sont les **ids Odoo numériques** renvoyés

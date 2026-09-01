@@ -64,7 +64,7 @@ erDiagram
         text chargementId FK
         text mineId FK
         text reference
-        text couleur
+        text couleur "legacy, ignoré"
         real quantiteEstimee
         text plaqueOcr
         real gpsLat
@@ -293,14 +293,15 @@ Identifiant unique `MICA-YYYY-XXXX`.
 | statut | text | défaut `brouillon` | `brouillon` / `valide` |
 
 ### MineChargements
-Mines sources d'un chargement (**1 à 3**), avec photo, GPS, hash et données produit.
+Mines sources d'un chargement (**1 à 3**), avec photo, GPS, hash et quantité.
 
 | Colonne | Type | Contrainte | Rôle |
 |---|---|---|---|
 | id | int | **PK** auto | — |
 | chargementId | text | **FK** → Chargements.id | Rattachement |
 | mineId | text | **FK** → Mines.id | Mine source |
-| reference, couleur | text | nullable | Données produit |
+| reference | text | nullable | Référence historique |
+| couleur | text | nullable | Colonne legacy conservée pour migration, non utilisée |
 | quantiteEstimee | real | nullable | Quantité (kg) |
 | plaqueOcr | text | nullable | Plaque lue (OCR) |
 | gpsLat, gpsLon, gpsPrecision | real | nullable | Position de capture |
@@ -335,7 +336,6 @@ Réception au dépôt (**0..1** par chargement). Clé primaire = `chargementId`.
 | numPermis | text | non nul | Permis |
 | photoPermisPath | text | nullable | Photo permis (optionnel) |
 | numLot | text | non nul | Lot (résumé) |
-| lotsJson | text | nullable | `{couleur: n° lot}` (lots par couleur) |
 | gpsLat, gpsLon | real | non nul | Position d'arrivée |
 | photoArriveePath | text | nullable | Photo d'arrivée |
 | plaqueArrivee | text | nullable | Plaque à l'arrivée |

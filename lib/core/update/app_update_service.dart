@@ -35,24 +35,73 @@ class AppUpdateCheck {
   });
 }
 
-class AppUpdateService {
+abstract interface class AppUpdateGateway {
+  Future<AppUpdateCheck> check();
+
+  Future<String> downloadAndInstall(
+    AppUpdateInfo update, {
+    void Function(int received, int total)? onProgress,
+  });
+}
+
+class InstalledAppVersion {
+  final String version;
+  final int build;
+
+  const InstalledAppVersion({required this.version, required this.build});
+}
+
+abstract interface class AppUpdatePlatformBridge {
+  bool get isSupported;
+
+  Future<InstalledAppVersion> installedVersion();
+
+  Future<String> installApk(String path);
+}
+
+class MethodChannelAppUpdateBridge implements AppUpdatePlatformBridge {
   static const _channel = MethodChannel('net.radoran.mica/app_update');
-  final Dio dio;
 
-  const AppUpdateService(this.dio);
+  const MethodChannelAppUpdateBridge();
 
-  Future<AppUpdateCheck> check() async {
-    if (!Platform.isAndroid) {
-      throw UnsupportedError('La mise à jour directe est réservée à Android');
-    }
+  @override
+  bool get isSupported => Platform.isAndroid;
+
+  @override
+  Future<InstalledAppVersion> installedVersion() async {
     final installed = await _channel.invokeMapMethod<String, dynamic>(
       'getVersion',
     );
-    final currentBuild = (installed?['build'] as num?)?.toInt() ?? 0;
-    final currentVersion = installed?['version']?.toString() ?? '';
+    return InstalledAppVersion(
+      version: installed?['version']?.toString() ?? '',
+      build: (installed?['build'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<String> installApk(String path) async =>
+      await _channel.invokeMethod<String>('installApk', {'path': path}) ??
+      'installer_opened';
+}
+
+class AppUpdateService implements AppUpdateGateway {
+  final Dio dio;
+  final AppUpdatePlatformBridge platformBridge;
+
+  const AppUpdateService(
+    this.dio, {
+    this.platformBridge = const MethodChannelAppUpdateBridge(),
+  });
+
+  @override
+  Future<AppUpdateCheck> check() async {
+    if (!platformBridge.isSupported) {
+      throw UnsupportedError('La mise à jour directe est réservée à Android');
+    }
+    final installed = await platformBridge.installedVersion();
     final response = await dio.get<dynamic>(
       '/api/app/version',
-      queryParameters: {'platform': 'android', 'current_build': currentBuild},
+      queryParameters: {'platform': 'android'},
     );
     final root = response.data;
     if (root is! Map || root['status'] == 'error') {
@@ -65,36 +114,45 @@ class AppUpdateService {
     final data = root['data'];
     if (data == null || data is! Map || data['available'] == false) {
       return AppUpdateCheck(
-        currentVersion: currentVersion,
-        currentBuild: currentBuild,
+        currentVersion: installed.version,
+        currentBuild: installed.build,
         update: null,
       );
     }
+    final version = data['version']?.toString().trim();
     final build = (data['build'] as num?)?.toInt();
     final apkUrl = data['apk_url']?.toString();
     final hash = data['sha256']?.toString().toLowerCase();
-    if (build == null || apkUrl == null || hash == null) {
+    final mandatory = data['mandatory'];
+    if (version == null ||
+        version.isEmpty ||
+        build == null ||
+        apkUrl == null ||
+        hash == null ||
+        hash.isEmpty ||
+        mandatory is! bool) {
       throw const FormatException('Informations APK incomplètes');
     }
     if (Uri.tryParse(apkUrl)?.scheme != 'https') {
       throw const FormatException('L’URL de l’APK doit utiliser HTTPS');
     }
     return AppUpdateCheck(
-      currentVersion: currentVersion,
-      currentBuild: currentBuild,
-      update: build > currentBuild
+      currentVersion: installed.version,
+      currentBuild: installed.build,
+      update: build > installed.build
           ? AppUpdateInfo(
-              version: data['version']?.toString() ?? build.toString(),
+              version: version,
               build: build,
               apkUrl: apkUrl,
               sha256Hash: hash,
-              mandatory: data['mandatory'] as bool? ?? false,
+              mandatory: mandatory,
               releaseNotes: data['release_notes']?.toString(),
             )
           : null,
     );
   }
 
+  @override
   Future<String> downloadAndInstall(
     AppUpdateInfo update, {
     void Function(int received, int total)? onProgress,
@@ -114,9 +172,6 @@ class AppUpdateService {
       await apk.delete();
       throw StateError('La signature SHA-256 de l’APK ne correspond pas');
     }
-    return await _channel.invokeMethod<String>('installApk', {
-          'path': apk.path,
-        }) ??
-        'installer_opened';
+    return platformBridge.installApk(apk.path);
   }
 }

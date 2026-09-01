@@ -11,7 +11,6 @@ abstract class Lot with _$Lot {
     required String id, // ex. MICA-2026-0007-L1
     required String mineId,
     String? reference,
-    String? couleur,
     double? quantiteEstimee,
     String? plaqueDepart,
     TraceabilityPhotos? photos,

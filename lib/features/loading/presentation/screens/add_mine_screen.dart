@@ -26,13 +26,11 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   _MineChoice? _mineChoice;
   CapturedPhoto? _platePhoto;
   CapturedPhoto? _truckPhoto;
-  final _couleurCtrl = TextEditingController();
   final _qteCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
 
   @override
   void dispose() {
-    _couleurCtrl.dispose();
     _qteCtrl.dispose();
     _plaqueCtrl.dispose();
     super.dispose();
@@ -112,9 +110,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       Lot(
         id: '',
         mineId: _mineChoice!.id,
-        couleur: _couleurCtrl.text.trim().isEmpty
-            ? null
-            : _couleurCtrl.text.trim(),
         quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
         plaqueDepart: _plaqueCtrl.text.trim().isEmpty
             ? null
@@ -292,14 +287,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             decoration: const InputDecoration(
               labelText: 'Plaque du camion',
               prefixIcon: Icon(Icons.directions_car),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _couleurCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Couleur du mica',
-              prefixIcon: Icon(Icons.palette),
             ),
           ),
           const SizedBox(height: 12),

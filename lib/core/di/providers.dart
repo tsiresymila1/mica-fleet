@@ -46,7 +46,7 @@ final remoteDataSourceProvider = Provider<RemoteDataSource>((ref) {
   return RetrofitRemoteDataSource(OdooApi(dio), dio);
 });
 
-final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
+final appUpdateServiceProvider = Provider<AppUpdateGateway>((ref) {
   final dio = buildDio(
     baseUrl: ref.watch(odooBaseUrlProvider),
     tokenReader: SecureTokenStore().read,

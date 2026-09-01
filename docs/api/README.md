@@ -229,6 +229,9 @@ définitivement le lot avec le motif du rejet.
 Un submit représente exactement un lot. La référence de traçabilité et le
 dépôt sont calculés côté backend.
 
+Le contrat ne contient plus de champ de couleur du mica : le mobile ne le
+saisit pas et n'attend pas `mine.color` dans les réponses.
+
 ```json
 {
   "device_uuid": "83a793d5-1a27-47db-b444-538fe6b21d85",
@@ -248,7 +251,6 @@ dépôt sont calculés côté backend.
     "mine": {
       "mine_id": 42,
       "reference": null,
-      "color": "Blanc",
       "estimated_quantity": 120.0,
       "plate": "1234 TBR",
       "lat": -18.91,
@@ -400,7 +402,6 @@ Il ne faut donc pas renommer `payload.id` en `payload_id` dans cette réponse.
           "mine_id": 42,
           "reference": null,
           "note": "Observation issue de la traçabilité",
-          "color": "Blanc",
           "estimated_quantity": 120.0,
           "plate": "1234 TBR",
           "lat": -18.91,
@@ -478,7 +479,7 @@ les lots dont `payload.mine.mine_id` correspond à l'id de la mine.
 Requête :
 
 ```text
-/api/app/version?platform=android&current_build=114
+/api/app/version?platform=android
 ```
 
 ```json
@@ -488,7 +489,7 @@ Requête :
     "available": true,
     "version": "1.2.7",
     "build": 115,
-    "apk_url": "https://staging.radoran.net/releases/mica-fleet-115.apk",
+    "apk_url": "https://staging.radoran.net/web/image/72821?access_token=<token-temporaire>",
     "sha256": "sha256-hex-du-fichier",
     "mandatory": false,
     "release_notes": "Corrections et améliorations"
@@ -507,6 +508,14 @@ installée. Le mobile télécharge dans son cache privé, vérifie `sha256`, pui
 ouvre l’installateur Android. Sur un appareil standard, Android demande à
 l’utilisateur d’autoriser la source puis de confirmer l’installation ; une
 installation réellement silencieuse exige une gestion d’appareil dédiée.
+
+Le mobile appelle cet endpoint à chaque ouverture de l'application et à chaque
+retour de la connexion réseau. Une bannière indique la version disponible ; le
+libellé devient « mise à jour obligatoire » lorsque `mandatory` vaut `true`.
+Le téléchargement n'est autorisé que si la file de synchronisation, les lots
+locaux et les propositions de mines ne contiennent plus de données à envoyer.
+Une feuille modale affiche la progression du téléchargement avant l'ouverture
+de l'installateur Android.
 
 ## Synchronisation au démarrage
 

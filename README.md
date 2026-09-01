@@ -19,7 +19,9 @@ Fonctions principales :
 - suivi des transbordements et de l'arrivée au dépôt ;
 - synchronisation idempotente des payloads et upload des photos une par une ;
 - récupération des mines, dépôts et lots validés depuis Odoo ;
-- mise à jour Android depuis l'écran du compte.
+- vérification automatique des mises à jour Android au démarrage et au retour
+  du réseau, bannière globale et téléchargement avec progression ;
+- installation bloquée tant que des données locales restent à synchroniser.
 
 ## Configuration
 

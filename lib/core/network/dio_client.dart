@@ -37,17 +37,20 @@ Dio buildDio({
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (o, h) {
-          debugPrint('→ ${o.method} ${o.uri} ${o.data}');
+          debugPrint('→ ${o.method} ${_safeUri(o.uri)} ${o.data}');
           h.next(o);
         },
         onResponse: (r, h) {
-          debugPrint('← ${r.statusCode} ${r.requestOptions.uri} ${r.data}');
+          debugPrint(
+            '← ${r.statusCode} ${_safeUri(r.requestOptions.uri)} ${r.data}',
+          );
           h.next(r);
         },
         onError: (e, h) {
           debugPrint(
             '✗ ${e.response?.statusCode ?? e.type} '
-            '${e.requestOptions.uri} : ${e.response?.data ?? e.message}',
+            '${_safeUri(e.requestOptions.uri)} : '
+            '${e.response?.data ?? e.message}',
           );
           h.next(e);
         },
@@ -55,4 +58,14 @@ Dio buildDio({
     );
   }
   return dio;
+}
+
+Uri _safeUri(Uri uri) {
+  if (uri.queryParameters.isEmpty) return uri;
+  final redacted = <String, String>{};
+  for (final entry in uri.queryParameters.entries) {
+    final key = entry.key.toLowerCase();
+    redacted[entry.key] = key.contains('token') ? '***' : entry.value;
+  }
+  return uri.replace(queryParameters: redacted);
 }

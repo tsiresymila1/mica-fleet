@@ -64,7 +64,7 @@ class DevScenarioService {
         );
 
     // Une session par scénario, avec UN lot (1 mine = 1 lot = 1 traçabilité).
-    Future<void> mk(int seq, int? score, bool arrive, String couleur) async {
+    Future<void> mk(int seq, int? score, bool arrive) async {
       final sessionId = buildLoadingId(2026, 900 + seq);
       final lotId = '$sessionId-L1';
       await db
@@ -84,7 +84,6 @@ class DevScenarioService {
               id: lotId,
               sessionId: sessionId,
               mineId: 'M001',
-              couleur: Value(couleur),
               quantiteEstimee: const Value(120),
               plaqueDepart: Value('12${seq}4 TBR'),
               statut: Value(arrive ? 'arrive' : 'en_cours'),
@@ -111,9 +110,9 @@ class DevScenarioService {
       }
     }
 
-    await mk(1, 100, true, 'Blanc');
-    await mk(2, 60, true, 'Doré');
-    await mk(3, null, false, 'Vert');
+    await mk(1, 100, true);
+    await mk(2, 60, true);
+    await mk(3, null, false);
   }
 
   /// Coordonnées départ (mine M001) et dépôt (D001) pour la simulation guidée.

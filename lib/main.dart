@@ -11,10 +11,15 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/sync/presentation/sync_provider.dart';
+import 'features/update/presentation/app_update_provider.dart';
+import 'features/update/presentation/app_update_ui.dart';
 
 Future<void> _refreshAndSync(ProviderContainer container) async {
   await container.read(authControllerProvider.notifier).refreshSessionToken();
-  await container.read(triggerSyncProvider).sync();
+  await Future.wait<Object?>([
+    container.read(triggerSyncProvider).sync(),
+    container.read(appUpdateControllerProvider.notifier).check(),
+  ]);
 }
 
 Future<void> main() async {
@@ -43,6 +48,7 @@ Future<void> main() async {
   // Sync initiale au démarrage : charge le référentiel + pousse les en-attente.
   // (onConnectivityChanged ne se déclenche pas à froid si déjà en ligne.)
   container.read(triggerSyncProvider).sync();
+  container.read(appUpdateControllerProvider.notifier).check();
 
   // Sync périodique garantie en arrière-plan (même app tuée).
   await registerBackgroundSync();
@@ -102,5 +108,7 @@ class _MicaFleetAppState extends ConsumerState<MicaFleetApp> {
     debugShowCheckedModeBanner: false,
     theme: AppTheme.build(),
     routerConfig: widget.router,
+    builder: (context, child) =>
+        AppUpdateBanner(child: child ?? const SizedBox.shrink()),
   );
 }

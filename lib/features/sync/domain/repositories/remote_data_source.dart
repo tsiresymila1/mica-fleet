@@ -166,7 +166,6 @@ class RemoteLot {
   final String mineName;
   final String? mineReference;
   final String? mineNote;
-  final String? color;
   final double? estimatedQuantity;
   final String transportStatus;
   final int? score;
@@ -193,7 +192,6 @@ class RemoteLot {
     required this.mineName,
     required this.mineReference,
     required this.mineNote,
-    required this.color,
     required this.estimatedQuantity,
     required this.transportStatus,
     required this.score,

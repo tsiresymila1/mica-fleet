@@ -228,9 +228,6 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
               _asOptionalString(mine['note']) ??
               _asOptionalString(entry['mine_note']) ??
               _asOptionalString(entry['note']),
-          color:
-              _asOptionalString(mine['color']) ??
-              _asOptionalString(entry['color']),
           estimatedQuantity: _toDouble(
             mine['estimated_quantity'] ?? entry['estimated_quantity'],
           ),

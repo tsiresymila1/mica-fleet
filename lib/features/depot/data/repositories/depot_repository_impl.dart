@@ -134,7 +134,6 @@ class DepotRepositoryImpl implements DepotRepository {
       mineId: l.mineId,
       cree: s?.dateCreation,
       plaqueDepart: l.plaqueDepart,
-      couleur: l.couleur,
     );
   }
 
@@ -147,7 +146,7 @@ class DepotRepositoryImpl implements DepotRepository {
   }
 
   @override
-  Future<List<({String id, String mineId, String? couleur})>> lotsEnCours(
+  Future<List<({String id, String mineId})>> lotsEnCours(
     String sessionId,
   ) async {
     final rows =
@@ -156,8 +155,6 @@ class DepotRepositoryImpl implements DepotRepository {
                   t.sessionId.equals(sessionId) & t.statut.equals('en_cours'),
             ))
             .get();
-    return rows
-        .map((l) => (id: l.id, mineId: l.mineId, couleur: l.couleur))
-        .toList();
+    return rows.map((l) => (id: l.id, mineId: l.mineId)).toList();
   }
 }

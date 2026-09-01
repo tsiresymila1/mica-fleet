@@ -84,7 +84,7 @@ class LotDetail {
   final String displaySessionId;
   final String mineId;
   final String mineName;
-  final String? reference, couleur, plaqueDepart, photoPath;
+  final String? reference, plaqueDepart, photoPath;
   final double? quantite, lat, lon;
   final DateTime date;
   final String statut;
@@ -104,7 +104,6 @@ class LotDetail {
     required this.mineId,
     required this.mineName,
     required this.reference,
-    required this.couleur,
     required this.plaqueDepart,
     required this.photoPath,
     required this.quantite,
@@ -190,7 +189,6 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
     mineId: l.mineId,
     mineName: mine?.nom ?? l.mineId,
     reference: l.reference,
-    couleur: l.couleur,
     plaqueDepart: l.plaqueDepart,
     photoPath: l.photoPath,
     quantite: l.quantiteEstimee,

@@ -66,10 +66,7 @@ class SuiviChargementScreen extends ConsumerWidget {
                       icon: Icons.inventory_2,
                       color: AppColors.gold,
                       titre: l.id,
-                      sousTitre: [
-                        l.mineId,
-                        if (l.couleur != null) l.couleur!,
-                      ].join(' · '),
+                      sousTitre: l.mineId,
                       onTap: () async {
                         await context.push('/detail/${l.id}');
                         ref.invalidate(lotsEnCoursProvider(sessionId));

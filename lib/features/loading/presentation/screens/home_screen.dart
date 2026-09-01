@@ -117,10 +117,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   titre: l.serverReference ?? l.id,
                   sousTitre: [
                     'Mine : ${l.mineName}',
-                    [
-                      if (l.couleur != null) l.couleur!,
-                      if (l.tonnage != null) '${l.tonnage} kg',
-                    ].join('  •  '),
+                    [if (l.tonnage != null) '${l.tonnage} kg'].join('  •  '),
                     if (l.plate != null && l.plate!.trim().isNotEmpty)
                       'Plaque : ${l.plate}',
                     'Transport : ${l.arrive ? 'Arrivé' : 'En route'}',
