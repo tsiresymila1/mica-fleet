@@ -66,19 +66,33 @@ chaque login et à chaque synchronisation.
 ```json
 {
   "status": "ok",
-  "data": [
-    {
-      "id": 1, "name": "Carrière Andilana",
-      "lat": -18.91000, "lon": 47.52000, "radius_m": 20,
-      "district": "Ambohidratrimo", "commune": "Andilana",
-      "region": "Analamanga", "active": true
-    }
-  ]
+  "data": {
+    "mines": [
+      {
+        "id": 1,
+        "app_name": "Mine proposée depuis le mobile",
+        "ref": "Carrière Andilana",
+        "created_at": "2026-09-01 08:30:00",
+        "lat": -18.91000,
+        "lon": 47.52000,
+        "radius_m": 20,
+        "district": "Ambohidratrimo",
+        "commune": "Andilana",
+        "region": "Analamanga",
+        "note": "Mine validée"
+      }
+    ]
+  }
 }
 ```
 
-`/api/storage` renvoie la même forme pour les dépôts (`id`, `name`, `lat`,
-`lon`, `radius_m`, `active`).
+Pour une mine, `app_name` devient le nom affiché dans l'application après
+validation de la proposition locale. `ref` contient la référence Odoo issue de
+`mine.name`. Le mobile accepte temporairement les anciennes clés
+`name`/`reference` pendant la migration du backend.
+
+`/api/storage` conserve sa forme pour les dépôts (`id`, `name`, `lat`, `lon`,
+`radius_m`, `active`).
 
 - **`radius_m`** est indispensable : l'app refuse une photo prise hors du rayon
   de la mine ou du dépôt. Sans lui, elle applique 20 m par défaut.

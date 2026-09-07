@@ -145,7 +145,9 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
       final lat = _toDouble(m['lat']);
       final lon = _toDouble(m['lon']);
       final id = m['id']?.toString();
-      final nom = _asString(m['name']);
+      final appName = _asString(m['app_name']);
+      final legacyName = _asString(m['name']);
+      final nom = appName ?? legacyName;
       if (id == null || id.isEmpty || nom == null || nom.isEmpty) continue;
       if (lat == null || lon == null) continue;
       mines.add(
@@ -159,7 +161,10 @@ class RetrofitAuthRemoteDataSource implements AuthRemoteDataSource {
           _asOptionalString(m['commune']),
           _asOptionalString(m['region']),
           _asBool(m['active']) ?? true,
-          reference: _asOptionalString(m['reference']),
+          reference:
+              _asOptionalString(m['ref']) ??
+              _asOptionalString(m['reference']) ??
+              (appName == null ? null : legacyName),
           note: _asOptionalString(m['note']),
           createdAt: _parseDate(m['created_at']) ?? _parseDate(m['createdAt']),
           fokontany: _asOptionalString(m['fokontany']),

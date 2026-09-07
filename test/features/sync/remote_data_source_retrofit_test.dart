@@ -302,4 +302,41 @@ void main() {
     expect(mines, hasLength(1));
     expect(mines.single.id, '7');
   });
+
+  test(
+    'fetchMines utilise app_name comme nom et ref comme référence',
+    () async {
+      final adapter = _CaptureAdapter('''
+        {
+          "status":"ok",
+          "data":{
+            "mines":[{
+              "id": 6,
+              "app_name": "Mine proposée localement",
+              "ref": "MINE/00006",
+              "created_at": "2026-09-01 08:30:00",
+              "lat": -18.91,
+              "lon": 47.52,
+              "radius_m": 25,
+              "district": "Ambilobe",
+              "commune": "Ambakirano",
+              "region": "Diana",
+              "note": "Validée depuis le mobile"
+            }]
+          }
+        }
+      ''');
+      final dio = Dio(BaseOptions(baseUrl: 'https://example.test'))
+        ..httpClientAdapter = adapter;
+      final remote = RetrofitRemoteDataSource(OdooApi(dio), dio);
+
+      final mine = (await remote.fetchMines()).single;
+
+      expect(mine.id, '6');
+      expect(mine.nom, 'Mine proposée localement');
+      expect(mine.reference, 'MINE/00006');
+      expect(mine.note, 'Validée depuis le mobile');
+      expect(mine.createdAt, DateTime(2026, 9, 1, 8, 30));
+    },
+  );
 }

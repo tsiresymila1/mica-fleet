@@ -89,17 +89,16 @@ Retourne uniquement les mines validées et visibles par l’utilisateur :
     "mines": [
       {
         "id": 42,
-        "name": "Mine Andilana",
-        "reference": "REF-MINE-42",
+        "app_name": "Mine proposée depuis le mobile",
+        "ref": "REF-MINE-42",
         "created_at": "2026-08-14 07:30:00",
-        "fokontany": "Andilana",
         "commune": "Ambohidratrimo",
         "district": "Ambohidratrimo",
         "region": "Analamanga",
         "lat": -18.91,
         "lon": 47.52,
         "radius_m": 20,
-        "active": true
+        "note": "Mine validée depuis l'application"
       }
     ]
   }
@@ -108,8 +107,14 @@ Retourne uniquement les mines validées et visibles par l’utilisateur :
 
 Le cache est remplacé sans doublon à chaque synchronisation. La présence de
 l’identifiant serveur d’une proposition dans cette liste valide la proposition.
-`reference` et `created_at` sont affichés dans la fiche mine du compte. La note
-canonique est fournie par `mine.note` dans `GET /api/tracking/lots`.
+`app_name` est le nom proposé localement puis conservé après validation ; il
+devient le nom affiché par le mobile. `ref` contient la référence Odoo issue de
+`mine.name`. `ref`, `created_at` et `note` sont affichés dans la fiche mine du
+compte.
+
+Pendant la transition, le mobile accepte encore l'ancien couple
+`name`/`reference`. Si `app_name` est présent avec une clé `name` mais sans
+`ref`, cette clé `name` est interprétée comme référence.
 
 Quand l'id Odoo d'une proposition apparaît dans ce référentiel, l'application
 affiche uniquement cette mine canonique dans le compte et les sélecteurs. Le

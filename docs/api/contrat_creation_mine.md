@@ -276,7 +276,8 @@ Valeurs possibles de `state` :
 
 Après `approved`, le mobile insère ou met à jour `data.mine` dans son
 référentiel local. `GET /api/mine` doit également renvoyer cette mine comme
-toute autre mine validée.
+toute autre mine validée : `app_name` reprend le nom proposé localement et
+`ref` contient la référence Odoo (`mine.name`).
 
 ---
 

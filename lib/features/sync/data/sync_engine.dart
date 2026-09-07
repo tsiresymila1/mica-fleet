@@ -1118,10 +1118,9 @@ class SyncEngine {
       db.mines,
     )..where((table) => table.id.equals(remoteLot.mineId))).write(
       MinesCompanion(
-        nom: remoteLot.mineName == remoteLot.mineId
-            ? const Value.absent()
-            : Value(remoteLot.mineName),
-        reference: remoteLot.mineReference == null
+        // GET /api/mine est autoritaire pour app_name et ref. Le GET lots
+        // ne sert de fallback que si la mine n'avait pas encore de référence.
+        reference: mine.reference != null || remoteLot.mineReference == null
             ? const Value.absent()
             : Value(remoteLot.mineReference),
         lat: remoteLot.mineLat == null

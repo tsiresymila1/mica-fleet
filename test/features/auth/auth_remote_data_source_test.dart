@@ -67,7 +67,9 @@ class _MalformedMineAdapter implements HttpClientAdapter {
             "mines":[
               {
                 "id": 7,
-                "name": "Mine Test Sync",
+                "app_name": "Mine Test Sync",
+                "ref": "MINE/00007",
+                "note": "Nom proposé puis validé",
                 "lat": -18.89,
                 "lon": 47.55,
                 "radius_m": 0,
@@ -144,6 +146,8 @@ void main() {
     final mine = result.mines.single;
     expect(mine.id, '7');
     expect(mine.nom, 'Mine Test Sync');
+    expect(mine.reference, 'MINE/00007');
+    expect(mine.note, 'Nom proposé puis validé');
     expect(mine.district, isNull);
     expect(mine.commune, isNull);
     expect(mine.region, isNull);

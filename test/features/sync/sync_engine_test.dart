@@ -873,7 +873,27 @@ void main() {
             ),
           ],
         );
-        final engine = SyncEngine(store, _FakeRemote(lots: [remoteLot]), db);
+        final engine = SyncEngine(
+          store,
+          _FakeRemote(
+            mines: [
+              RemoteMine(
+                'm1',
+                'Nom local validé',
+                -18.9,
+                47.5,
+                20,
+                null,
+                null,
+                null,
+                true,
+                reference: 'REF-ODOO',
+              ),
+            ],
+            lots: [remoteLot],
+          ),
+          db,
+        );
 
         await engine.sync();
         await engine.sync();
@@ -906,6 +926,8 @@ void main() {
         final mine = await (db.select(
           db.mines,
         )..where((table) => table.id.equals('m1'))).getSingle();
+        expect(mine.nom, 'Nom local validé');
+        expect(mine.reference, 'REF-ODOO');
         expect(mine.note, 'Note serveur de traçabilité');
       },
     );

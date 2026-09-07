@@ -403,7 +403,9 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
     final lat = _toDouble(m['lat']);
     final lon = _toDouble(m['lon']);
     final id = m['id']?.toString();
-    final nom = _asString(m['name']);
+    final appName = _asString(m['app_name']);
+    final legacyName = _asString(m['name']);
+    final nom = appName ?? legacyName;
     if (id == null || id.isEmpty || nom == null || nom.isEmpty) return null;
     if (lat == null || lon == null) return null;
     return RemoteMine(
@@ -416,7 +418,10 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       _asOptionalString(m['commune']),
       _asOptionalString(m['region']),
       _asBool(m['active']) ?? true,
-      reference: _asOptionalString(m['reference']),
+      reference:
+          _asOptionalString(m['ref']) ??
+          _asOptionalString(m['reference']) ??
+          (appName == null ? null : legacyName),
       note: _asOptionalString(m['note']),
       createdAt: _date(m['created_at']) ?? _date(m['createdAt']),
       fokontany: _asOptionalString(m['fokontany']),
