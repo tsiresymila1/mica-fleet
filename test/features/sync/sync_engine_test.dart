@@ -354,6 +354,8 @@ void main() {
             payload: const {
               'id': 'MICA-2026-0007-L1',
               'session_id': 'MICA-2026-0007',
+              'traceability_score': 90,
+              'arrival': {'traceability_score': 90, 'driver': 'Jean'},
             },
             createdAt: DateTime(2026, 1, 1),
           ),
@@ -363,6 +365,12 @@ void main() {
         await SyncEngine(store, remote, db).sync();
 
         final submitted = remote.pushedOperations.single.payload;
+        expect(submitted.containsKey('traceability_score'), isFalse);
+        expect(
+          (submitted['arrival'] as Map).containsKey('traceability_score'),
+          isFalse,
+        );
+        expect((submitted['arrival'] as Map)['driver'], 'Jean');
         final payloadId = submitted['id'] as String;
         final sessionId = submitted['session_id'] as String;
         expect(Uuid.isValidUUID(fromString: payloadId), isTrue);

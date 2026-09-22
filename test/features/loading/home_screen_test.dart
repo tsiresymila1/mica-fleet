@@ -34,6 +34,23 @@ void main() {
                 remoteOnly: true,
                 plate: '1234 TBR',
               ),
+              LotListItem(
+                id: 'lot-2',
+                sessionId: 'session-2',
+                mineId: 'mine-1',
+                mineName: 'Mine 1',
+                tonnage: 50,
+                date: DateTime.utc(2026, 8, 22),
+                statut: 'en_cours',
+                score: null,
+                arrive: false,
+                sync: SyncEtat.enAttente,
+                validationStatus: 'pending',
+                validationReason: null,
+                serverReference: null,
+                remoteOnly: false,
+                plate: '5678 ABC',
+              ),
             ],
           ),
         ],
@@ -52,5 +69,7 @@ void main() {
     expect(rejectedX, lessThan(allX));
     expect(find.textContaining('Plaque : 1234 TBR'), findsOneWidget);
     expect(find.textContaining('Transport : Arrivé'), findsOneWidget);
+    expect(find.text('Évaluation en cours'), findsOneWidget);
+    expect(find.text('96'), findsOneWidget);
   });
 }

@@ -128,36 +128,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         l.validationReason!.trim().isNotEmpty)
                       l.validationReason!,
                   ].where((line) => line.isNotEmpty).join('\n'),
-                  trailing: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 6,
-                    children: [
-                      _SyncIcon(l.sync),
-                      if (l.score != null)
-                        _ScoreBadge(score: l.score!)
-                      else
-                        StatusPill(
-                          kind: l.arrive ? PillKind.ok : PillKind.neutral,
-                          label: l.arrive ? 'Arrivé' : 'En route',
-                        ),
-                      if (l.arrive || l.remoteOnly) ...[
-                        const SizedBox(width: 6),
-                        Icon(
-                          Icons.lock_outline,
-                          size: 20,
-                          color: AppColors.inkSoft,
-                        ),
-                      ] else ...[
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'Supprimer le lot',
-                          onPressed: () =>
-                              _deleteLotFromList(context, ref, l.id),
-                          icon: const Icon(Icons.delete_outline),
-                          color: AppColors.danger,
-                        ),
+                  trailing: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 100
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 6,
+                      children: [
+                        _SyncIcon(l.sync),
+                        if (l.score != null)
+                          _ScoreBadge(score: l.score!)
+                        else
+                          StatusPill(
+                            kind: PillKind.neutral,
+                            label: 'En cours',
+                          ),
+                        if (l.arrive || l.remoteOnly) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.lock_outline,
+                            size: 20,
+                            color: AppColors.inkSoft,
+                          ),
+                        ] else ...[
+                          const SizedBox(width: 6),
+                          IconButton(
+                            tooltip: 'Supprimer le lot',
+                            onPressed: () =>
+                                _deleteLotFromList(context, ref, l.id),
+                            icon: const Icon(Icons.delete_outline),
+                            color: AppColors.danger,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                   onTap: () async {
                     await context.push('/detail/${l.id}');

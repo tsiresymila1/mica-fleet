@@ -68,5 +68,16 @@ void main() {
     expect(find.text('Photo du mica'), findsNothing);
     expect(find.text('Photo du camion avec mica'), findsOneWidget);
     expect(find.textContaining('déterminés par le serveur'), findsOneWidget);
+    final permit = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.labelText == 'Numéro de permis',
+    );
+    expect(tester.widget<TextField>(permit).maxLength, 12);
+    await tester.enterText(permit, '1234567890123');
+    expect(tester.widget<TextField>(permit).controller!.text, '123456789012');
+    await tester.tap(find.text('Valider l\'arrivée'));
+    await tester.pumpAndSettle();
+    expect(find.text('Plaque du camion obligatoire'), findsOneWidget);
   });
 }

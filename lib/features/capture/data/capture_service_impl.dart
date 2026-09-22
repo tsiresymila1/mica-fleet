@@ -14,13 +14,19 @@ class CameraCaptureService implements CaptureService {
   CameraCaptureService(this.controller, this.location, this.heading);
 
   @override
-  Future<CapturedPhoto> capture() async {
-    final fixFuture = location.fix();
-    final headingFuture = heading.current();
+  Future<CapturedPhoto> capture({HeadingFix? headingFix}) async {
+    final fix = await location.fix();
+    if (fix.mocked) {
+      throw Exception('Position GPS simulée détectée — capture refusée');
+    }
+    final headingFuture = headingFix == null
+        ? heading.current()
+        : Future<HeadingFix?>.value(headingFix);
     final file = await controller.takePicture();
-    final compressedPath = await compressCapturedPhotoPath(sourcePath: file.path);
-    final fix = await fixFuture;
-    final headingFix = await headingFuture;
+    final compressedPath = await compressCapturedPhotoPath(
+      sourcePath: file.path,
+    );
+    final capturedHeadingFix = await headingFuture;
     final bytes = await File(compressedPath).readAsBytes();
     final digest = sha256.convert(bytes).toString();
     return CapturedPhoto(
@@ -30,9 +36,9 @@ class CameraCaptureService implements CaptureService {
       lon: fix.lon,
       precision: fix.accuracy,
       takenAt: DateTime.now(),
-      headingDegrees: headingFix?.degrees,
-      headingAccuracy: headingFix?.accuracy,
-      headingReference: headingFix?.reference,
+      headingDegrees: capturedHeadingFix?.degrees,
+      headingAccuracy: capturedHeadingFix?.accuracy,
+      headingReference: capturedHeadingFix?.reference,
     );
   }
 }

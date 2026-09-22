@@ -442,6 +442,23 @@ class SyncEngine {
     SyncOperation op,
   ) async {
     if (op.entityType != 'lot') return op;
+    // Les anciennes files peuvent encore contenir un score calculé sur mobile.
+    // Ne jamais le transmettre, même lorsque les UUID sont déjà corrects.
+    final scorelessPayload = Map<String, dynamic>.from(op.payload)
+      ..remove('traceability_score');
+    final arrival = scorelessPayload['arrival'];
+    if (arrival is Map) {
+      scorelessPayload['arrival'] = Map<String, dynamic>.from(arrival)
+        ..remove('traceability_score');
+    }
+    if (jsonEncode(scorelessPayload) != jsonEncode(op.payload)) {
+      await (db.update(
+        db.syncQueue,
+      )..where((t) => t.opId.equals(op.opId))).write(
+        SyncQueueCompanion(payload: Value(jsonEncode(scorelessPayload))),
+      );
+      op = op.copyWith(payload: scorelessPayload);
+    }
     final lot = await (db.select(
       db.lots,
     )..where((t) => t.id.equals(op.entityId))).getSingleOrNull();
@@ -865,7 +882,7 @@ class SyncEngine {
             validationReason: Value(remoteLot.validationReason),
             serverUpdatedAt: Value(remoteLot.updatedAt ?? DateTime.now()),
             // Après un GET tracking, le score serveur est la seule valeur
-            // canonique. Un null serveur efface donc le score provisoire local.
+            // canonique. Un null serveur efface donc tout ancien score local.
             score: Value(remoteLot.score),
           ),
         );

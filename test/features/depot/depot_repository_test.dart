@@ -91,6 +91,7 @@ void main() {
         depotId: 'D1',
         chauffeur: 'Jean',
         numPermis: 'P1',
+        scoreTracabilite: 90,
         numLot: 'L1',
         gpsLat: -18.9,
         gpsLon: 47.5,
@@ -107,6 +108,7 @@ void main() {
 
     final rows = await db.select(db.arriveesDepot).get();
     expect(rows.single.chauffeur, 'Jean');
+    expect(rows.single.scoreTracabilite, isNull);
     expect(rows.single.photoArriveeHeadingDegrees, 270);
     expect(rows.single.photoPermisHeadingDegrees, 315);
 
@@ -136,6 +138,8 @@ void main() {
     expect((transload['photo_unload'] as Map)['heading_deg'], 90);
     expect((transload['photo_reload'] as Map)['heading_deg'], 180);
     final arrival = pending.single.payload['arrival'] as Map<String, dynamic>;
+    expect(pending.single.payload.containsKey('traceability_score'), isFalse);
+    expect(arrival.containsKey('traceability_score'), isFalse);
     expect((arrival['photo_arrival'] as Map)['heading_deg'], 270);
     expect((arrival['photo_license'] as Map)['heading_deg'], 315);
   });

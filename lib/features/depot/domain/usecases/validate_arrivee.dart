@@ -26,6 +26,14 @@ class ValidateArrivee {
     if (chauffeur.trim().isEmpty || numPermis.trim().isEmpty) {
       return left(const Failure.validation('Chauffeur et permis obligatoires'));
     }
+    if (numPermis.trim().length > 12) {
+      return left(
+        const Failure.validation('Le permis est limité à 12 caractères'),
+      );
+    }
+    if (plaqueArrivee?.trim().isNotEmpty != true) {
+      return left(const Failure.validation('Plaque du camion obligatoire'));
+    }
     return right(
       ArriveeDepot(
         lotId: lotId,
@@ -51,7 +59,7 @@ class ValidateArrivee {
   }
 
   /// Vrai si plaque d'arrivée == plaque attendue (anti-fraude immatriculation).
-  /// Une plaque absente ne peut pas être validée et pénalise donc le score.
+  /// Une plaque attendue absente ne peut pas être vérifiée.
   bool _coherente(String? arrivee, String? attendue) {
     if (arrivee == null || attendue == null) return false;
     String norm(String s) =>

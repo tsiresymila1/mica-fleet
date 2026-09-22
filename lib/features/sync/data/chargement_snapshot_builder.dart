@@ -183,7 +183,6 @@ class LotSnapshotBuilder {
               'gps_status': arr.statutGps,
               'plate_arrival': arr.plaqueArrivee,
               'plate_consistent': arr.plaqueCoherente,
-              'traceability_score': arr.scoreTracabilite,
               if (photoV2)
                 'photos_unload': depotPhotos == null
                     ? null
@@ -204,7 +203,6 @@ class LotSnapshotBuilder {
             },
 
       'track': trajet.map((p) => [p.lat, p.lon, _d(p.capturedAt)]).toList(),
-      'traceability_score': lot.score ?? arr?.scoreTracabilite,
     };
 
     return (

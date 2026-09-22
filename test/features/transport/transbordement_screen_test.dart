@@ -50,6 +50,10 @@ void main() {
           .toList();
       expect(progresses, hasLength(2));
       expect(progresses.map((progress) => progress.value), [0, 0]);
+      await tester.tap(find.text('Enregistrer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Plaque camion avant obligatoire'), findsOneWidget);
+      expect(find.text('Plaque camion après obligatoire'), findsOneWidget);
     },
   );
 }

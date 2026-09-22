@@ -72,7 +72,8 @@ class DepotRepositoryImpl implements DepotRepository {
                 ),
                 plaqueArrivee: Value(a.plaqueArrivee),
                 plaqueCoherente: Value(a.plaqueCoherente),
-                scoreTracabilite: Value(a.scoreTracabilite),
+                // Le backoffice est l'unique auteur du score.
+                scoreTracabilite: const Value(null),
               ),
             );
         if (a.photosDecharge != null) {
@@ -83,7 +84,6 @@ class DepotRepositoryImpl implements DepotRepository {
             photos: a.photosDecharge!,
           );
         }
-        // Le score calculé ici reste provisoire dans l'arrivée et le payload.
         // Lots.score est réservé au score canonique de GET tracking/lots.
         await (db.update(db.lots)..where((t) => t.id.equals(a.lotId))).write(
           const LotsCompanion(statut: Value('arrive')),

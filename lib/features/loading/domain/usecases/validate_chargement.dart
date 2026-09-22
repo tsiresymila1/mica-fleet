@@ -12,6 +12,12 @@ class ValidateChargement {
       return left(const Failure.validation('Maximum 3 mines'));
     }
     for (final l in c.lots) {
+      if (l.mineId.trim().isEmpty) {
+        return left(const Failure.validation('Mine d’origine obligatoire'));
+      }
+      if (l.plaqueDepart?.trim().isNotEmpty != true) {
+        return left(const Failure.validation('Plaque du camion obligatoire'));
+      }
       if (l.photos == null && l.photo == null) {
         return left(
           Failure.validation('Photos manquantes pour la mine ${l.mineId}'),

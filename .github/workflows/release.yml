@@ -82,7 +82,7 @@ jobs:
       # APK PROD (universel) : vrai Odoo (URL depuis la variable MICA_ODOO_URL).
       - name: Build APK prod
         env:
-          ODOO_URL: ${{ vars.MICA_ODOO_URL }}
+          ODOO_URL: https://staging.radoran.net
           KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

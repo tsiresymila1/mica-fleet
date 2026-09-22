@@ -1,18 +1,15 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/capture_photo_screen.dart';
+import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/domain/entities/traceability_photos.dart';
-import '../../../capture/presentation/providers/capture_providers.dart';
 import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/domain/entities/mine_submission.dart';
 import '../../../mines/presentation/providers/mine_submissions_provider.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
-import '../../../trip/presentation/sim_session.dart';
 import '../../domain/entities/lot.dart';
 
 /// Création d'un lot chargé depuis une mine existante.
@@ -23,6 +20,7 @@ class AddMineScreen extends ConsumerStatefulWidget {
 }
 
 class _AddMineScreenState extends ConsumerState<AddMineScreen> {
+  final _formKey = GlobalKey<FormState>();
   _MineChoice? _mineChoice;
   CapturedPhoto? _platePhoto;
   CapturedPhoto? _truckPhoto;
@@ -44,18 +42,15 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         'Chargement mine — camion avec mica',
     };
     final photo = await Navigator.of(context).push<CapturedPhoto>(
-      MaterialPageRoute(builder: (_) => CapturePhotoScreen(titre: title)),
+      MaterialPageRoute(
+        builder: (_) => CapturePhotoScreen(
+          titre: title,
+          acceptAnyGpsAccuracy: role != TraceabilityPhotoRole.mica,
+        ),
+      ),
     );
     if (photo == null) return;
 
-    String? plaque;
-    if (role == TraceabilityPhotoRole.plate) {
-      // Seule la preuve plaque alimente l'OCR.
-      final sim = ref.read(simSessionProvider);
-      plaque = sim != null
-          ? ref.read(simSessionProvider.notifier).plate
-          : await ref.read(plateOcrServiceProvider).readPlate(photo.path);
-    }
     if (!mounted) return;
     setState(() {
       switch (role) {
@@ -68,7 +63,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
           _truckPhoto = photo;
           break;
       }
-      if (plaque != null) _plaqueCtrl.text = plaque;
     });
   }
 
@@ -78,6 +72,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   bool get _canSave =>
       _mineChoice != null &&
       _mineChoice!.id.isNotEmpty &&
+      _plaqueCtrl.text.trim().isNotEmpty &&
       _capturedPhotoCount == 2;
 
   Future<void> _openMinePicker(
@@ -97,6 +92,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
   }
 
   void _save() {
+    if (!_formKey.currentState!.validate()) return;
     if (_mineChoice == null || _platePhoto == null || _truckPhoto == null) {
       showAppMessage(
         context,
@@ -111,9 +107,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
         id: '',
         mineId: _mineChoice!.id,
         quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
-        plaqueDepart: _plaqueCtrl.text.trim().isEmpty
-            ? null
-            : _plaqueCtrl.text.trim(),
+        plaqueDepart: _plaqueCtrl.text.trim(),
         photos: TraceabilityPhotos(
           plate: _platePhoto!,
           truckWithMica: _truckPhoto!,
@@ -172,133 +166,133 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Chargement à la mine')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
-        children: [
-          StepHeader(
-            numero: 1,
-            titre: 'La mine',
-            sousTitre: 'Choisis la mine d’origine de ce lot',
-          ),
-          const SizedBox(height: 12),
-          if (minesAsync.isLoading || submissionsAsync.isLoading)
-            const LinearProgressIndicator()
-          else if (minesAsync.hasError || submissionsAsync.hasError)
-            const Text('Impossible de charger les mines')
-          else
-            Builder(
-              builder: (context) {
-                final mineOptions = _buildMineOptions(
-                  minesAsync.value ?? const [],
-                  (submissionsAsync.value ?? const [])
-                      .where(
-                        (s) =>
-                            s.serverId == null &&
-                            (s.state == MineSubmissionState.localPending ||
-                                s.state ==
-                                    MineSubmissionState.awaitingAttachments ||
-                                s.state ==
-                                    MineSubmissionState.pendingValidation),
-                      )
-                      .map(
-                        (s) => _MineSubmissionPreview(
-                          id: s.payloadId,
-                          name: s.nom,
-                          reference: null,
-                          note: null,
-                          createdAt: s.createdAt,
-                          lat: s.photos.isNotEmpty
-                              ? s.photos.first.photo.lat
-                              : null,
-                          lon: s.photos.isNotEmpty
-                              ? s.photos.first.photo.lon
-                              : null,
-                        ),
-                      )
-                      .toList(),
-                );
-                if (mineOptions.isEmpty) {
-                  return const Text(
-                    'Aucune mine disponible. Propose d’abord une mine.',
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+          children: [
+            StepHeader(
+              numero: 1,
+              titre: 'La mine',
+              sousTitre: 'Choisis la mine d’origine de ce lot',
+            ),
+            const SizedBox(height: 12),
+            if (minesAsync.isLoading || submissionsAsync.isLoading)
+              const LinearProgressIndicator()
+            else if (minesAsync.hasError || submissionsAsync.hasError)
+              const Text('Impossible de charger les mines')
+            else
+              Builder(
+                builder: (context) {
+                  final mineOptions = _buildMineOptions(
+                    minesAsync.value ?? const [],
+                    (submissionsAsync.value ?? const [])
+                        .where(
+                          (s) =>
+                              s.serverId == null &&
+                              (s.state == MineSubmissionState.localPending ||
+                                  s.state ==
+                                      MineSubmissionState.awaitingAttachments ||
+                                  s.state ==
+                                      MineSubmissionState.pendingValidation),
+                        )
+                        .map(
+                          (s) => _MineSubmissionPreview(
+                            id: s.payloadId,
+                            name: s.nom,
+                            reference: null,
+                            note: null,
+                            createdAt: s.createdAt,
+                            lat: s.photos.isNotEmpty
+                                ? s.photos.first.photo.lat
+                                : null,
+                            lon: s.photos.isNotEmpty
+                                ? s.photos.first.photo.lon
+                                : null,
+                          ),
+                        )
+                        .toList(),
                   );
-                }
+                  final mine = mineOptions
+                      .where((m) => m.id == _mineChoice?.id)
+                      .firstOrNull;
+                  if (_mineChoice != null && mine == null) {
+                    final obsoleteId = _mineChoice!.id;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && _mineChoice?.id == obsoleteId) {
+                        setState(() => _mineChoice = null);
+                      }
+                    });
+                  }
+                  if (mineOptions.isEmpty) {
+                    return const Text(
+                      'Aucune mine disponible. Propose d’abord une mine.',
+                    );
+                  }
 
-                if (_mineChoice == null) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _mineChoice = mineOptions.first);
-                    }
-                  });
-                } else if (!mineOptions.any((m) => m.id == _mineChoice!.id)) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted) {
-                      setState(() => _mineChoice = mineOptions.first);
-                    }
-                  });
-                }
-
-                final mine = _mineChoice != null
-                    ? mineOptions.firstWhere(
-                        (m) => m.id == _mineChoice!.id,
-                        orElse: () => mineOptions.first,
-                      )
-                    : mineOptions.first;
-
-                return InkWell(
-                  onTap: () => _openMinePicker(mineOptions, mine.id),
-                  borderRadius: BorderRadius.circular(12),
-                  child: ActionTile(
-                    icon: Icons.terrain,
-                    color: AppColors.gold,
-                    titre: mine.name,
-                    sousTitre: mine.summary,
-                    trailing: const Icon(Icons.search),
-                  ),
-                );
-              },
+                  return InkWell(
+                    onTap: () => _openMinePicker(mineOptions, mine?.id),
+                    borderRadius: BorderRadius.circular(12),
+                    child: ActionTile(
+                      icon: Icons.terrain,
+                      color: AppColors.gold,
+                      titre: mine?.name ?? 'Choisir la mine d’origine',
+                      sousTitre: mine?.summary ?? 'Aucune mine sélectionnée',
+                      trailing: const Icon(Icons.search),
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: 24),
+            StepHeader(
+              numero: 2,
+              titre: 'Photos du chargement — $_capturedPhotoCount/2',
+              sousTitre:
+                  'Appuie sur chaque ligne pour prendre la photo demandée',
             ),
-          const SizedBox(height: 24),
-          StepHeader(
-            numero: 2,
-            titre: 'Photos du chargement — $_capturedPhotoCount/2',
-            sousTitre: 'Appuie sur chaque ligne pour prendre la photo demandée',
-          ),
-          const SizedBox(height: 12),
-          PhotoCaptureProgress(captured: _capturedPhotoCount, total: 2),
-          const SizedBox(height: 12),
-          _CaptureTile(
-            title: 'Photo de la plaque',
-            subtitle: 'Utilisée pour la reconnaissance de plaque',
-            photo: _platePhoto,
-            onTap: () => _capture(TraceabilityPhotoRole.plate),
-          ),
-          const SizedBox(height: 10),
-          _CaptureTile(
-            title: 'Photo du camion avec mica',
-            subtitle: 'Vue d’ensemble du camion chargé',
-            photo: _truckPhoto,
-            onTap: () => _capture(TraceabilityPhotoRole.truckWithMica),
-          ),
-          const SizedBox(height: 24),
-          StepHeader(numero: 3, titre: 'Les détails'),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _plaqueCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Plaque du camion',
-              prefixIcon: Icon(Icons.directions_car),
+            const SizedBox(height: 12),
+            PhotoCaptureProgress(captured: _capturedPhotoCount, total: 2),
+            const SizedBox(height: 12),
+            _CaptureTile(
+              title: 'Photo de la plaque',
+              subtitle: 'Preuve de la plaque du camion',
+              photo: _platePhoto,
+              onTap: () => _capture(TraceabilityPhotoRole.plate),
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _qteCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Quantité estimée (kg)',
-              prefixIcon: Icon(Icons.scale),
+            const SizedBox(height: 10),
+            _CaptureTile(
+              title: 'Photo du camion avec mica',
+              subtitle: 'Vue d’ensemble du camion chargé',
+              photo: _truckPhoto,
+              onTap: () => _capture(TraceabilityPhotoRole.truckWithMica),
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            StepHeader(numero: 3, titre: 'Les détails'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _plaqueCtrl,
+              onChanged: (_) => setState(() {}),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Plaque du camion obligatoire'
+                  : null,
+              decoration: const InputDecoration(
+                labelText: 'Plaque du camion *',
+                prefixIcon: Icon(Icons.directions_car),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _qteCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Quantité estimée (kg)',
+                prefixIcon: Icon(Icons.scale),
+              ),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -507,16 +501,6 @@ class _CaptureTile extends StatelessWidget {
         : 'GPS ${photo!.lat.toStringAsFixed(4)}, '
               '${photo!.lon.toStringAsFixed(4)} — appuyer pour reprendre',
     onTap: onTap,
-    trailing: photo != null && File(photo!.path).existsSync()
-        ? ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Image.file(
-              File(photo!.path),
-              width: 48,
-              height: 48,
-              fit: BoxFit.cover,
-            ),
-          )
-        : null,
+    trailing: photo != null ? PhotoThumb(path: photo!.path, size: 48) : null,
   );
 }

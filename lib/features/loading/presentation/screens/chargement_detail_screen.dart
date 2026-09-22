@@ -102,10 +102,15 @@ class ChargementDetailScreen extends ConsumerWidget {
         data: (d) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           children: [
-            if (d.score != null) ...[
-              Center(child: _ScoreCircle(score: d.score!)),
-              const SizedBox(height: 20),
-            ],
+            Center(
+              child: d.score != null
+                  ? _ScoreCircle(score: d.score!)
+                  : const StatusPill(
+                      kind: PillKind.neutral,
+                      label: 'Évaluation en cours',
+                    ),
+            ),
+            const SizedBox(height: 20),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -435,7 +440,7 @@ String _validationLabel(String status) => switch (status) {
   _ => 'En attente',
 };
 
-/// Carte de la trace GPS de la session (points espacés >20 m). Départ en vert,
+/// Carte de la trace GPS locale de la session (points espacés d'au moins 8 m). Départ en vert,
 /// arrivée en rouge, tracé bleu entre les deux.
 class _TrajetCard extends ConsumerWidget {
   final String sessionId;
@@ -451,7 +456,7 @@ class _TrajetCard extends ConsumerWidget {
       ),
       error: (_, _) => const _Muted('Trajet indisponible'),
       data: (pts) {
-        if (pts.length < 2) {
+        if (pts.isEmpty) {
           return const _Muted('Pas de trace GPS enregistrée');
         }
         return ClipRRect(
@@ -460,10 +465,14 @@ class _TrajetCard extends ConsumerWidget {
             height: 220,
             child: FlutterMap(
               options: MapOptions(
-                initialCameraFit: CameraFit.bounds(
-                  bounds: LatLngBounds.fromPoints(pts),
-                  padding: const EdgeInsets.all(30),
-                ),
+                initialCenter: pts.first,
+                initialZoom: 16,
+                initialCameraFit: pts.length > 1
+                    ? CameraFit.bounds(
+                        bounds: LatLngBounds.fromPoints(pts),
+                        padding: const EdgeInsets.fromLTRB(36, 54, 36, 24),
+                      )
+                    : null,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
                 ),
@@ -473,38 +482,41 @@ class _TrajetCard extends ConsumerWidget {
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'net.radoran.mica',
                 ),
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: pts,
-                      strokeWidth: 4,
-                      color: AppColors.primary,
-                    ),
-                  ],
-                ),
+                if (pts.length > 1)
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: pts,
+                        strokeWidth: 4,
+                        color: AppColors.primary,
+                      ),
+                    ],
+                  ),
                 MarkerLayer(
                   markers: [
                     Marker(
                       point: pts.first,
-                      width: 34,
-                      height: 34,
-                      child: const Icon(
-                        Icons.trip_origin,
+                      width: 72,
+                      height: 50,
+                      alignment: Alignment.bottomCenter,
+                      child: const _RouteEndpointMarker(
+                        key: ValueKey('route-start-marker'),
+                        label: 'Départ',
                         color: AppColors.ok,
-                        size: 28,
                       ),
                     ),
-                    Marker(
-                      point: pts.last,
-                      width: 34,
-                      height: 34,
-                      alignment: Alignment.topCenter,
-                      child: const Icon(
-                        Icons.location_on,
-                        color: AppColors.danger,
-                        size: 34,
+                    if (pts.length > 1)
+                      Marker(
+                        point: pts.last,
+                        width: 72,
+                        height: 50,
+                        alignment: Alignment.bottomCenter,
+                        child: const _RouteEndpointMarker(
+                          key: ValueKey('route-end-marker'),
+                          label: 'Arrivée',
+                          color: AppColors.danger,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ],
@@ -514,6 +526,42 @@ class _TrajetCard extends ConsumerWidget {
       },
     );
   }
+}
+
+class _RouteEndpointMarker extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _RouteEndpointMarker({
+    super.key,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: label,
+    excludeSemantics: true,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+              shadows: const [Shadow(color: Colors.white, blurRadius: 3)],
+            ),
+          ),
+        ),
+        const SizedBox(height: 1),
+        Icon(Icons.location_on, color: color, size: 32),
+      ],
+    ),
+  );
 }
 
 /// Pastille de l'état de synchronisation du lot.

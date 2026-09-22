@@ -69,7 +69,8 @@ void main() {
       );
       expect(saveButton.onPressed, isNull);
 
-      await tester.tap(find.text('Mine Antsahabe'));
+      expect(find.text('Aucune mine sélectionnée'), findsOneWidget);
+      await tester.tap(find.text('Choisir la mine d’origine'));
       await tester.pumpAndSettle();
 
       expect(find.text('Rechercher une mine'), findsOneWidget);
@@ -82,52 +83,68 @@ void main() {
     },
   );
 
-  testWidgets('sélectionne par défaut la mine créée le plus récemment', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(1080, 2200);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  testWidgets(
+    'aucune mine par défaut et choix triés du plus récent au plus ancien',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 2200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          minesProvider.overrideWith(
-            (ref) async => [
-              Mine(
-                id: 'older',
-                nom: 'Mine ancienne',
-                lat: -18.91,
-                lon: 47.52,
-                createdAt: DateTime.utc(2026, 8, 10),
-              ),
-              const Mine(
-                id: 'without-date',
-                nom: 'Mine sans date',
-                lat: -18.91,
-                lon: 47.52,
-              ),
-              Mine(
-                id: 'newer',
-                nom: 'Mine récente',
-                lat: -18.91,
-                lon: 47.52,
-                createdAt: DateTime.utc(2026, 8, 20),
-              ),
-            ],
-          ),
-          mineSubmissionsProvider.overrideWith((ref) async => const []),
-        ],
-        child: const MaterialApp(home: AddMineScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            minesProvider.overrideWith(
+              (ref) async => [
+                Mine(
+                  id: 'older',
+                  nom: 'Mine ancienne',
+                  lat: -18.91,
+                  lon: 47.52,
+                  createdAt: DateTime.utc(2026, 8, 10),
+                ),
+                const Mine(
+                  id: 'without-date',
+                  nom: 'Mine sans date',
+                  lat: -18.91,
+                  lon: 47.52,
+                ),
+                Mine(
+                  id: 'newer',
+                  nom: 'Mine récente',
+                  lat: -18.91,
+                  lon: 47.52,
+                  createdAt: DateTime.utc(2026, 8, 20),
+                ),
+              ],
+            ),
+            mineSubmissionsProvider.overrideWith((ref) async => const []),
+          ],
+          child: const MaterialApp(home: AddMineScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.text('Mine récente'), findsOneWidget);
-    expect(find.text('Mine ancienne'), findsNothing);
-    expect(find.text('Mine sans date'), findsNothing);
-  });
+      expect(find.text('Aucune mine sélectionnée'), findsOneWidget);
+      expect(find.text('Mine récente'), findsNothing);
+      expect(find.text('Mine ancienne'), findsNothing);
+      expect(find.text('Mine sans date'), findsNothing);
+      await tester.tap(find.text('Choisir la mine d’origine'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('Mine récente')).dy,
+        lessThan(tester.getTopLeft(find.text('Mine ancienne')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('Mine ancienne')).dy,
+        lessThan(tester.getTopLeft(find.text('Mine sans date')).dy),
+      );
+      await tester.tap(find.text('Mine récente'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mine récente'), findsOneWidget);
+      expect(find.text('Aucune mine sélectionnée'), findsNothing);
+    },
+  );
 
   testWidgets(
     'n’affiche qu’une fois une proposition ayant déjà un id serveur',
@@ -170,12 +187,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Mine déjà envoyée'), findsOneWidget);
-      await tester.tap(find.text('Mine déjà envoyée'));
+      expect(find.text('Mine déjà envoyée'), findsNothing);
+      await tester.tap(find.text('Choisir la mine d’origine'));
       await tester.pumpAndSettle();
 
-      // Une occurrence dans la carte sélectionnée et une dans le sheet.
-      expect(find.text('Mine déjà envoyée'), findsNWidgets(2));
+      expect(find.text('Mine déjà envoyée'), findsOneWidget);
       expect(find.textContaining('Créée manuellement'), findsNothing);
     },
   );

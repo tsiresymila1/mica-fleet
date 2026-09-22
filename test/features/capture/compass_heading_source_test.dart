@@ -34,4 +34,44 @@ void main() {
       expect(heading?.degrees, 125);
     },
   );
+
+  test('ignore un faux nord dont la précision est inconnue', () async {
+    final source = CompassHeadingSource(
+      useCameraHeading: false,
+      events: () => Stream.fromIterable([
+        CompassEvent.fromList([0, 0, -1]),
+        CompassEvent.fromList([90, 0, 15]),
+      ]),
+    );
+
+    final heading = await source.current();
+
+    expect(heading?.degrees, 90);
+    expect(heading?.accuracy, 15);
+  });
+
+  test('moyenne correctement les caps autour de zéro degré', () async {
+    final source = CompassHeadingSource(
+      sampleCount: 2,
+      useCameraHeading: false,
+      events: () => Stream.fromIterable([
+        CompassEvent.fromList([359, 0, 3]),
+        CompassEvent.fromList([1, 0, 3]),
+      ]),
+    );
+
+    final heading = await source.current();
+
+    expect(heading, isNotNull);
+    expect(heading!.degrees, closeTo(0, 0.001));
+  });
+
+  test('retourne null si aucune mesure fiable n’est disponible', () async {
+    final source = CompassHeadingSource(
+      useCameraHeading: false,
+      events: () => Stream.value(CompassEvent.fromList([0, 0, -1])),
+    );
+
+    expect(await source.current(), isNull);
+  });
 }

@@ -52,7 +52,13 @@ class _CreateMineSubmissionScreenState
 
   Future<void> _capture() async {
     final photo = await context.push<CapturedPhoto>(
-      '/capture-photo?title=${Uri.encodeQueryComponent('Position ${_photos.length + 1}')}',
+      Uri(
+        path: '/capture-photo',
+        queryParameters: {
+          'title': 'Position ${_photos.length + 1}',
+          'acceptAnyGpsAccuracy': 'true',
+        },
+      ).toString(),
     );
     if (photo != null && mounted) setState(() => _photos.add(photo));
   }

@@ -13,6 +13,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/sync/presentation/sync_provider.dart';
 import 'features/update/presentation/app_update_provider.dart';
 import 'features/update/presentation/app_update_ui.dart';
+import 'features/trip/presentation/trip_provider.dart';
 
 Future<void> _refreshAndSync(ProviderContainer container) async {
   await container.read(authControllerProvider.notifier).refreshSessionToken();
@@ -33,6 +34,10 @@ Future<void> main() async {
   // Restaure la session existante (garde du routeur).
   final session = await container.read(authRepositoryProvider).currentSession();
   container.read(authControllerProvider.notifier).setSession(session);
+
+  // Le service Android continue sans l'UI. Au redémarrage, la base permet de
+  // restaurer ou d'arrêter proprement le suivi selon les lots encore en route.
+  await container.read(tripTrackerProvider).restoreFromDatabase();
 
   final router = container.read(routerProvider);
 

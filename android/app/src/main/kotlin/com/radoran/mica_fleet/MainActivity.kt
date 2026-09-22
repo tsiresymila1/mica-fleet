@@ -12,6 +12,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val updateChannel = "net.radoran.mica/app_update"
+    private val trackingChannel = "net.radoran.mica/trip_tracking"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -59,6 +60,26 @@ class MainActivity : FlutterActivity() {
                         startActivity(intent)
                         result.success("installer_opened")
                     }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, trackingChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> {
+                        val id = call.argument<String>("chargementId")
+                        if (id.isNullOrBlank()) {
+                            result.error("invalid_session", "Session de trajet absente", null)
+                        } else {
+                            TripTrackingService.start(this, id)
+                            result.success(null)
+                        }
+                    }
+                    "stop" -> {
+                        TripTrackingService.stop(this)
+                        result.success(null)
+                    }
+                    "isRunning" -> result.success(TripTrackingService.hasActiveSession(this))
                     else -> result.notImplemented()
                 }
             }

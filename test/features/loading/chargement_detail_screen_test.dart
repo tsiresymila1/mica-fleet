@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:mica_fleet/features/loading/presentation/providers/chargement_detail_provider.dart';
 import 'package:mica_fleet/features/loading/presentation/screens/chargement_detail_screen.dart';
+import 'package:mica_fleet/features/trip/presentation/trip_provider.dart';
 
 void main() {
   testWidgets('affiche les détails complets provenant du GET lots', (
@@ -74,6 +76,12 @@ void main() {
           lotDetailProvider(
             'REMOTE-payload-1',
           ).overrideWith((ref) async => detail),
+          trajetPointsProvider('REMOTE-rakoto-session-1').overrideWith(
+            (ref) => Stream.value(const [
+              LatLng(-18.91, 47.52),
+              LatLng(-18.879, 47.508),
+            ]),
+          ),
         ],
         child: const MaterialApp(
           home: ChargementDetailScreen(lotId: 'REMOTE-payload-1'),
@@ -87,5 +95,32 @@ void main() {
     expect(find.text('Distance : 14.5 m'), findsOneWidget);
     expect(find.text('-18.87900, 47.50800'), findsOneWidget);
     expect(find.text('TT/2026/00017'), findsWidgets);
+    expect(find.byKey(const ValueKey('route-start-marker')), findsOneWidget);
+    expect(find.byKey(const ValueKey('route-end-marker')), findsOneWidget);
+    for (final key in ['route-start-marker', 'route-end-marker']) {
+      final marker = find.byKey(ValueKey(key));
+      expect(
+        find.descendant(of: marker, matching: find.byIcon(Icons.location_on)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: marker, matching: find.byType(DecoratedBox)),
+        findsNothing,
+      );
+    }
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('route-start-marker')),
+        matching: find.text('Départ'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('route-end-marker')),
+        matching: find.text('Arrivée'),
+      ),
+      findsOneWidget,
+    );
   });
 }

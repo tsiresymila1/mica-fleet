@@ -308,7 +308,6 @@ saisit pas et n'attend pas `mine.color` dans les réponses.
       "gps_status": "pending_server",
       "plate_arrival": "5678 ABC",
       "plate_consistent": true,
-      "traceability_score": 80,
       "photos_unload": {
         "plate": { "key": "depot_unload_plate", "hash": "sha256-hex" },
         "truck_with_mica": {
@@ -321,16 +320,51 @@ saisit pas et n'attend pas `mine.color` dans les réponses.
     "track": [
       [-18.91, 47.52, "2026-08-14 08:00:00"],
       [-18.879, 47.508, "2026-08-14 10:30:00"]
-    ],
-    "traceability_score": 80
+    ]
   }
 }
 ```
 
 Absents volontairement en v3 : `payload.lot_reference`, `arrival.depot_id`,
 `arrival.lot_number`, `arrival.lots`, `commune_id` et le rôle photo `mica`.
-Le score envoyé par le mobile est provisoire ; le backend retourne le score
-final après attribution du dépôt et contrôle métier.
+`traceability_score` n'est pas envoyé par le mobile : le backoffice est son
+unique auteur et le retourne dans `GET /api/tracking/lots` après contrôle
+métier. Tant qu'il est absent, l'app affiche « Évaluation en cours ».
+
+Les champs `mine.plate`, `transloads[].plate_before`,
+`transloads[].plate_after` et `arrival.plate_arrival` sont obligatoires pour
+leurs étapes respectives. `arrival.license_number` est obligatoire et limité
+à 12 caractères. La plaque est saisie manuellement : aucun OCR n'est utilisé.
+
+Les captures `plate`, `truck_with_mica` et les photos de proposition de mine
+utilisent le premier GPS récent obtenu, sans seuil de précision ni attente d'une
+mesure plus précise. Une position Android approximative est acceptée. La précision
+reçue reste conservée dans les métadonnées GPS existantes ; aucun champ API ne
+change. Une position absente, simulée ou avec des coordonnées invalides reste
+refusée. Cette règle ne modifie pas le filtrage du trajet ci-dessous. Le cap de la
+boussole (`heading_deg`, `heading_accuracy`, `heading_reference`) est collecté par
+le même mécanisme pour les lots et les propositions de mine.
+
+Le trajet est enregistré dans la base locale, avec ou sans Internet. Un point
+GPS fiable doit se trouver à au moins 8 mètres du dernier point retenu et son
+déplacement doit être confirmé par deux mesures (trois avec une progression
+d'au moins 3 m dans la marge de précision combinée). La fenêtre de confirmation
+expire après 15 secondes. Les coordonnées invalides, simulées ou de précision
+supérieure à 25 mètres sont ignorées, ainsi que les sauts dont la vitesse minimale
+estimée, après marge de précision, dépasse 45 m/s. Une vitesse GPS fiable indiquant
+un arrêt empêche de conserver la dérive ; une vitesse inconnue ne bloque pas le
+suivi. Le filtre ne réécrit pas les anciennes traces et ne supprime pas les vraies
+boucles par leur seule forme. Les points sont envoyés dans `track` lors de la sync,
+sans changement de format. Ces seuils nécessitent une validation terrain et ne
+garantissent pas l'élimination de toute dérive GPS.
+
+Le suivi Android est exécuté par un service foreground natif indépendant de
+l'interface Flutter. Il persiste directement les points dans la base locale et
+reste actif après retrait de l'application des applications récentes. La session
+est restaurée tant qu'au moins un lot n'a pas d'arrivée. Cela ne modifie pas le
+format de `track`. Une notification Android permanente informe l'utilisateur ;
+un arrêt forcé système, la révocation du GPS ou la désinstallation arrêtent le
+service.
 
 Réponse :
 
@@ -469,9 +503,8 @@ si le lot n’existe pas sur l’appareil.
 
 La note affichée dans les fiches mine provient exclusivement de `mine.note`
 dans cette réponse. Le score visible sur les cartes et dans le détail d'un lot
-provient exclusivement de `traceability_score` retourné ici. Le score calculé
-sur le mobile à l'arrivée reste provisoire et n'est pas affiché comme score
-final.
+provient exclusivement de `traceability_score` retourné ici. Aucun score n'est
+calculé sur le mobile ; en son absence, « Évaluation en cours » est affiché.
 
 Dans l'écran du compte, une mine affiche son nom, sa référence, sa date de
 création et cette note, sans coordonnées GPS. Un appui ouvre un sheet contenant

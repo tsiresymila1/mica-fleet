@@ -16,7 +16,7 @@ CapturedPhoto _p() => CapturedPhoto(
 );
 
 Lot _lot(String mineId, {CapturedPhoto? photo}) =>
-    Lot(id: '', mineId: mineId, photo: photo);
+    Lot(id: '', mineId: mineId, photo: photo, plaqueDepart: '1234 TBR');
 
 void main() {
   final c0 = Chargement(
@@ -64,8 +64,15 @@ void main() {
       truckWithMica: _p(),
     );
     final c = c0.copyWith(
-      lots: [Lot(id: '', mineId: 'a', photos: set)],
+      lots: [Lot(id: '', mineId: 'a', photos: set, plaqueDepart: '1234 TBR')],
     );
     expect(ValidateChargement()(c).getRight().toNullable()!.statut, 'valide');
+  });
+
+  test('refuse une plaque absente même avec les photos', () {
+    final c = c0.copyWith(
+      lots: [_lot('a', photo: _p()).copyWith(plaqueDepart: ' ')],
+    );
+    expect(ValidateChargement()(c).isLeft(), isTrue);
   });
 }

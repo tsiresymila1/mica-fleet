@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -88,6 +90,8 @@ class ChargementController extends Notifier<Chargement?> {
         // La liste générale peut rester montée sous l'écran de création.
         // On force sa prochaine lecture dès que les lots sont persistés.
         ref.invalidate(lotsListProvider);
+        // Le suivi local démarre avant toute opération réseau, aussi hors ligne.
+        await ref.read(tripTrackerProvider).start(persisted.id);
         const config = DelaiConfig();
         final rappels = DelaiAlertPlanner().planifier(
           persisted.dateCreation,
@@ -101,14 +105,21 @@ class ChargementController extends Notifier<Chargement?> {
               rappels,
               payload: persisted.id,
             );
-        final connectivity = await Connectivity().checkConnectivity();
-        if (connectivity.any((status) => status != ConnectivityResult.none)) {
-          await ref.read(authControllerProvider.notifier).refreshSessionToken();
-          await ref.read(triggerSyncProvider).sync();
-        }
-        await ref.read(tripTrackerProvider).start(persisted.id);
+        unawaited(_syncIfOnline());
       });
       return saved;
     });
+  }
+
+  Future<void> _syncIfOnline() async {
+    try {
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.any((status) => status != ConnectivityResult.none)) {
+        await ref.read(authControllerProvider.notifier).refreshSessionToken();
+        await ref.read(triggerSyncProvider).sync();
+      }
+    } catch (_) {
+      // La file locale reste disponible pour la prochaine synchronisation.
+    }
   }
 }

@@ -49,6 +49,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/capture-photo',
         builder: (_, state) => CapturePhotoScreen(
           titre: state.uri.queryParameters['title'] ?? 'Prendre une photo',
+          acceptAnyGpsAccuracy:
+              state.uri.queryParameters['acceptAnyGpsAccuracy'] == 'true',
         ),
       ),
       GoRoute(path: '/sync', builder: (_, _) => const SyncHistoryScreen()),

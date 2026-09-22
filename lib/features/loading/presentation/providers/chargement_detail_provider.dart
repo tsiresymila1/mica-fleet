@@ -228,7 +228,7 @@ final lotDetailProvider = FutureProvider.autoDispose.family<LotDetail, String>((
             arr.statutGps,
             arr.plaqueArrivee,
             arr.plaqueCoherente,
-            arr.scoreTracabilite,
+            l.score,
             arr.photoArriveePath,
             arr.photoPermisPath,
             photos('depot_unload', 0),

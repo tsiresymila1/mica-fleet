@@ -57,6 +57,7 @@ void main() {
       chauffeur: 'Jean',
       numPermis: 'P1',
       numLot: 'L1',
+      plaqueArrivee: '1234 TBR',
     );
     final arrivee = r.getRight().toNullable()!;
     expect(arrivee.statutGps, 'pending_server');
@@ -71,6 +72,7 @@ void main() {
       chauffeur: '',
       numPermis: 'P1',
       numLot: 'L1',
+      plaqueArrivee: '1234 TBR',
     );
     expect(r.isLeft(), isTrue);
   });
@@ -83,6 +85,7 @@ void main() {
       chauffeur: 'Jean',
       numPermis: 'P1',
       numLot: '',
+      plaqueArrivee: '1234 TBR',
     );
     expect(r.isRight(), isTrue);
   });
@@ -127,5 +130,45 @@ void main() {
       plaqueAttendue: null,
     );
     expect(r.getRight().toNullable()!.plaqueCoherente, isFalse);
+  });
+
+  test('refuse un permis de plus de 12 caractères', () {
+    final r = ValidateArrivee()(
+      lotId: 'lot',
+      lat: -18.9,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: '1234567890123',
+      numLot: '',
+      plaqueArrivee: '1234 TBR',
+    );
+    expect(r.isLeft(), isTrue);
+  });
+
+  test('accepte un permis de 12 caractères et ne calcule pas de score', () {
+    final r = ValidateArrivee()(
+      lotId: 'lot',
+      lat: -18.9,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: '123456789012',
+      numLot: '',
+      plaqueArrivee: '1234 TBR',
+    );
+    expect(r.getRight().toNullable()?.scoreTracabilite, isNull);
+    expect(r.isRight(), isTrue);
+  });
+
+  test('refuse une plaque vide à l’arrivée', () {
+    final r = ValidateArrivee()(
+      lotId: 'lot',
+      lat: -18.9,
+      lon: 47.5,
+      chauffeur: 'Jean',
+      numPermis: 'P1',
+      numLot: '',
+      plaqueArrivee: ' ',
+    );
+    expect(r.isLeft(), isTrue);
   });
 }
