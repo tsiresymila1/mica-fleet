@@ -20,7 +20,7 @@ class StepHeader extends StatelessWidget {
         width: 38,
         height: 38,
         decoration: const BoxDecoration(
-          color: AppColors.gold,
+          color: AppColors.secondary,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,

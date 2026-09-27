@@ -14,7 +14,7 @@ class MineOverviewTile extends StatelessWidget {
     this.note,
     this.details = const [],
     this.icon = Icons.terrain,
-    this.color = AppColors.gold,
+    this.color = AppColors.secondary,
     this.trailing,
     this.onTap,
   });

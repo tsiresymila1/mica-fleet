@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Thème « minéral » mobile — simple, moderne, lisible. Tailles compactes,
-/// Montserrat (titres) + ABeeZee (corps). Fort contraste pour le terrain.
+/// Thème clair Radoran — simple, moderne et contrasté pour un usage terrain.
+/// La palette reprend l'identité du site sans sacrifier les couleurs métier.
 class AppColors {
-  static const paper = Color(0xFFF7F6F2); // fond clair
+  static const paper = Color(0xFFF5F2ED);
   static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF1A1F1C); // texte
-  static const inkSoft = Color(0xFF6B736E);
-  static const primary = Color(0xFF15604A); // vert émeraude minéral
-  static const primaryDark = Color(0xFF0E4334);
-  static const gold = Color(0xFFD99A2B); // or mica (accent)
+  static const ink = Color(0xFF08090D);
+  static const inkSoft = Color(0xFF6D6975);
+  static const primary = Color(0xFFBD345A);
+  static const primaryLight = Color(0xFFED6976);
+  static const primaryDark = Color(0xFF653472);
+  static const secondary = Color(0xFF653472);
+  static const tertiary = Color(0xFF2B367D);
   static const ok = Color(0xFF1F8A5B);
   static const warn = Color(0xFFE08A1E);
   static const danger = Color(0xFFC0492F);
-  static const line = Color(0xFFE6E2D9);
+  static const line = Color(0xFFDDD7DE);
 }
 
 /// Barres système sur fond clair (écrans sans AppBar) : icônes sombres, sinon
@@ -27,7 +29,7 @@ const kOverlaySurClair = SystemUiOverlayStyle(
   systemNavigationBarIconBrightness: Brightness.dark,
 );
 
-/// Barres système sous l'AppBar verte : icônes claires.
+/// Barres système sous l'AppBar Radoran : icônes claires.
 const kOverlaySurPrimaire = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
   statusBarIconBrightness: Brightness.light,
@@ -63,8 +65,12 @@ class AppTheme {
     const scheme = ColorScheme.light(
       primary: AppColors.primary,
       onPrimary: Colors.white,
-      secondary: AppColors.gold,
+      primaryContainer: AppColors.primaryLight,
+      onPrimaryContainer: AppColors.ink,
+      secondary: AppColors.secondary,
       onSecondary: Colors.white,
+      tertiary: AppColors.tertiary,
+      onTertiary: Colors.white,
       surface: AppColors.surface,
       onSurface: AppColors.ink,
       error: AppColors.danger,

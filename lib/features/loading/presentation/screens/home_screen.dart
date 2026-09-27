@@ -113,7 +113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 final l = filtered[i - 1];
                 final tile = ActionTile(
                   icon: l.arrive ? Icons.verified : Icons.local_shipping,
-                  color: l.arrive ? AppColors.ok : AppColors.gold,
+                  color: l.arrive ? AppColors.ok : AppColors.secondary,
                   titre: l.serverReference ?? l.id,
                   sousTitre: [
                     'Mine : ${l.mineName}',
@@ -129,9 +129,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       l.validationReason!,
                   ].where((line) => line.isNotEmpty).join('\n'),
                   trailing: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: 100
-                    ),
+                    constraints: BoxConstraints(maxWidth: 100),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       spacing: 6,
@@ -140,10 +138,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (l.score != null)
                           _ScoreBadge(score: l.score!)
                         else
-                          StatusPill(
-                            kind: PillKind.neutral,
-                            label: 'En cours',
-                          ),
+                          StatusPill(kind: PillKind.neutral, label: 'En cours'),
                         if (l.arrive || l.remoteOnly) ...[
                           const SizedBox(width: 6),
                           Icon(
@@ -289,7 +284,7 @@ class _AccountDrawer extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: AppColors.gold,
+                    backgroundColor: AppColors.secondary,
                     child: Text(
                       initiale,
                       style: Theme.of(

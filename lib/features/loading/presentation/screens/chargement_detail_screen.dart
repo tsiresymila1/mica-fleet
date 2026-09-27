@@ -395,7 +395,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                     BigButton(
                       icon: Icons.local_shipping,
                       label: 'Changer de camion',
-                      color: AppColors.gold,
+                      color: AppColors.secondary,
                       onPressed: () async {
                         await context.push('/transbordement/$lotId');
                         ref.invalidate(lotDetailProvider(lotId));

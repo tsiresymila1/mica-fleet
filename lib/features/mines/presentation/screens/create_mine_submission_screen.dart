@@ -147,7 +147,7 @@ class _CreateMineSubmissionScreenState
           BigButton(
             icon: Icons.add_a_photo_outlined,
             label: 'Ajouter la position ${_photos.length + 1}',
-            color: enough ? AppColors.gold : null,
+            color: enough ? AppColors.secondary : null,
             onPressed: _capture,
           ),
           const SizedBox(height: 12),

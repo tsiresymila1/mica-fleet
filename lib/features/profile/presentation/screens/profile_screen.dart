@@ -221,7 +221,7 @@ class _AppUpdateTile extends ConsumerWidget {
     final busy = state.checking || state.downloading;
     return ActionTile(
       icon: Icons.system_update_alt,
-      color: update?.mandatory == true ? AppColors.danger : AppColors.gold,
+      color: update?.mandatory == true ? AppColors.danger : AppColors.secondary,
       titre: busy
           ? 'Mise à jour en cours…'
           : update == null
@@ -479,7 +479,7 @@ class _Identite extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: AppColors.gold,
+            backgroundColor: AppColors.secondary,
             child: Text(
               initiale,
               style: Theme.of(

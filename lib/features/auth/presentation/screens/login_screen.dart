@@ -54,7 +54,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     // Pas d'AppBar ici : sans ça les icônes système restent claires (héritées
-    // des écrans à AppBar verte) et disparaissent sur ce fond clair.
+    // des écrans à AppBar colorée) et disparaissent sur ce fond clair.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kOverlaySurClair,
       child: Scaffold(
@@ -64,44 +64,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               children: [
                 const Spacer(flex: 2),
-                // Marque
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.asset(
-                    'assets/logos/mica_logo.png',
-                    width: 140,
-                    height: 140,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        width: 140,
-                        height: 140,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primary, AppColors.primaryDark],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.terrain,
-                          color: AppColors.gold,
-                          size: 52,
-                        ),
-                      );
-                    },
+                // Marque officielle Radoran sur fond clair.
+                Image.asset(
+                  'assets/logos/radoran_logo.png',
+                  width: 260,
+                  height: 76,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Image.asset(
+                    'assets/logos/radoran_symbol.png',
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.contain,
                   ),
                 ),
-                const SizedBox(height: 20),
-                Text('Mica Fleet', style: t.displaySmall),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
                   'Suivi du chargement à la mine',
                   style: t.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
-                const Spacer(flex: 1),
+                const SizedBox(height: 60),
                 // Saisie
                 TextField(
                   controller: _ctrl,

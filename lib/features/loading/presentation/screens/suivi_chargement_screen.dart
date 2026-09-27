@@ -64,7 +64,7 @@ class SuiviChargementScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: ActionTile(
                       icon: Icons.inventory_2,
-                      color: AppColors.gold,
+                      color: AppColors.secondary,
                       titre: l.id,
                       sousTitre: l.mineId,
                       onTap: () async {

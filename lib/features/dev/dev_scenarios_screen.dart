@@ -60,7 +60,7 @@ class DevScenariosScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           ActionTile(
             icon: Icons.auto_mode,
-            color: AppColors.gold,
+            color: AppColors.secondary,
             titre: 'Simulation guidée',
             sousTitre: 'Trajet auto (plaque + GPS simulés) mine → dépôt',
             onTap: () async {

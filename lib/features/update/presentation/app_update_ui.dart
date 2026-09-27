@@ -18,7 +18,7 @@ class AppUpdateBanner extends ConsumerWidget {
     final update = state.update;
     if (update == null) return child;
 
-    final color = update.mandatory ? AppColors.danger : AppColors.gold;
+    final color = update.mandatory ? AppColors.danger : AppColors.secondary;
     return Column(
       children: [
         Material(

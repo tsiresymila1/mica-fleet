@@ -235,7 +235,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: ActionTile(
                       icon: Icons.terrain,
-                      color: AppColors.gold,
+                      color: AppColors.secondary,
                       titre: mine?.name ?? 'Choisir la mine d’origine',
                       sousTitre: mine?.summary ?? 'Aucune mine sélectionnée',
                       trailing: const Icon(Icons.search),
