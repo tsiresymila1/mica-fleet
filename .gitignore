@@ -6,6 +6,7 @@ build/
 .flutter-plugins-dependencies
 *.iml
 .idea/
+.DS_Store
 # Node (build script)
 node_modules/
 
