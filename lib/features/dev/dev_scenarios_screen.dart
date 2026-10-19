@@ -52,9 +52,8 @@ class DevScenariosScreen extends ConsumerWidget {
             titre: 'Placer les mines ici',
             sousTitre: '3 mines + dépôt autour de ma position GPS',
             onTap: () => run(() async {
-              final p = await svc.seedAroundMe();
-              return 'Mines placées à ${p.lat.toStringAsFixed(4)}, '
-                  '${p.lon.toStringAsFixed(4)}. Le flux marche ici.';
+              await svc.seedAroundMe();
+              return 'Mines placées autour de votre position. Le flux marche ici.';
             }),
           ),
           const SizedBox(height: 12),

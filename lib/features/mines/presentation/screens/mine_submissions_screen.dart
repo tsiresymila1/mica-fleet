@@ -363,10 +363,6 @@ class _SubmissionPhotoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(part.key, style: Theme.of(context).textTheme.titleSmall),
-                  Text(
-                    '${photo.lat.toStringAsFixed(5)}, '
-                    '${photo.lon.toStringAsFixed(5)}',
-                  ),
                   Text('Précision ±${photo.precision.toStringAsFixed(1)} m'),
                   if (photo.headingDegrees != null)
                     Text(

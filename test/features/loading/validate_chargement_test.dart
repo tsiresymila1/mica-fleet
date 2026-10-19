@@ -15,8 +15,13 @@ CapturedPhoto _p() => CapturedPhoto(
   takenAt: DateTime(2026),
 );
 
-Lot _lot(String mineId, {CapturedPhoto? photo}) =>
-    Lot(id: '', mineId: mineId, photo: photo, plaqueDepart: '1234 TBR');
+Lot _lot(String mineId, {CapturedPhoto? photo}) => Lot(
+  id: '',
+  mineId: mineId,
+  photo: photo,
+  plaqueDepart: '1234 TBR',
+  quantiteEstimee: 100,
+);
 
 void main() {
   final c0 = Chargement(
@@ -64,7 +69,15 @@ void main() {
       truckWithMica: _p(),
     );
     final c = c0.copyWith(
-      lots: [Lot(id: '', mineId: 'a', photos: set, plaqueDepart: '1234 TBR')],
+      lots: [
+        Lot(
+          id: '',
+          mineId: 'a',
+          photos: set,
+          plaqueDepart: '1234 TBR',
+          quantiteEstimee: 100,
+        ),
+      ],
     );
     expect(ValidateChargement()(c).getRight().toNullable()!.statut, 'valide');
   });
@@ -74,5 +87,20 @@ void main() {
       lots: [_lot('a', photo: _p()).copyWith(plaqueDepart: ' ')],
     );
     expect(ValidateChargement()(c).isLeft(), isTrue);
+  });
+
+  test('refuse une quantité absente, nulle ou invalide', () {
+    for (final quantity in <double?>[
+      null,
+      0,
+      -1,
+      double.nan,
+      double.infinity,
+    ]) {
+      final c = c0.copyWith(
+        lots: [_lot('a', photo: _p()).copyWith(quantiteEstimee: quantity)],
+      );
+      expect(ValidateChargement()(c).isLeft(), isTrue);
+    }
   });
 }

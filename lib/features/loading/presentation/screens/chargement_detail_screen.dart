@@ -116,7 +116,7 @@ class ChargementDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _kv('Session', d.displaySessionId),
+                    _kv('Mine', d.mineName),
                     _kv('Date', DateFormat('dd/MM/yyyy HH:mm').format(d.date)),
                     _kv('Réf. traçabilité', d.serverReference ?? 'À attribuer'),
                     _kv('Statut transport', d.statut),
@@ -163,11 +163,6 @@ class ChargementDetailScreen extends ConsumerWidget {
                               if (d.quantite != null) '${d.quantite} kg',
                             ].whereType<String>().join('  •  '),
                           ),
-                          if (d.lat != null)
-                            Text(
-                              'GPS ${d.lat!.toStringAsFixed(4)}, ${d.lon!.toStringAsFixed(4)}',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
                         ],
                       ),
                     ),
@@ -204,14 +199,6 @@ class ChargementDetailScreen extends ConsumerWidget {
                                 if (t.distanceMetres != null)
                                   Text(
                                     'Distance : ${t.distanceMetres!.toStringAsFixed(1)} m',
-                                  ),
-                                if (t.gpsDechargeLat != null &&
-                                    t.gpsRechargeLat != null)
-                                  Text(
-                                    'GPS ${t.gpsDechargeLat!.toStringAsFixed(4)}, '
-                                    '${t.gpsDechargeLon!.toStringAsFixed(4)} → '
-                                    '${t.gpsRechargeLat!.toStringAsFixed(4)}, '
-                                    '${t.gpsRechargeLon!.toStringAsFixed(4)}',
                                   ),
                                 const SizedBox(height: 4),
                                 StatusPill(
@@ -322,11 +309,6 @@ class ChargementDetailScreen extends ConsumerWidget {
                         _kv('N° de lot', d.arrivee!.numLot),
                       if (d.arrivee!.plaqueArrivee != null)
                         _kv('Plaque', d.arrivee!.plaqueArrivee!),
-                      _kv(
-                        'GPS',
-                        '${d.arrivee!.gpsLat.toStringAsFixed(5)}, '
-                            '${d.arrivee!.gpsLon.toStringAsFixed(5)}',
-                      ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,

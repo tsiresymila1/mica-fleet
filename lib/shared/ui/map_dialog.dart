@@ -122,13 +122,6 @@ class _MapDialog extends StatelessWidget {
                       ],
                     ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                '${lat.toStringAsFixed(5)}, ${lon.toStringAsFixed(5)}',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
           ],
         ),
       ),

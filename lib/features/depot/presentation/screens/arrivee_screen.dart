@@ -237,7 +237,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                   : 'Photo de la plaque ✓',
               sousTitre: _platePhoto == null
                   ? 'Preuve de la plaque du camion'
-                  : 'GPS ${_platePhoto!.lat.toStringAsFixed(4)}, ${_platePhoto!.lon.toStringAsFixed(4)}',
+                  : 'Photo enregistrée',
               onTap: _captureArrivee,
               trailing: _platePhoto == null
                   ? null
@@ -251,7 +251,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                 titre: _micaPhoto == null ? 'Photo du mica' : 'Photo du mica ✓',
                 sousTitre: _micaPhoto == null
                     ? 'Vue rapprochée du produit'
-                    : 'GPS ${_micaPhoto!.lat.toStringAsFixed(4)}, ${_micaPhoto!.lon.toStringAsFixed(4)}',
+                    : 'Photo enregistrée',
                 onTap: () async {
                   final p = await _capture(
                     'Déchargement dépôt — mica',
@@ -274,7 +274,7 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
                     : 'Photo du camion avec mica ✓',
                 sousTitre: _truckPhoto == null
                     ? 'Vue d’ensemble du camion chargé'
-                    : 'GPS ${_truckPhoto!.lat.toStringAsFixed(4)}, ${_truckPhoto!.lon.toStringAsFixed(4)}',
+                    : 'Photo enregistrée',
                 onTap: () async {
                   final p = await _capture(
                     'Déchargement dépôt — camion avec mica',

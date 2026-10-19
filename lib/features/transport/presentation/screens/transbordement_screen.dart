@@ -464,7 +464,7 @@ class _PhotoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sous = photo != null
-        ? 'GPS ${photo!.lat.toStringAsFixed(4)}, ${photo!.lon.toStringAsFixed(4)}'
+        ? 'Photo enregistrée'
         : (pathInit != null ? 'Photo enregistrée — retoucher' : 'Camion');
     return ActionTile(
       icon: fait ? Icons.check_circle : Icons.camera_alt,

@@ -136,12 +136,12 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: ProfileScreen()),
+          child: const MaterialApp(home: SitesScreen()),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Aucune mine'), findsOneWidget);
+      expect(find.text('Aucune mine trouvée'), findsOneWidget);
       expect(remote.minesFetchCount, 0);
       expect(remote.depotsFetchCount, 0);
 
@@ -166,13 +166,33 @@ void main() {
         findsOneWidget,
       );
       expect(find.textContaining('GPS -18.90000'), findsNothing);
+      expect(find.textContaining('Localisation : Andilana'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'Andilana');
+      await tester.pumpAndSettle();
+      expect(find.text('Mine synchronisée'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Inconnue');
+      await tester.pumpAndSettle();
+      expect(find.text('Aucune mine trouvée'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '');
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Mine synchronisée'));
       await tester.pumpAndSettle();
 
       expect(find.text('Lots rattachés à Mine synchronisée'), findsOneWidget);
       expect(find.text('MICA-2026-0042'), findsOneWidget);
-      expect(find.textContaining('Blanc'), findsOneWidget);
+      await tester.tap(find.byTooltip('Fermer'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Dépôts ('));
+      await tester.pumpAndSettle();
+      expect(find.text('Dépôt synchronisé'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '8');
+      await tester.pumpAndSettle();
+      expect(find.text('Dépôt synchronisé'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), 'Autre');
+      await tester.pumpAndSettle();
+      expect(find.text('Aucun dépôt trouvé'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

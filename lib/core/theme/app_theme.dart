@@ -4,19 +4,19 @@ import 'package:flutter/services.dart';
 /// Thème clair Radoran — simple, moderne et contrasté pour un usage terrain.
 /// La palette reprend l'identité du site sans sacrifier les couleurs métier.
 class AppColors {
-  static const paper = Color(0xFFF5F2ED);
+  static const paper = Color(0xFFF7F8FB);
   static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF08090D);
-  static const inkSoft = Color(0xFF6D6975);
-  static const primary = Color(0xFFBD345A);
-  static const primaryLight = Color(0xFFED6976);
-  static const primaryDark = Color(0xFF653472);
+  static const ink = Color(0xFF222844);
+  static const inkSoft = Color(0xFF7A8194);
+  static const primary = Color(0xFF2A3480);
+  static const primaryLight = Color(0xFFEAF0FC);
+  static const primaryDark = Color(0xFF202A6E);
   static const secondary = Color(0xFF653472);
   static const tertiary = Color(0xFF2B367D);
-  static const ok = Color(0xFF1F8A5B);
-  static const warn = Color(0xFFE08A1E);
-  static const danger = Color(0xFFC0492F);
-  static const line = Color(0xFFDDD7DE);
+  static const ok = Color(0xFF169365);
+  static const warn = Color(0xFFD99A28);
+  static const danger = Color(0xFFD74858);
+  static const line = Color(0xFFE5E8EF);
 }
 
 /// Barres système sur fond clair (écrans sans AppBar) : icônes sombres, sinon
@@ -29,11 +29,11 @@ const kOverlaySurClair = SystemUiOverlayStyle(
   systemNavigationBarIconBrightness: Brightness.dark,
 );
 
-/// Barres système sous l'AppBar Radoran : icônes claires.
+/// Barres système sous l'AppBar claire : icônes sombres.
 const kOverlaySurPrimaire = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
-  statusBarIconBrightness: Brightness.light,
-  statusBarBrightness: Brightness.dark,
+  statusBarIconBrightness: Brightness.dark,
+  statusBarBrightness: Brightness.light,
   systemNavigationBarColor: AppColors.paper,
   systemNavigationBarIconBrightness: Brightness.dark,
 );
@@ -108,15 +108,15 @@ class AppTheme {
           )
           .apply(bodyColor: AppColors.ink, displayColor: AppColors.ink),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
+        foregroundColor: AppColors.ink,
         systemOverlayStyle: kOverlaySurPrimaire,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: display(
           fontSize: 17,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+          color: AppColors.ink,
         ),
       ),
       cardTheme: CardThemeData(
@@ -124,7 +124,7 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: AppColors.line),
         ),
       ),
@@ -134,7 +134,9 @@ class AppTheme {
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
           textStyle: display(fontSize: 15, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -143,7 +145,9 @@ class AppTheme {
           minimumSize: const Size.fromHeight(50),
           side: const BorderSide(color: AppColors.primary, width: 1.5),
           textStyle: display(fontSize: 14, fontWeight: FontWeight.w600),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

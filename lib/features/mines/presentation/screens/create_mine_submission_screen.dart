@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/ui/photo_view.dart';
 import '../../../../shared/ui/ui_kit.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
@@ -131,15 +130,16 @@ class _CreateMineSubmissionScreenState
           ),
           const SizedBox(height: 14),
           if (_photos.isNotEmpty)
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            Column(
               children: [
                 for (var index = 0; index < _photos.length; index++)
-                  _PhotoPositionTile(
-                    index: index,
-                    photo: _photos[index],
-                    onDelete: () => _removePhoto(index),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _PhotoPositionTile(
+                      index: index,
+                      photo: _photos[index],
+                      onDelete: () => _removePhoto(index),
+                    ),
                   ),
               ],
             ),
@@ -185,51 +185,42 @@ class _PhotoPositionTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 150,
-    child: Card(
-      child: Padding(
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                PhotoThumb(path: photo.path, size: 52),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Retirer',
-                  icon: const Icon(Icons.close, color: AppColors.danger),
-                  onPressed: onDelete,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Position ${index + 1}',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            Text(
-              '${photo.lat.toStringAsFixed(5)}, ${photo.lon.toStringAsFixed(5)}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            Text(
-              '±${photo.precision.toStringAsFixed(1)} m',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (photo.headingDegrees != null)
-              Text(
-                'Cap ${photo.headingDegrees!.round()}° ${_cardinal(photo.headingDegrees!)}',
-                style: Theme.of(context).textTheme.bodySmall,
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(photo.path),
+              width: double.infinity,
+              height: 190,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const SizedBox(
+                height: 190,
+                child: Center(child: Icon(Icons.broken_image_outlined)),
               ),
-          ],
-        ),
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Position ${index + 1}',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              IconButton(
+                tooltip: 'Retirer',
+                icon: const Icon(Icons.close, color: AppColors.danger),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+        ],
       ),
     ),
   );
-}
-
-String _cardinal(double degrees) {
-  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-  return directions[((degrees % 360) / 45).round() % directions.length];
 }

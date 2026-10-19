@@ -73,7 +73,13 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       _mineChoice != null &&
       _mineChoice!.id.isNotEmpty &&
       _plaqueCtrl.text.trim().isNotEmpty &&
+      _estimatedQuantity != null &&
+      _estimatedQuantity!.isFinite &&
+      _estimatedQuantity! > 0 &&
       _capturedPhotoCount == 2;
+
+  double? get _estimatedQuantity =>
+      double.tryParse(_qteCtrl.text.trim().replaceAll(',', '.'));
 
   Future<void> _openMinePicker(
     List<_MineChoice> mines,
@@ -106,7 +112,7 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
       Lot(
         id: '',
         mineId: _mineChoice!.id,
-        quantiteEstimee: double.tryParse(_qteCtrl.text.replaceAll(',', '.')),
+        quantiteEstimee: _estimatedQuantity,
         plaqueDepart: _plaqueCtrl.text.trim(),
         photos: TraceabilityPhotos(
           plate: _platePhoto!,
@@ -130,8 +136,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             district: mine.district,
             commune: mine.commune,
             fokontany: mine.fokontany,
-            lat: mine.lat,
-            lon: mine.lon,
             createdAt: mine.createdAt,
             fromSubmission: false,
           ),
@@ -146,8 +150,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             name: submission.name,
             reference: submission.reference,
             note: submission.note,
-            lat: submission.lat,
-            lon: submission.lon,
             createdAt: submission.createdAt,
             fromSubmission: true,
           ),
@@ -203,12 +205,6 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
                             reference: null,
                             note: null,
                             createdAt: s.createdAt,
-                            lat: s.photos.isNotEmpty
-                                ? s.photos.first.photo.lat
-                                : null,
-                            lon: s.photos.isNotEmpty
-                                ? s.photos.first.photo.lon
-                                : null,
                           ),
                         )
                         .toList(),
@@ -281,13 +277,20 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
+            TextFormField(
               controller: _qteCtrl,
+              onChanged: (_) => setState(() {}),
+              validator: (_) =>
+                  _estimatedQuantity == null ||
+                      !_estimatedQuantity!.isFinite ||
+                      _estimatedQuantity! <= 0
+                  ? 'Saisis une quantité supérieure à 0'
+                  : null,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
               decoration: const InputDecoration(
-                labelText: 'Quantité estimée (kg)',
+                labelText: 'Quantité estimée (kg) *',
                 prefixIcon: Icon(Icons.scale),
               ),
             ),
@@ -316,8 +319,6 @@ class _MineChoice {
     this.district,
     this.commune,
     this.fokontany,
-    this.lat,
-    this.lon,
     this.createdAt,
   });
 
@@ -328,8 +329,6 @@ class _MineChoice {
   final String? district;
   final String? commune;
   final String? fokontany;
-  final double? lat;
-  final double? lon;
   final DateTime? createdAt;
   final bool fromSubmission;
 
@@ -341,8 +340,6 @@ class _MineChoice {
         'Fokontany: ${fokontany!.trim()}',
       if (commune?.trim().isNotEmpty == true) commune!.trim(),
       if (district?.trim().isNotEmpty == true) district!.trim(),
-      if (lat != null && lon != null)
-        'GPS ${lat!.toStringAsFixed(5)}, ${lon!.toStringAsFixed(5)}',
       if (createdAt != null)
         'Créé le ${createdAt!.day.toString().padLeft(2, '0')}/'
             '${createdAt!.month.toString().padLeft(2, '0')}/${createdAt!.year}',
@@ -375,8 +372,6 @@ class _MineSubmissionPreview {
     this.reference,
     this.note,
     this.createdAt,
-    this.lat,
-    this.lon,
   });
 
   final String id;
@@ -384,8 +379,6 @@ class _MineSubmissionPreview {
   final String? reference;
   final String? note;
   final DateTime? createdAt;
-  final double? lat;
-  final double? lon;
 }
 
 class _MineSelectionSheet extends StatefulWidget {
@@ -498,8 +491,7 @@ class _CaptureTile extends StatelessWidget {
     titre: title,
     sousTitre: photo == null
         ? '$subtitle\nAppuyer pour prendre la photo'
-        : 'GPS ${photo!.lat.toStringAsFixed(4)}, '
-              '${photo!.lon.toStringAsFixed(4)} — appuyer pour reprendre',
+        : 'Photo enregistrée — appuyer pour reprendre',
     onTap: onTap,
     trailing: photo != null ? PhotoThumb(path: photo!.path, size: 48) : null,
   );

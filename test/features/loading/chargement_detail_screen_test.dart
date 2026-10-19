@@ -90,10 +90,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('session-1'), findsOneWidget);
+    expect(find.text('session-1'), findsNothing);
+    expect(find.text('Mine'), findsOneWidget);
+    expect(find.text('Mine serveur'), findsWidgets);
     expect(find.text('Réf. mine : MINE-15'), findsOneWidget);
     expect(find.text('Distance : 14.5 m'), findsOneWidget);
-    expect(find.text('-18.87900, 47.50800'), findsOneWidget);
+    expect(find.text('-18.87900, 47.50800'), findsNothing);
     expect(find.text('TT/2026/00017'), findsWidgets);
     expect(find.byKey(const ValueKey('route-start-marker')), findsOneWidget);
     expect(find.byKey(const ValueKey('route-end-marker')), findsOneWidget);

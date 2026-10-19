@@ -16,12 +16,59 @@ import '../../../sync/presentation/sync_provider.dart';
 import '../../../update/presentation/app_update_provider.dart';
 import '../../../update/presentation/app_update_ui.dart';
 
-/// Profil du fournisseur connecté : ses mines et ses dépôts autorisés
-/// (référentiel synchronisé depuis Odoo). Lecture seule.
+/// Identité et actions du compte connecté.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  Future<void> _openMineLots(BuildContext context, Mine mine) async {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fournisseur = ref.watch(authControllerProvider);
+    return Scaffold(
+      appBar: AppBar(title: const Text('Mon compte')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+        children: [
+          _Identite(
+            nom: fournisseur?.nom ?? 'Fournisseur',
+            id: fournisseur?.id ?? '',
+          ),
+          const SizedBox(height: 12),
+          const _ChangePasswordTile(),
+          const SizedBox(height: 8),
+          const _AppUpdateTile(),
+          const SizedBox(height: 8),
+          ActionTile(
+            icon: Icons.help_outline,
+            color: AppColors.primary,
+            titre: 'Aide',
+            sousTitre: 'Guides et support',
+            onTap: () => context.push('/aide'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Référentiel des sites autorisés, avec recherche sur leurs informations visibles.
+class SitesScreen extends ConsumerStatefulWidget {
+  const SitesScreen({super.key});
+
+  @override
+  ConsumerState<SitesScreen> createState() => _SitesScreenState();
+}
+
+class _SitesScreenState extends ConsumerState<SitesScreen> {
+  final _search = TextEditingController();
+  int _tab = 0;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openMineLots(Mine mine) async {
     final lotId = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -29,100 +76,214 @@ class ProfileScreen extends ConsumerWidget {
       showDragHandle: true,
       builder: (_) => _MineLotsSheet(mine: mine),
     );
-    if (lotId != null && context.mounted) {
-      await context.push('/detail/$lotId');
-    }
+    if (lotId != null && mounted) await context.push('/detail/$lotId');
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fournisseur = ref.watch(authControllerProvider);
+  Widget build(BuildContext context) {
     final mines = ref.watch(minesProvider);
     final depots = ref.watch(activeDepotsProvider);
-
+    final query = _search.text.trim().toLowerCase();
+    final mineItems =
+        mines.asData?.value
+            .where(
+              (m) => [
+                m.nom,
+                m.id,
+                m.reference,
+                m.note,
+                m.region,
+                m.district,
+                m.commune,
+                m.fokontany,
+                if (m.createdAt != null)
+                  DateFormat('dd/MM/yyyy').format(m.createdAt!),
+              ].whereType<String>().join(' ').toLowerCase().contains(query),
+            )
+            .toList() ??
+        [];
+    final depotItems =
+        depots.asData?.value
+            .where((d) => '${d.nom} ${d.id}'.toLowerCase().contains(query))
+            .toList() ??
+        [];
     return Scaffold(
-      appBar: AppBar(title: const Text('Mon compte')),
+      appBar: AppBar(title: const Text('Mes mines et dépôts')),
       body: RefreshIndicator(
         onRefresh: () => ref.read(triggerSyncProvider).sync(),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
           children: [
-            _Identite(
-              nom: fournisseur?.nom ?? 'Fournisseur',
-              id: fournisseur?.id ?? '',
+            Text(
+              'Mes sites',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-            const SizedBox(height: 12),
-            const _ChangePasswordTile(),
-            const SizedBox(height: 8),
-            const _AppUpdateTile(),
-            const SizedBox(height: 24),
-            StepHeader(
-              numero: 1,
-              titre: 'Mes mines',
-              sousTitre: 'Lieux de chargement',
+            const SizedBox(height: 3),
+            Text(
+              'Origines et sites autorisés',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 8),
-            mines.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => const _Muted('Référentiel indisponible'),
-              data: (list) => list.isEmpty
-                  ? const _Muted('Aucune mine')
-                  : Column(
-                      children: list
-                          .map(
-                            (m) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: MineOverviewTile(
-                                name: m.nom,
-                                reference: m.reference,
-                                note: m.note,
-                                createdAt: m.createdAt,
-                                onTap: () => _openMineLots(context, m),
-                              ),
-                            ),
-                          )
-                          .toList(),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _siteMetric(
+                  context,
+                  Icons.terrain_outlined,
+                  mines.asData?.value.length,
+                  'Mines sélectionnables',
+                ),
+                const SizedBox(width: 8),
+                _siteMetric(
+                  context,
+                  Icons.warehouse_outlined,
+                  depots.asData?.value.length,
+                  'Dépôts renseignés',
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                _tabButton(0, 'Mines', mines.asData?.value.length),
+                const SizedBox(width: 8),
+                _tabButton(1, 'Dépôts', depots.asData?.value.length),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _search,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText: _tab == 0
+                    ? 'Rechercher une mine, une région, une référence…'
+                    : 'Rechercher un dépôt…',
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_tab == 0) ...[
+              Text(
+                '${mineItems.length} mine${mineItems.length > 1 ? 's' : ''}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 10),
+              if (mines.isLoading)
+                const LinearProgressIndicator()
+              else if (mines.hasError)
+                const _Muted('Référentiel indisponible')
+              else if (mineItems.isEmpty)
+                const _Muted('Aucune mine trouvée')
+              else
+                for (final m in mineItems)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: MineOverviewTile(
+                      name: m.nom,
+                      reference: m.reference,
+                      note: m.note,
+                      createdAt: m.createdAt,
+                      details: ['Localisation : ${_mineLocation(m)}'],
+                      onTap: () => _openMineLots(m),
                     ),
-            ),
-            const SizedBox(height: 24),
-            StepHeader(
-              numero: 2,
-              titre: 'Mes dépôts',
-              sousTitre: 'Lieux de livraison',
-            ),
-            const SizedBox(height: 8),
-            depots.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (e, _) => const _Muted('Référentiel indisponible'),
-              data: (list) => list.isEmpty
-                  ? const _Muted('Aucun dépôt')
-                  : Column(
-                      children: list
-                          .map(
-                            (d) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: ActionTile(
-                                icon: Icons.warehouse,
-                                color: AppColors.primary,
-                                titre: d.nom,
-                                trailing: _Coord(lat: d.lat, lon: d.lon),
-                                onTap: () => showLocationMap(
-                                  context,
-                                  titre: d.nom,
-                                  lat: d.lat,
-                                  lon: d.lon,
-                                  rayonMetres: d.rayonMetres,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                  ),
+            ] else ...[
+              Text(
+                '${depotItems.length} dépôt${depotItems.length > 1 ? 's' : ''}',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 10),
+              if (depots.isLoading)
+                const LinearProgressIndicator()
+              else if (depots.hasError)
+                const _Muted('Référentiel indisponible')
+              else if (depotItems.isEmpty)
+                const _Muted('Aucun dépôt trouvé')
+              else
+                for (final d in depotItems)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 9),
+                    child: ActionTile(
+                      icon: Icons.warehouse_outlined,
+                      color: AppColors.primary,
+                      titre: d.nom,
+                      sousTitre: 'Référence : ${d.id}',
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => showLocationMap(
+                        context,
+                        titre: d.nom,
+                        lat: d.lat,
+                        lon: d.lon,
+                        rayonMetres: d.rayonMetres,
+                      ),
                     ),
-            ),
+                  ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Widget _tabButton(int value, String label, int? count) => Expanded(
+    child: OutlinedButton(
+      onPressed: () => setState(() {
+        _tab = value;
+        _search.clear();
+      }),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: _tab == value ? AppColors.primary : Colors.white,
+        foregroundColor: _tab == value ? Colors.white : AppColors.inkSoft,
+        side: BorderSide(
+          color: _tab == value ? AppColors.primary : AppColors.line,
+        ),
+      ),
+      child: Text('$label${count == null ? '' : ' ($count)'}'),
+    ),
+  );
+
+  Widget _siteMetric(
+    BuildContext context,
+    IconData icon,
+    int? count,
+    String label,
+  ) => Expanded(
+    child: Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.primary, size: 25),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${count ?? '—'}',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  String _mineLocation(Mine mine) {
+    final parts = [
+      mine.region,
+      mine.district,
+      mine.commune,
+      mine.fokontany,
+    ].whereType<String>().where((value) => value.trim().isNotEmpty).toList();
+    return parts.isEmpty ? '—' : parts.join(' · ');
   }
 }
 
@@ -506,26 +667,6 @@ class _Identite extends StatelessWidget {
       ),
     );
   }
-}
-
-/// GPS compact à droite d'une tuile.
-class _Coord extends StatelessWidget {
-  final double lat;
-  final double lon;
-  const _Coord({required this.lat, required this.lon});
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      const Icon(Icons.place, size: 16, color: AppColors.inkSoft),
-      Text(
-        '${lat.toStringAsFixed(3)}\n${lon.toStringAsFixed(3)}',
-        textAlign: TextAlign.right,
-        style: Theme.of(context).textTheme.bodyMedium,
-      ),
-    ],
-  );
 }
 
 class _Muted extends StatelessWidget {

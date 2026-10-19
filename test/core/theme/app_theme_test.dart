@@ -7,9 +7,9 @@ void main() {
     final theme = AppTheme.build();
 
     expect(theme.brightness, Brightness.light);
-    expect(theme.scaffoldBackgroundColor, const Color(0xFFF5F2ED));
-    expect(theme.colorScheme.primary, const Color(0xFFBD345A));
-    expect(theme.colorScheme.primaryContainer, const Color(0xFFED6976));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFFF7F8FB));
+    expect(theme.colorScheme.primary, const Color(0xFF2A3480));
+    expect(theme.colorScheme.primaryContainer, const Color(0xFFEAF0FC));
     expect(theme.colorScheme.secondary, const Color(0xFF653472));
     expect(theme.colorScheme.tertiary, const Color(0xFF2B367D));
     expect(theme.colorScheme.onPrimary, Colors.white);

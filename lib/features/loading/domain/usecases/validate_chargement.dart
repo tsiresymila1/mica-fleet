@@ -18,6 +18,11 @@ class ValidateChargement {
       if (l.plaqueDepart?.trim().isNotEmpty != true) {
         return left(const Failure.validation('Plaque du camion obligatoire'));
       }
+      if (l.quantiteEstimee == null ||
+          !l.quantiteEstimee!.isFinite ||
+          l.quantiteEstimee! <= 0) {
+        return left(const Failure.validation('Quantité estimée obligatoire'));
+      }
       if (l.photos == null && l.photo == null) {
         return left(
           Failure.validation('Photos manquantes pour la mine ${l.mineId}'),

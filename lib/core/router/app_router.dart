@@ -11,6 +11,7 @@ import '../../features/transport/presentation/screens/transbordement_screen.dart
 import '../../features/depot/presentation/screens/arrivee_screen.dart';
 import '../../features/dev/dev_scenarios_screen.dart';
 import '../../features/profile/presentation/screens/profile_screen.dart';
+import '../../features/profile/presentation/screens/help_screen.dart';
 import '../../features/sync/presentation/screens/sync_history_screen.dart';
 import '../../features/sync/presentation/screens/sync_detail_screen.dart';
 import '../../features/mines/presentation/screens/mine_submissions_screen.dart';
@@ -37,6 +38,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
       GoRoute(path: '/profil', builder: (_, _) => const ProfileScreen()),
+      GoRoute(path: '/sites', builder: (_, _) => const SitesScreen()),
+      GoRoute(path: '/aide', builder: (_, _) => const HelpScreen()),
       GoRoute(
         path: '/mines-manual',
         builder: (_, _) => const MineSubmissionsScreen(),

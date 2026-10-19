@@ -68,6 +68,10 @@ void main() {
         find.widgetWithText(FilledButton, 'Enregistrer le lot'),
       );
       expect(saveButton.onPressed, isNull);
+      expect(find.text('Quantité estimée (kg) *'), findsOneWidget);
+      tester.state<FormState>(find.byType(Form)).validate();
+      await tester.pump();
+      expect(find.text('Saisis une quantité supérieure à 0'), findsOneWidget);
 
       expect(find.text('Aucune mine sélectionnée'), findsOneWidget);
       await tester.tap(find.text('Choisir la mine d’origine'));
