@@ -339,6 +339,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _AccountDrawer extends StatelessWidget {
+  static const _dividerColor = Color(0xFFF1F3F7);
+
   final String nom;
   final String id;
   final VoidCallback onLogout;
@@ -368,9 +370,9 @@ class _AccountDrawer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(19, 20, 19, 22),
+            padding: const EdgeInsets.fromLTRB(19, 16, 19, 16),
             decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.line)),
+              border: Border(bottom: BorderSide(color: _dividerColor)),
             ),
             child: SafeArea(
               bottom: false,
@@ -383,7 +385,7 @@ class _AccountDrawer extends StatelessWidget {
                     height: 46,
                     fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Container(
@@ -432,7 +434,7 @@ class _AccountDrawer extends StatelessWidget {
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 8),
+              padding: const EdgeInsets.fromLTRB(14, 6, 14, 6),
               children: [
                 _section('OPÉRATIONS'),
                 _entry(
@@ -457,7 +459,6 @@ class _AccountDrawer extends StatelessWidget {
                   'Ajout manuel et validation',
                   () => _go(context, '/mines-manual/new'),
                 ),
-                const Divider(height: 26, indent: 12, endIndent: 12),
                 _section('DONNÉES ET COMPTE'),
                 if (AppConfig.demo)
                   _entry(
@@ -474,7 +475,6 @@ class _AccountDrawer extends StatelessWidget {
                   'Profil et informations',
                   () => _go(context, '/profil'),
                 ),
-                const Divider(height: 26, indent: 12, endIndent: 12),
                 _section('APPLICATION'),
                 _entry(
                   context,
@@ -496,9 +496,9 @@ class _AccountDrawer extends StatelessWidget {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(19, 12, 19, 22),
+            padding: const EdgeInsets.fromLTRB(19, 10, 19, 16),
             decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppColors.line)),
+              border: Border(top: BorderSide(color: _dividerColor)),
             ),
             child: SafeArea(
               top: false,
@@ -520,7 +520,7 @@ class _AccountDrawer extends StatelessWidget {
                     ),
                     onTap: onLogout,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     'RADORAN · Traçabilité du mica',
                     style: Theme.of(
@@ -542,7 +542,7 @@ class _AccountDrawer extends StatelessWidget {
   }
 
   Widget _section(String label) => Padding(
-    padding: const EdgeInsets.fromLTRB(13, 10, 13, 8),
+    padding: const EdgeInsets.fromLTRB(13, 8, 13, 5),
     child: Text(
       label,
       style: const TextStyle(
@@ -562,10 +562,13 @@ class _AccountDrawer extends StatelessWidget {
     VoidCallback onTap, {
     bool selected = false,
   }) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
+    padding: const EdgeInsets.only(bottom: 2),
     child: ListTile(
       selected: selected,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -2),
+      minVerticalPadding: 4,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
       tileColor: selected ? const Color(0xFFEAF0FC) : null,
       leading: Container(

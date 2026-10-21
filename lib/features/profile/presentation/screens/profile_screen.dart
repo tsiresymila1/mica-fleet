@@ -11,7 +11,6 @@ import '../../../depot/presentation/providers/depot_provider.dart';
 import '../../../loading/presentation/providers/chargements_list_provider.dart';
 import '../../../mines/domain/entities/mine.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
-import '../../../mines/presentation/widgets/mine_overview_tile.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../update/presentation/app_update_provider.dart';
 import '../../../update/presentation/app_update_ui.dart';
@@ -177,12 +176,15 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
                 for (final m in mineItems)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 9),
-                    child: MineOverviewTile(
+                    child: _SiteCard(
+                      id: m.id,
                       name: m.nom,
                       reference: m.reference,
                       note: m.note,
-                      createdAt: m.createdAt,
-                      details: ['Localisation : ${_mineLocation(m)}'],
+                      date: m.createdAt == null
+                          ? null
+                          : DateFormat('dd/MM/yyyy').format(m.createdAt!),
+                      location: _mineLocation(m),
                       onTap: () => _openMineLots(m),
                     ),
                   ),
@@ -202,12 +204,10 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
                 for (final d in depotItems)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 9),
-                    child: ActionTile(
-                      icon: Icons.warehouse_outlined,
-                      color: AppColors.primary,
-                      titre: d.nom,
-                      sousTitre: 'Référence : ${d.id}',
-                      trailing: const Icon(Icons.chevron_right),
+                    child: _SiteCard(
+                      id: d.id,
+                      name: d.nom,
+                      reference: d.id,
                       onTap: () => showLocationMap(
                         context,
                         titre: d.nom,
@@ -285,6 +285,106 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
     ].whereType<String>().where((value) => value.trim().isNotEmpty).toList();
     return parts.isEmpty ? '—' : parts.join(' · ');
   }
+}
+
+class _SiteCard extends StatelessWidget {
+  const _SiteCard({
+    required this.id,
+    required this.name,
+    required this.reference,
+    required this.onTap,
+    this.date,
+    this.location,
+    this.note,
+  });
+
+  final String id;
+  final String name;
+  final String? reference;
+  final String? date;
+  final String? location;
+  final String? note;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    key: ValueKey('site-$id'),
+    color: AppColors.surface,
+    elevation: 1,
+    borderRadius: BorderRadius.circular(12),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (date != null) ...[
+                  const SizedBox(width: 8),
+                  Text(date!, style: Theme.of(context).textTheme.labelSmall),
+                ],
+                const SizedBox(width: 3),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppColors.inkSoft,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _fact(
+              context,
+              'RÉFÉRENCE',
+              reference?.trim().isNotEmpty == true ? reference!.trim() : '—',
+            ),
+            if (location != null) ...[
+              const SizedBox(height: 9),
+              _fact(context, 'LOCALISATION', location!),
+            ],
+            if (note?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 9),
+              _fact(context, 'NOTE', note!.trim()),
+            ],
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _fact(BuildContext context, String label, String value) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontSize: 9,
+          letterSpacing: 0.7,
+          color: AppColors.inkSoft,
+        ),
+      ),
+      const SizedBox(height: 2),
+      Text(
+        value,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    ],
+  );
 }
 
 class _MineLotsSheet extends ConsumerWidget {

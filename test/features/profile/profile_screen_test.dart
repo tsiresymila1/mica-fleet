@@ -159,14 +159,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Référence : REF-MINE-7'), findsOneWidget);
-      expect(find.textContaining('Créée le : 14/08/2026'), findsOneWidget);
-      expect(
-        find.textContaining('Note : Note du backend tracking'),
-        findsOneWidget,
-      );
+      expect(find.text('RÉFÉRENCE'), findsOneWidget);
+      expect(find.text('REF-MINE-7'), findsOneWidget);
+      expect(find.text('14/08/2026'), findsOneWidget);
+      expect(find.text('Note du backend tracking'), findsOneWidget);
       expect(find.textContaining('GPS -18.90000'), findsNothing);
-      expect(find.textContaining('Localisation : Andilana'), findsOneWidget);
+      expect(find.text('LOCALISATION'), findsOneWidget);
+      expect(find.text('Andilana'), findsOneWidget);
+      expect(
+        tester.widget<Material>(find.byKey(const ValueKey('site-7'))).shape,
+        isNull,
+      );
 
       await tester.enterText(find.byType(TextField), 'Andilana');
       await tester.pumpAndSettle();
@@ -187,6 +190,10 @@ void main() {
       await tester.tap(find.textContaining('Dépôts ('));
       await tester.pumpAndSettle();
       expect(find.text('Dépôt synchronisé'), findsOneWidget);
+      expect(
+        tester.widget<Material>(find.byKey(const ValueKey('site-8'))).shape,
+        isNull,
+      );
       await tester.enterText(find.byType(TextField), '8');
       await tester.pumpAndSettle();
       expect(find.text('Dépôt synchronisé'), findsOneWidget);
