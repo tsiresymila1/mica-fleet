@@ -53,8 +53,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    // Pas d'AppBar ici : sans ça les icônes système restent claires (héritées
-    // des écrans à AppBar colorée) et disparaissent sur ce fond clair.
+    // Sans AppBar, le style de la barre d'état vient de cette région.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kOverlaySurClair,
       child: Scaffold(

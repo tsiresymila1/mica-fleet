@@ -22,18 +22,20 @@ class AppColors {
 /// Barres système sur fond clair (écrans sans AppBar) : icônes sombres, sinon
 /// elles restent blanches et deviennent invisibles.
 const kOverlaySurClair = SystemUiOverlayStyle(
-  statusBarColor: Colors.transparent,
+  statusBarColor: AppColors.paper,
   statusBarIconBrightness: Brightness.dark, // Android
   statusBarBrightness: Brightness.light, // iOS
+  systemStatusBarContrastEnforced: false,
   systemNavigationBarColor: AppColors.paper,
   systemNavigationBarIconBrightness: Brightness.dark,
 );
 
 /// Barres système sous l'AppBar claire : icônes sombres.
 const kOverlaySurPrimaire = SystemUiOverlayStyle(
-  statusBarColor: Colors.transparent,
+  statusBarColor: AppColors.surface,
   statusBarIconBrightness: Brightness.dark,
   statusBarBrightness: Brightness.light,
+  systemStatusBarContrastEnforced: false,
   systemNavigationBarColor: AppColors.paper,
   systemNavigationBarIconBrightness: Brightness.dark,
 );

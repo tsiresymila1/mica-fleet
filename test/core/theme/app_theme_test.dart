@@ -13,6 +13,17 @@ void main() {
     expect(theme.colorScheme.secondary, const Color(0xFF653472));
     expect(theme.colorScheme.tertiary, const Color(0xFF2B367D));
     expect(theme.colorScheme.onPrimary, Colors.white);
+    expect(theme.appBarTheme.systemOverlayStyle, kOverlaySurPrimaire);
+  });
+
+  test('adapte la barre d’état aux fonds clairs', () {
+    expect(kOverlaySurClair.statusBarColor, AppColors.paper);
+    expect(kOverlaySurPrimaire.statusBarColor, AppColors.surface);
+    expect(kOverlaySurClair.statusBarIconBrightness, Brightness.dark);
+    expect(kOverlaySurPrimaire.statusBarIconBrightness, Brightness.dark);
+    expect(kOverlaySurClair.statusBarBrightness, Brightness.light);
+    expect(kOverlaySurPrimaire.statusBarBrightness, Brightness.light);
+    expect(kOverlaySurPrimaire.systemStatusBarContrastEnforced, false);
   });
 
   test('conserve des couleurs métier distinctes de la marque', () {
