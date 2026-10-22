@@ -4,9 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/db/app_database.dart';
 import 'package:mica_fleet/core/di/providers.dart';
+import 'package:mica_fleet/core/theme/app_theme.dart';
 import 'package:mica_fleet/features/auth/data/password_secret_store.dart';
 import 'package:mica_fleet/features/auth/domain/entities/fournisseur.dart';
 import 'package:mica_fleet/features/auth/presentation/providers/auth_provider.dart';
+import 'package:mica_fleet/features/depot/presentation/providers/depot_provider.dart';
+import 'package:mica_fleet/features/mines/domain/entities/mine.dart';
+import 'package:mica_fleet/features/mines/domain/entities/mine_submission.dart';
+import 'package:mica_fleet/features/mines/presentation/providers/mine_submissions_provider.dart';
+import 'package:mica_fleet/features/mines/presentation/providers/mines_provider.dart';
 import 'package:mica_fleet/features/profile/presentation/screens/profile_screen.dart';
 import 'package:mica_fleet/features/sync/domain/entities/sync_operation.dart';
 import 'package:mica_fleet/features/sync/domain/repositories/remote_data_source.dart';
@@ -166,6 +172,13 @@ void main() {
       expect(find.textContaining('GPS -18.90000'), findsNothing);
       expect(find.text('LOCALISATION'), findsOneWidget);
       expect(find.text('Andilana'), findsOneWidget);
+      expect(find.text('Synchronisée'), findsOneWidget);
+      expect(
+        tester
+            .widget<Container>(find.byKey(const ValueKey('site-status-7')))
+            .color,
+        AppColors.ok,
+      );
       expect(
         tester.widget<Material>(find.byKey(const ValueKey('site-7'))).shape,
         isNull,
@@ -203,4 +216,65 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('distingue les mines du serveur des propositions locales', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(430, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          minesProvider.overrideWith(
+            (ref) async => const [
+              Mine(id: '7', nom: 'Mine serveur', lat: -18.9, lon: 47.5),
+            ],
+          ),
+          mineSubmissionsProvider.overrideWith(
+            (ref) async => [
+              MineSubmission(
+                payloadId: 'local-1',
+                deviceUuid: 'device-1',
+                nom: 'Mine locale',
+                state: MineSubmissionState.localPending,
+                createdAt: DateTime.utc(2026, 10, 21),
+                updatedAt: DateTime.utc(2026, 10, 21),
+                photos: const [],
+              ),
+            ],
+          ),
+          activeDepotsProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(home: SitesScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mine serveur'), findsOneWidget);
+    expect(find.text('Mine locale'), findsOneWidget);
+    expect(find.text('Synchronisée'), findsOneWidget);
+    expect(find.text('À synchroniser'), findsOneWidget);
+    expect(
+      tester
+          .widget<Container>(find.byKey(const ValueKey('site-status-7')))
+          .color,
+      AppColors.ok,
+    );
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey('site-status-local-local-1')),
+          )
+          .color,
+      AppColors.warn,
+    );
+
+    await tester.enterText(find.byType(TextField), 'locale');
+    await tester.pumpAndSettle();
+    expect(find.text('Mine locale'), findsOneWidget);
+    expect(find.text('Mine serveur'), findsNothing);
+  });
 }

@@ -10,6 +10,8 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../depot/presentation/providers/depot_provider.dart';
 import '../../../loading/presentation/providers/chargements_list_provider.dart';
 import '../../../mines/domain/entities/mine.dart';
+import '../../../mines/domain/entities/mine_submission.dart';
+import '../../../mines/presentation/providers/mine_submissions_provider.dart';
 import '../../../mines/presentation/providers/mines_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../update/presentation/app_update_provider.dart';
@@ -81,6 +83,7 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
   @override
   Widget build(BuildContext context) {
     final mines = ref.watch(minesProvider);
+    final submissions = ref.watch(mineSubmissionsProvider);
     final depots = ref.watch(activeDepotsProvider);
     final query = _search.text.trim().toLowerCase();
     final mineItems =
@@ -101,6 +104,32 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
             )
             .toList() ??
         [];
+    final localSubmissions =
+        submissions.asData?.value
+            .where(
+              (submission) =>
+                  submission.serverId == null &&
+                  (submission.state == MineSubmissionState.localPending ||
+                      submission.state ==
+                          MineSubmissionState.awaitingAttachments ||
+                      submission.state ==
+                          MineSubmissionState.pendingValidation),
+            )
+            .toList() ??
+        [];
+    final localMines = localSubmissions
+        .where(
+          (submission) => [
+            submission.nom,
+            submission.payloadId,
+            DateFormat('dd/MM/yyyy').format(submission.createdAt),
+            'à synchroniser',
+          ].join(' ').toLowerCase().contains(query),
+        )
+        .toList();
+    final mineCount = mines.asData == null || submissions.asData == null
+        ? null
+        : mines.asData!.value.length + localSubmissions.length;
     final depotItems =
         depots.asData?.value
             .where((d) => '${d.nom} ${d.id}'.toLowerCase().contains(query))
@@ -128,8 +157,8 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
                 _siteMetric(
                   context,
                   Icons.terrain_outlined,
-                  mines.asData?.value.length,
-                  'Mines sélectionnables',
+                  mineCount,
+                  'Mines suivies',
                 ),
                 const SizedBox(width: 8),
                 _siteMetric(
@@ -143,7 +172,7 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
             const SizedBox(height: 18),
             Row(
               children: [
-                _tabButton(0, 'Mines', mines.asData?.value.length),
+                _tabButton(0, 'Mines', mineCount),
                 const SizedBox(width: 8),
                 _tabButton(1, 'Dépôts', depots.asData?.value.length),
               ],
@@ -162,15 +191,17 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
             const SizedBox(height: 16),
             if (_tab == 0) ...[
               Text(
-                '${mineItems.length} mine${mineItems.length > 1 ? 's' : ''}',
+                '${mineItems.length + localMines.length} mine${mineItems.length + localMines.length > 1 ? 's' : ''}',
                 style: Theme.of(context).textTheme.titleSmall,
               ),
               const SizedBox(height: 10),
-              if (mines.isLoading)
+              if (mines.isLoading || submissions.isLoading)
                 const LinearProgressIndicator()
               else if (mines.hasError)
                 const _Muted('Référentiel indisponible')
-              else if (mineItems.isEmpty)
+              else if (mineItems.isEmpty &&
+                  localMines.isEmpty &&
+                  !submissions.hasError)
                 const _Muted('Aucune mine trouvée')
               else
                 for (final m in mineItems)
@@ -185,9 +216,30 @@ class _SitesScreenState extends ConsumerState<SitesScreen> {
                           ? null
                           : DateFormat('dd/MM/yyyy').format(m.createdAt!),
                       location: _mineLocation(m),
+                      statusColor: AppColors.ok,
+                      statusLabel: 'Synchronisée',
                       onTap: () => _openMineLots(m),
                     ),
                   ),
+              for (final submission in localMines)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 9),
+                  child: _SiteCard(
+                    id: 'local-${submission.payloadId}',
+                    name: submission.nom,
+                    reference: null,
+                    date: DateFormat('dd/MM/yyyy').format(submission.createdAt),
+                    statusColor: AppColors.warn,
+                    statusLabel: 'À synchroniser',
+                    onTap: () async {
+                      await context.push('/mines-manual');
+                      ref.invalidate(mineSubmissionsProvider);
+                      ref.invalidate(minesProvider);
+                    },
+                  ),
+                ),
+              if (submissions.hasError)
+                const _Muted('Propositions locales indisponibles'),
             ] else ...[
               Text(
                 '${depotItems.length} dépôt${depotItems.length > 1 ? 's' : ''}',
@@ -296,6 +348,8 @@ class _SiteCard extends StatelessWidget {
     this.date,
     this.location,
     this.note,
+    this.statusColor,
+    this.statusLabel,
   });
 
   final String id;
@@ -304,6 +358,8 @@ class _SiteCard extends StatelessWidget {
   final String? date;
   final String? location;
   final String? note;
+  final Color? statusColor;
+  final String? statusLabel;
   final VoidCallback onTap;
 
   @override
@@ -315,52 +371,87 @@ class _SiteCard extends StatelessWidget {
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 12, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Stack(
+        children: [
+          if (statusColor != null)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: Container(
+                key: ValueKey('site-status-$id'),
+                width: 5,
+                color: statusColor,
+              ),
+            ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              statusColor == null ? 14 : 18,
+              12,
+              12,
+              14,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w800,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (date != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        date!,
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ],
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: AppColors.inkSoft,
+                    ),
+                  ],
+                ),
+                if (statusLabel != null) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    statusLabel!,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                if (date != null) ...[
-                  const SizedBox(width: 8),
-                  Text(date!, style: Theme.of(context).textTheme.labelSmall),
                 ],
-                const SizedBox(width: 3),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 18,
-                  color: AppColors.inkSoft,
+                const SizedBox(height: 10),
+                _fact(
+                  context,
+                  'RÉFÉRENCE',
+                  reference?.trim().isNotEmpty == true
+                      ? reference!.trim()
+                      : '—',
                 ),
+                if (location != null) ...[
+                  const SizedBox(height: 9),
+                  _fact(context, 'LOCALISATION', location!),
+                ],
+                if (note?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 9),
+                  _fact(context, 'NOTE', note!.trim()),
+                ],
               ],
             ),
-            const SizedBox(height: 10),
-            _fact(
-              context,
-              'RÉFÉRENCE',
-              reference?.trim().isNotEmpty == true ? reference!.trim() : '—',
-            ),
-            if (location != null) ...[
-              const SizedBox(height: 9),
-              _fact(context, 'LOCALISATION', location!),
-            ],
-            if (note?.trim().isNotEmpty == true) ...[
-              const SizedBox(height: 9),
-              _fact(context, 'NOTE', note!.trim()),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     ),
   );
