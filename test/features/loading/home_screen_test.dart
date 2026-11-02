@@ -9,7 +9,7 @@ void main() {
   testWidgets('filtre les lots et montre les couleurs de validation', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1000, 1600);
+    tester.view.physicalSize = const Size(320, 1600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -24,6 +24,7 @@ void main() {
                 sessionId: 'session-1',
                 mineId: 'mine-1',
                 mineName: 'Mine 1',
+                depotName: 'Dépôt FTU',
                 tonnage: 120,
                 date: DateTime.utc(2026, 8, 21),
                 statut: 'arrive',
@@ -58,6 +59,7 @@ void main() {
                 sessionId: 'session-3',
                 mineId: 'mine-2',
                 mineName: 'Mine 2',
+                depotName: 'Dépôt AMB',
                 tonnage: 70,
                 date: DateTime.utc(2026, 8, 23),
                 statut: 'arrive',
@@ -104,8 +106,35 @@ void main() {
     expect(pendingX, lessThan(validatedX));
     expect(validatedX, lessThan(rejectedX));
     expect(find.text('1234 TBR'), findsOneWidget);
-    expect(find.text('Arrivé'), findsNWidgets(2));
+    expect(find.text('Dépôt FTU'), findsOneWidget);
+    expect(find.text('Dépôt AMB'), findsOneWidget);
+    expect(find.text('À renseigner'), findsNWidgets(2));
     expect(find.text('96'), findsOneWidget);
+    expect(find.text('21/08/2026 · 00:00'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/icons/lot_cloud_check.png',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.cloud_upload), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+    final reference = tester.getTopLeft(find.text('MICA-2026-0042'));
+    final date = tester.getTopLeft(find.text('21/08/2026 · 00:00'));
+    final mine = tester.getTopLeft(find.text('Mine 1').first);
+    final poids = tester.getTopLeft(find.text('Poids').first);
+    final depot = tester.getTopLeft(find.text('Dépôt FTU'));
+    final score = tester.getTopLeft(find.text('96'));
+    expect((reference.dy - date.dy).abs(), lessThan(8));
+    expect(reference.dy, lessThan(mine.dy));
+    expect(mine.dy, lessThan(poids.dy));
+    expect(score.dx, greaterThan(depot.dx));
+    expect(score.dy, lessThan(depot.dy));
     expect(
       tester
           .widget<Container>(find.byKey(const ValueKey('lot-status-lot-1')))
@@ -135,6 +164,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('lot-2'), findsOneWidget);
     expect(find.text('MICA-2026-0042'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'Dépôt FTU');
+    await tester.pumpAndSettle();
+    expect(find.text('MICA-2026-0042'), findsOneWidget);
+    expect(find.text('lot-3'), findsNothing);
 
     await tester.enterText(find.byType(TextField), '');
     await tester.tap(find.text('Validés'));

@@ -59,6 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final liste = ref.watch(lotsListProvider);
     final fournisseur = ref.watch(authControllerProvider);
     final df = DateFormat('dd/MM/yyyy HH:mm');
+    final compact = MediaQuery.sizeOf(context).width <= 350;
 
     return Scaffold(
       drawer: _AccountDrawer(
@@ -110,6 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     item.id,
                     item.serverReference,
                     item.mineName,
+                    item.depotName,
                     item.plate,
                     item.validationStatus,
                     switch (item.validationStatus) {
@@ -121,7 +123,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             : 'en attente',
                     },
                     item.validationReason,
-                    item.arrive ? 'arrivé' : 'en route',
                     item.tonnage?.toString(),
                     df.format(item.date),
                   ].whereType<String>().join(' ').toLowerCase().contains(query);
@@ -130,7 +131,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               filtered.sort((a, b) => a.date.compareTo(b.date));
             }
             return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(15, 12, 15, 120),
+              padding: EdgeInsets.fromLTRB(
+                compact ? 11 : 15,
+                12,
+                compact ? 11 : 15,
+                120,
+              ),
               itemCount: filtered.length + (filtered.isEmpty ? 2 : 1),
               separatorBuilder: (_, _) => const SizedBox(height: 11),
               itemBuilder: (_, i) {
@@ -211,11 +217,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          Text(
-                            '${filtered.length} lot${filtered.length > 1 ? 's' : ''} affiché${filtered.length > 1 ? 's' : ''}',
-                            style: Theme.of(context).textTheme.titleSmall,
+                          Expanded(
+                            child: Text(
+                              '${filtered.length} lot${filtered.length > 1 ? 's' : ''} affiché${filtered.length > 1 ? 's' : ''}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
                           ),
-                          const Spacer(),
                           Text(
                             _newestFirst ? 'Plus récents' : 'Plus anciens',
                             style: Theme.of(context).textTheme.bodySmall,
@@ -622,14 +631,15 @@ class _LotCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusColor = switch (lot.validationStatus) {
-      'validated' => const Color(0xFF169365),
-      'rejected' => const Color(0xFFD74858),
+      'validated' => AppColors.ok,
+      'rejected' => AppColors.danger,
       _ =>
-        lot.sync == SyncEtat.local
-            ? const Color(0xFF94A3BF)
-            : const Color(0xFFD99A28),
+        lot.sync == SyncEtat.local ? const Color(0xFF94A3BF) : AppColors.warn,
     };
     final textTheme = Theme.of(context).textTheme;
+    final showStatusRail =
+        lot.validationStatus == 'validated' || lot.score != null;
+    final compact = MediaQuery.sizeOf(context).width <= 350;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
@@ -638,178 +648,266 @@ class _LotCard extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: DecoratedBox(
+          key: ValueKey('lot-card-${lot.id}'),
           decoration: BoxDecoration(
-            border: Border.all(color: AppColors.line),
+            border: Border.all(color: const Color(0xFFE7EAF1)),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(
                   key: ValueKey('lot-status-${lot.id}'),
                   width: 5,
                   color: statusColor,
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              Padding(
+                padding: compact
+                    ? const EdgeInsets.fromLTRB(14, 9, 11, 7)
+                    : const EdgeInsets.fromLTRB(16, 11, 13, 9),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                lot.serverReference ?? lot.id,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primary,
-                                ),
+                        Expanded(
+                          child: Text(
+                            lot.serverReference ?? lot.id,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
+                              color: const Color(0xFF222948),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 11,
+                          color: AppColors.inkSoft,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy · HH:mm').format(lot.date),
+                          style: textTheme.labelSmall?.copyWith(
+                            fontSize: compact ? 8.8 : 9.7,
+                            height: 1.15,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Padding(
+                      padding: EdgeInsets.only(
+                        right: showStatusRail ? (compact ? 39 : 46) : 0,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 13,
+                            color: AppColors.inkSoft,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Mine : ',
+                            style: textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              height: 1.2,
+                            ),
+                          ),
+                          Flexible(
+                            child: Text(
+                              lot.mineName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.bodySmall?.copyWith(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                height: 1.2,
+                                color: const Color(0xFF525A73),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              DateFormat('dd/MM/yyyy').format(lot.date),
-                              style: textTheme.labelSmall,
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(top: compact ? 8 : 9),
+                      padding: const EdgeInsets.only(top: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Color(0xFFEEF0F4)),
                         ),
-                        const SizedBox(height: 5),
-                        Text(
-                          'Mine : ${lot.mineName}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.bodySmall,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          right: showStatusRail ? (compact ? 39 : 44) : 0,
                         ),
-                        const SizedBox(height: 10),
-                        Row(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _fact(
                               context,
-                              'POIDS',
+                              'Poids',
                               lot.tonnage == null
                                   ? '—'
                                   : '${NumberFormat.decimalPattern('fr').format(lot.tonnage)} kg',
                             ),
                             _fact(
                               context,
-                              'PLAQUE',
+                              'Plaque',
                               lot.plate?.isNotEmpty == true ? lot.plate! : '—',
+                              divider: true,
                             ),
-                            _transportFact(context, statusColor),
+                            _fact(
+                              context,
+                              'Transport',
+                              lot.depotName?.trim().isNotEmpty == true
+                                  ? lot.depotName!
+                                  : lot.arrive
+                                  ? 'À attribuer'
+                                  : 'À renseigner',
+                              divider: true,
+                              allowWrap: true,
+                              trailing: showStatusRail
+                                  ? null
+                                  : _LotStatusIcon(lot: lot),
+                            ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              if (showStatusRail)
+                Positioned(
+                  right: compact ? 11 : 13,
+                  bottom: 9,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (lot.score != null) ...[
+                        _ScoreBadge(score: lot.score!),
+                        const SizedBox(height: 5),
+                      ],
+                      _LotStatusIcon(lot: lot),
+                    ],
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _fact(BuildContext context, String label, String value) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontSize: 9,
-            letterSpacing: 0.7,
-            color: AppColors.inkSoft,
-          ),
-        ),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
-        ),
-      ],
-    ),
-  );
-
-  Widget _transportFact(BuildContext context, Color statusColor) => Expanded(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'TRANSPORT',
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            fontSize: 9,
-            letterSpacing: 0.7,
-            color: AppColors.inkSoft,
-          ),
-        ),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 3,
-          children: [
-            Text(
-              lot.arrive ? 'Arrivé' : 'En route',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+  Widget _fact(
+    BuildContext context,
+    String label,
+    String value, {
+    bool divider = false,
+    bool allowWrap = false,
+    Widget? trailing,
+  }) => Expanded(
+    child: Container(
+      padding: EdgeInsets.only(left: divider ? 8 : 0),
+      decoration: divider
+          ? const BoxDecoration(
+              border: Border(left: BorderSide(color: Color(0xFFEEF0F4))),
+            )
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontSize: 9,
+              height: 1.1,
+              color: const Color(0xFF969CAC),
             ),
-            Tooltip(
-              message: switch (lot.validationStatus) {
-                'validated' => 'Lot validé',
-                'rejected' => 'Lot rejeté',
-                _ =>
-                  lot.sync == SyncEtat.local ? 'Brouillon local' : 'En attente',
-              },
-              child: Icon(
-                switch (lot.validationStatus) {
-                  'validated' => Icons.cloud_done_outlined,
-                  'rejected' => Icons.cancel_outlined,
-                  _ =>
-                    lot.sync == SyncEtat.local
-                        ? Icons.save_outlined
-                        : Icons.schedule,
-                },
-                color: statusColor,
-                size: 18,
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  maxLines: allowWrap ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                    color: const Color(0xFF252C4C),
+                  ),
+                ),
               ),
-            ),
-            if (lot.score != null) _ScoreBadge(score: lot.score!),
-            _SyncIcon(lot.sync),
-          ],
-        ),
-      ],
+              ?trailing,
+            ],
+          ),
+        ],
+      ),
     ),
   );
 }
 
-/// Petite icône d'état de sync dans la liste (rien à montrer si local).
-class _SyncIcon extends StatelessWidget {
-  final SyncEtat sync;
-  const _SyncIcon(this.sync);
+class _LotStatusIcon extends StatelessWidget {
+  final LotListItem lot;
+  const _LotStatusIcon({required this.lot});
+
   @override
   Widget build(BuildContext context) {
-    final (icon, color, tip) = switch (sync) {
-      SyncEtat.local => (null, null, null),
-      SyncEtat.synchronise => (Icons.cloud_done, AppColors.ok, 'Synchronisé'),
+    if (lot.sync == SyncEtat.synchronise &&
+        lot.validationStatus == 'validated') {
+      return Tooltip(
+        message: 'Synchronisé et validé',
+        child: Image.asset(
+          'assets/icons/lot_cloud_check.png',
+          width: 22,
+          height: 18,
+          fit: BoxFit.contain,
+        ),
+      );
+    }
+    final (icon, color, tip) = switch (lot.sync) {
+      SyncEtat.echec => (Icons.cloud_off, AppColors.danger, 'Envoi échoué'),
       SyncEtat.envoiPhotos => (
         Icons.cloud_sync,
         AppColors.inkSoft,
-        'Photos en cours',
+        'Photos en cours d’envoi',
       ),
-      SyncEtat.enAttente => (Icons.cloud_upload, AppColors.warn, 'À envoyer'),
-      SyncEtat.echec => (Icons.cloud_off, AppColors.danger, 'Échec'),
+      SyncEtat.enAttente => (
+        Icons.cloud_upload,
+        AppColors.warn,
+        'À synchroniser',
+      ),
+      _ => switch (lot.validationStatus) {
+        'validated' => (Icons.cloud_done, AppColors.ok, 'Lot validé'),
+        'rejected' => (Icons.close, AppColors.danger, 'Lot rejeté'),
+        _ =>
+          lot.sync == SyncEtat.local
+              ? (
+                  Icons.save_outlined,
+                  const Color(0xFF94A3BF),
+                  'Brouillon local',
+                )
+              : (Icons.schedule, AppColors.warn, 'Validation en attente'),
+      },
     };
-    if (icon == null) return const SizedBox.shrink();
     return Tooltip(
-      message: tip!,
-      child: Icon(icon, color: color, size: 17),
+      message: tip,
+      child: Icon(icon, color: color, size: 18),
     );
   }
 }
@@ -818,30 +916,27 @@ class _ScoreBadge extends StatelessWidget {
   final int score;
   const _ScoreBadge({required this.score});
   @override
-  Widget build(BuildContext context) {
-    final couleur = score >= 80
-        ? AppColors.ok
-        : score > 0
-        ? AppColors.warn
-        : AppColors.danger;
-    return Container(
-      width: 25,
-      height: 25,
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Score de traçabilité : $score',
+    child: Container(
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: couleur.withValues(alpha: 0.12),
-        shape: BoxShape.circle,
-        border: Border.all(color: couleur, width: 1.5),
+        color: const Color(0xFFFFF7EB),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFD39A2F), width: 2),
       ),
       alignment: Alignment.center,
       child: Text(
         '$score',
-        style: Theme.of(context).textTheme.labelSmall!.copyWith(
-          color: couleur,
-          fontWeight: FontWeight.w700,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          fontSize: 14,
+          color: const Color(0xFFCF8F16),
+          fontWeight: FontWeight.w800,
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _Empty extends StatelessWidget {

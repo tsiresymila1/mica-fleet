@@ -10,6 +10,7 @@ class LotListItem {
   final String sessionId;
   final String mineId;
   final String mineName;
+  final String? depotName;
   final double? tonnage;
   final DateTime date;
   final String statut; // en_cours / arrive
@@ -26,6 +27,7 @@ class LotListItem {
     required this.sessionId,
     required this.mineId,
     required this.mineName,
+    this.depotName,
     required this.tonnage,
     required this.date,
     required this.statut,
@@ -75,6 +77,8 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
       .toList();
   final mines = await db.select(db.mines).get();
   final mineNames = {for (final mine in mines) mine.id: mine.nom};
+  final depots = await db.select(db.depots).get();
+  final depotNames = {for (final depot in depots) depot.id: depot.nom};
   final items = <LotListItem>[];
   for (final l in lots) {
     final arr = await (db.select(
@@ -91,6 +95,9 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         sessionId: l.sessionId,
         mineId: l.mineId,
         mineName: mineNames[l.mineId] ?? l.mineId,
+        depotName: arr?.depotId == null
+            ? null
+            : depotNames[arr!.depotId] ?? arr.depotId,
         tonnage: l.quantiteEstimee,
         date: dates[l.sessionId] ?? DateTime.fromMillisecondsSinceEpoch(0),
         statut: l.statut,
