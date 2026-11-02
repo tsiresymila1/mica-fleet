@@ -774,7 +774,7 @@ class _LotCard extends StatelessWidget {
                               lot.depotName?.trim().isNotEmpty == true
                                   ? lot.depotName!
                                   : lot.arrive
-                                  ? 'À attribuer'
+                                  ? '--'
                                   : 'À renseigner',
                               divider: true,
                               allowWrap: true,
