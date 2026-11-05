@@ -26,6 +26,8 @@ Future<void> _refreshAndSync(ProviderContainer container) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(kOverlaySurClair);
   final db = await AppDatabase.open();
   if (AppConfig.demo) await DevSeeder(db).seedIfEmpty();
   final container = ProviderContainer(
