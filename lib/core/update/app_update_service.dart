@@ -86,12 +86,18 @@ class MethodChannelAppUpdateBridge implements AppUpdatePlatformBridge {
 
 class AppUpdateService implements AppUpdateGateway {
   final Dio dio;
+  final Dio? _downloadDio;
   final AppUpdatePlatformBridge platformBridge;
 
-  const AppUpdateService(
+  /// [downloadDio] : client dédié au téléchargement de l'APK (sans jeton
+  /// Bearer, qui ne doit pas fuiter vers un CDN, ni timeout court).
+  AppUpdateService(
     this.dio, {
+    Dio? downloadDio,
     this.platformBridge = const MethodChannelAppUpdateBridge(),
-  });
+  }) : _downloadDio = downloadDio;
+
+  static const _maxAttempts = 3;
 
   @override
   Future<AppUpdateCheck> check() async {
@@ -161,12 +167,38 @@ class AppUpdateService implements AppUpdateGateway {
     final directory = Directory('${cache.path}/updates');
     await directory.create(recursive: true);
     final apk = File('${directory.path}/mica-fleet-${update.build}.apk');
-    await dio.download(
-      update.apkUrl,
-      apk.path,
-      onReceiveProgress: onProgress,
-      options: Options(followRedirects: true),
-    );
+    final client =
+        _downloadDio ??
+        Dio(BaseOptions(connectTimeout: const Duration(seconds: 30)));
+    for (var attempt = 1; ; attempt++) {
+      try {
+        await client.download(
+          update.apkUrl,
+          apk.path,
+          onReceiveProgress: onProgress,
+          options: Options(
+            followRedirects: true,
+            receiveTimeout: const Duration(minutes: 2),
+          ),
+        );
+        break;
+      } on DioException catch (e) {
+        if (await apk.exists()) await apk.delete();
+        // `unknown: null` cache la vraie cause dans e.error (SocketException…).
+        final retryable =
+            e.type == DioExceptionType.unknown ||
+            e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionTimeout;
+        if (!retryable || attempt >= _maxAttempts) {
+          throw Exception(
+            'Téléchargement interrompu (${e.type.name}) : '
+            '${e.error ?? e.message ?? 'cause inconnue'}',
+          );
+        }
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      }
+    }
     final actual = (await sha256.bind(apk.openRead()).first).toString();
     if (actual.toLowerCase() != update.sha256Hash.toLowerCase()) {
       await apk.delete();
