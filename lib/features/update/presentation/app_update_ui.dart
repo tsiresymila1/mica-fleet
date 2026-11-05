@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_error_details.dart';
@@ -18,56 +19,69 @@ class AppUpdateBanner extends ConsumerWidget {
     final update = state.update;
     if (update == null) return child;
 
-    final color = update.mandatory ? AppColors.danger : AppColors.secondary;
-    return Column(
-      children: [
-        Material(
-          color: color.withValues(alpha: 0.14),
-          child: SafeArea(
-            bottom: false,
-            child: InkWell(
-              onTap: state.downloading
-                  ? null
-                  : () => openAvailableAppUpdate(context, ref, update),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.system_update_alt, color: color),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        update.mandatory
-                            ? 'Mise à jour obligatoire ${update.version} disponible'
-                            : 'Mise à jour ${update.version} disponible',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: AppColors.ink,
-                          fontWeight: FontWeight.w700,
+    final background = update.mandatory
+        ? const Color(0xFFFFF0F2)
+        : AppColors.primaryLight;
+    final foreground = update.mandatory
+        ? const Color(0xFF9E2334)
+        : AppColors.primaryDark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kOverlaySurClair.copyWith(statusBarColor: background),
+      child: Column(
+        children: [
+          Material(
+            color: background,
+            child: SafeArea(
+              bottom: false,
+              child: InkWell(
+                onTap: state.downloading
+                    ? null
+                    : () => openAvailableAppUpdate(context, ref, update),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.system_update_alt, color: foreground),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          update.mandatory
+                              ? 'Mise à jour obligatoire ${update.version} disponible'
+                              : 'Mise à jour ${update.version} disponible',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: foreground,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: state.downloading
-                          ? null
-                          : () => openAvailableAppUpdate(context, ref, update),
-                      child: const Text('Mettre à jour'),
-                    ),
-                  ],
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: foreground,
+                        ),
+                        onPressed: state.downloading
+                            ? null
+                            : () =>
+                                  openAvailableAppUpdate(context, ref, update),
+                        child: const Text('Mettre à jour'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: MediaQuery.removePadding(
-            context: context,
-            removeTop: true,
-            child: child,
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: true,
+              child: child,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

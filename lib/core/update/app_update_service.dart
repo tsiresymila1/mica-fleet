@@ -170,7 +170,11 @@ class AppUpdateService implements AppUpdateGateway {
     final actual = (await sha256.bind(apk.openRead()).first).toString();
     if (actual.toLowerCase() != update.sha256Hash.toLowerCase()) {
       await apk.delete();
-      throw StateError('La signature SHA-256 de l’APK ne correspond pas');
+      throw Exception(
+        'Le fichier de mise à jour téléchargé ne correspond pas à celui '
+        'annoncé par le serveur. Contactez l’assistance pour faire vérifier '
+        'la version publiée.',
+      );
     }
     return platformBridge.installApk(apk.path);
   }

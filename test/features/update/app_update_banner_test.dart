@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mica_fleet/core/di/providers.dart';
@@ -44,6 +45,21 @@ void main() {
     );
     expect(find.text('Mettre à jour'), findsOneWidget);
     expect(find.text('Accueil'), findsOneWidget);
+    final banner = tester.widget<Material>(find.byType(Material).first);
+    expect(banner.color, const Color(0xFFFFF0F2));
+    final overlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+      find.byType(AnnotatedRegion<SystemUiOverlayStyle>).first,
+    );
+    expect(overlay.value.statusBarColor, banner.color);
+    expect(overlay.value.statusBarIconBrightness, Brightness.dark);
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Mettre à jour'))
+          .style
+          ?.foregroundColor
+          ?.resolve({}),
+      const Color(0xFF9E2334),
+    );
   });
 
   testWidgets('affiche la progression dans une feuille modale', (tester) async {

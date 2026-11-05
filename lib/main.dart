@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:go_router/go_router.dart';
@@ -113,7 +114,9 @@ class _MicaFleetAppState extends ConsumerState<MicaFleetApp> {
     debugShowCheckedModeBanner: false,
     theme: AppTheme.build(),
     routerConfig: widget.router,
-    builder: (context, child) =>
-        AppUpdateBanner(child: child ?? const SizedBox.shrink()),
+    builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kOverlaySurClair,
+      child: AppUpdateBanner(child: child ?? const SizedBox.shrink()),
+    ),
   );
 }
