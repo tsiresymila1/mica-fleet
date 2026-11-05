@@ -385,12 +385,16 @@ class BigButton extends StatelessWidget {
             minimumSize: const Size.fromHeight(52),
             textStyle: Theme.of(
               context,
-            ).textTheme.labelLarge!.copyWith(fontSize: 15),
+            ).textTheme.labelLarge!.copyWith(fontSize: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-    icon: Icon(icon, size: 21),
-    label: Text(label),
+    icon: Icon(icon, size: 18),
+    // Une ligne, réduite si trop étroite : jamais de coupure au milieu d'un mot.
+    label: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(label, maxLines: 1, softWrap: false),
+    ),
   );
 }

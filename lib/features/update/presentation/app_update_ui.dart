@@ -38,21 +38,22 @@ class AppUpdateBanner extends ConsumerWidget {
                     ? null
                     : () => openAvailableAppUpdate(context, ref, update),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
                   child: Row(
                     children: [
-                      Icon(Icons.system_update_alt, color: foreground),
-                      const SizedBox(width: 10),
+                      Icon(Icons.system_update_alt, color: foreground, size: 18),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           update.mandatory
                               ? 'Mise à jour obligatoire ${update.version} disponible'
                               : 'Mise à jour ${update.version} disponible',
-                          maxLines: 2,
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.labelLarge
+                          style: Theme.of(context).textTheme.labelMedium
                               ?.copyWith(
                                 color: foreground,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
@@ -60,6 +61,10 @@ class AppUpdateBanner extends ConsumerWidget {
                       TextButton(
                         style: TextButton.styleFrom(
                           foregroundColor: foreground,
+                          visualDensity: VisualDensity.compact,
+                          minimumSize: const Size(0, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(fontSize: 12),
                         ),
                         onPressed: state.downloading
                             ? null

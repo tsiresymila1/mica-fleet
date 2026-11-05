@@ -97,7 +97,7 @@ class AppUpdateService implements AppUpdateGateway {
     this.platformBridge = const MethodChannelAppUpdateBridge(),
   }) : _downloadDio = downloadDio;
 
-  static const _maxAttempts = 3;
+  static const _maxAttempts = 6;
 
   @override
   Future<AppUpdateCheck> check() async {
@@ -172,29 +172,28 @@ class AppUpdateService implements AppUpdateGateway {
         Dio(BaseOptions(connectTimeout: const Duration(seconds: 30)));
     for (var attempt = 1; ; attempt++) {
       try {
-        await client.download(
-          update.apkUrl,
-          apk.path,
-          onReceiveProgress: onProgress,
-          options: Options(
-            followRedirects: true,
-            receiveTimeout: const Duration(minutes: 2),
-          ),
-        );
+        await _fetch(client, update.apkUrl, apk, onProgress);
         break;
       } on DioException catch (e) {
-        if (await apk.exists()) await apk.delete();
-        // `unknown: null` cache la vraie cause dans e.error (SocketException…).
         final retryable =
             e.type == DioExceptionType.unknown ||
             e.type == DioExceptionType.connectionError ||
             e.type == DioExceptionType.receiveTimeout ||
             e.type == DioExceptionType.connectionTimeout;
         if (!retryable || attempt >= _maxAttempts) {
+          if (await apk.exists()) await apk.delete();
           throw Exception(
             'Téléchargement interrompu (${e.type.name}) : '
             '${e.error ?? e.message ?? 'cause inconnue'}',
           );
+        }
+        await Future<void>.delayed(Duration(seconds: attempt * 2));
+      } on IOException catch (e) {
+        // Coupure en plein corps (« Connection closed while receiving data ») :
+        // le fichier partiel est conservé et la reprise utilise Range.
+        if (attempt >= _maxAttempts) {
+          if (await apk.exists()) await apk.delete();
+          throw Exception('Téléchargement interrompu : $e');
         }
         await Future<void>.delayed(Duration(seconds: attempt * 2));
       }
@@ -209,5 +208,43 @@ class AppUpdateService implements AppUpdateGateway {
       );
     }
     return platformBridge.installApk(apk.path);
+  }
+
+  /// Télécharge en reprenant à la fin du fichier partiel (en-tête Range). Si le
+  /// serveur ignore Range (200), repart de zéro.
+  Future<void> _fetch(
+    Dio client,
+    String url,
+    File apk,
+    void Function(int received, int total)? onProgress,
+  ) async {
+    var offset = await apk.exists() ? await apk.length() : 0;
+    final res = await client.get<ResponseBody>(
+      url,
+      options: Options(
+        responseType: ResponseType.stream,
+        followRedirects: true,
+        receiveTimeout: const Duration(minutes: 2),
+        headers: offset > 0 ? {'range': 'bytes=$offset-'} : null,
+        validateStatus: (s) => s == 200 || s == 206 || s == 416,
+      ),
+    );
+    // 416 : le fichier partiel est déjà complet, le hash tranchera.
+    if (res.statusCode == 416) return;
+    final append = res.statusCode == 206 && offset > 0;
+    if (!append) offset = 0;
+    final length = int.tryParse(res.headers.value('content-length') ?? '');
+    final total = length == null ? -1 : length + offset;
+    final sink = apk.openWrite(mode: append ? FileMode.append : FileMode.write);
+    var received = offset;
+    try {
+      await for (final chunk in res.data!.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        onProgress?.call(received, total);
+      }
+    } finally {
+      await sink.close();
+    }
   }
 }
