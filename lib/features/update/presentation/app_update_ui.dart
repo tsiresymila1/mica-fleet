@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_error_details.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/update/app_update_service.dart';
 import '../../../shared/ui/ui_kit.dart';
@@ -25,6 +26,12 @@ class AppUpdateBanner extends ConsumerWidget {
     final foreground = update.mandatory
         ? const Color(0xFF9E2334)
         : AppColors.primaryDark;
+    // Le bandeau est au-dessus du Navigator : on utilise le contexte racine.
+    void openUpdate() {
+      final navContext = rootNavigatorKey.currentContext ?? context;
+      openAvailableAppUpdate(navContext, ref, update);
+    }
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kOverlaySurClair.copyWith(statusBarColor: background),
       child: Column(
@@ -34,14 +41,16 @@ class AppUpdateBanner extends ConsumerWidget {
             child: SafeArea(
               bottom: false,
               child: InkWell(
-                onTap: state.downloading
-                    ? null
-                    : () => openAvailableAppUpdate(context, ref, update),
+                onTap: state.downloading ? null : openUpdate,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
                   child: Row(
                     children: [
-                      Icon(Icons.system_update_alt, color: foreground, size: 18),
+                      Icon(
+                        Icons.system_update_alt,
+                        color: foreground,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -66,10 +75,7 @@ class AppUpdateBanner extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           textStyle: const TextStyle(fontSize: 12),
                         ),
-                        onPressed: state.downloading
-                            ? null
-                            : () =>
-                                  openAvailableAppUpdate(context, ref, update),
+                        onPressed: state.downloading ? null : openUpdate,
                         child: const Text('Mettre à jour'),
                       ),
                     ],

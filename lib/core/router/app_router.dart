@@ -18,6 +18,10 @@ import '../../features/mines/presentation/screens/mine_submissions_screen.dart';
 import '../../features/mines/presentation/screens/create_mine_submission_screen.dart';
 import '../../shared/capture_photo_screen.dart';
 
+/// Clé du Navigator racine : le bandeau de mise à jour vit au-dessus de lui
+/// (MaterialApp.builder) et en a besoin pour ouvrir dialogues et feuilles.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final routerProvider = Provider<GoRouter>((ref) {
   // Rafraîchit le routeur quand l'état d'auth change (login/logout).
   final refresh = ValueNotifier<int>(0);
@@ -25,6 +29,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refresh.dispose);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/home',
     refreshListenable: refresh,
     redirect: (context, state) {
