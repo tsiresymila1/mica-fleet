@@ -33,6 +33,11 @@ void main() {
   testWidgets(
     'affiche la capture en cours immédiatement et empêche le double appui',
     (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.padding = const FakeViewPadding(bottom: 48);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 48);
+      addTearDown(tester.view.reset);
       final camera = _Camera();
       final location = _PendingLocation();
       when(() => camera.value).thenReturn(
@@ -63,6 +68,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(FilledButton)).bottom,
+        lessThanOrEqualTo(800 - 48 - 16),
+        reason: 'Le bouton doit rester au-dessus de la navigation Android.',
+      );
       await tester.tap(find.text('Capturer'));
       await tester.pump();
       expect(find.text('Capture en cours…'), findsOneWidget);

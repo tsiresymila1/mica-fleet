@@ -186,18 +186,21 @@ class _CapturePhotoScreenState extends ConsumerState<CapturePhotoScreen> {
                             )
                           : const SizedBox.shrink()),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: FilledButton.icon(
-                  icon: _capturing
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.camera_alt),
-                  label: Text(_capturing ? 'Capture en cours…' : 'Capturer'),
-                  onPressed: (_capturing || _cam == null) ? null : _capture,
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: FilledButton.icon(
+                    icon: _capturing
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.camera_alt),
+                    label: Text(_capturing ? 'Capture en cours…' : 'Capturer'),
+                    onPressed: (_capturing || _cam == null) ? null : _capture,
+                  ),
                 ),
               ),
             ],
