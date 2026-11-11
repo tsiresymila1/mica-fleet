@@ -175,8 +175,9 @@ class LotSnapshotBuilder {
           : {
               if (lot.photoSchemaVersion < 3 && arr.depotId != null)
                 'depot_id': _id(arr.depotId!),
-              'driver': arr.chauffeur,
-              'license_number': arr.numPermis,
+              // Anciennes arrivées seulement : le mobile ne les saisit plus.
+              if (arr.chauffeur.isNotEmpty) 'driver': arr.chauffeur,
+              if (arr.numPermis.isNotEmpty) 'license_number': arr.numPermis,
               if (lot.photoSchemaVersion < 3) 'lot_number': arr.numLot,
               if (lot.photoSchemaVersion < 3) 'lots': {'lot': arr.numLot},
               'gps': [arr.gpsLat, arr.gpsLon],

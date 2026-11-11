@@ -345,6 +345,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _avantCtrl,
+              inputFormatters: plateInputFormatters,
+              textCapitalization: TextCapitalization.characters,
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Plaque camion avant obligatoire'
                   : null,
@@ -423,6 +425,8 @@ class _TransbordementScreenState extends ConsumerState<TransbordementScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _apresCtrl,
+              inputFormatters: plateInputFormatters,
+              textCapitalization: TextCapitalization.characters,
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Plaque camion après obligatoire'
                   : null,

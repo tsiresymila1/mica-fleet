@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_theme.dart';
+
+/// Saisie d'une plaque : majuscules, sans espace.
+final plateInputFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.deny(RegExp(r'\s')),
+  TextInputFormatter.withFunction(
+    (_, next) => next.copyWith(text: next.text.toUpperCase()),
+  ),
+];
 
 /// Bandeau d'étape numéroté — repère visuel fort « où je suis » (1, 2, 3…).
 class StepHeader extends StatelessWidget {

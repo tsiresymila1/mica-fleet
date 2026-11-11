@@ -85,11 +85,11 @@ class TripTrackingService : Service(), LocationListener {
             return
         }
         locationManager.removeUpdates(this)
+        // Batterie : GPS seul (le réseau est rejeté par le filtre de précision),
+        // un point toutes les 4 s et au moins 3 m de déplacement.
         runCatching {
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000L, 0f, this)
-        }
-        runCatching {
-            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 3000L, 0f, this)
+            locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, UPDATE_INTERVAL_MS, UPDATE_MIN_DISTANCE_M, this)
         }
     }
 
@@ -208,6 +208,8 @@ class TripTrackingService : Service(), LocationListener {
     companion object {
         private const val CHANNEL_ID = "mica_trip_tracking"
         private const val NOTIFICATION_ID = 75416
+        private const val UPDATE_INTERVAL_MS = 4000L
+        private const val UPDATE_MIN_DISTANCE_M = 3f
         private const val EXTRA_SESSION = "chargement_id"
         private const val PREFS = "trip_tracking"
         private const val PREF_SESSION = "active_session"

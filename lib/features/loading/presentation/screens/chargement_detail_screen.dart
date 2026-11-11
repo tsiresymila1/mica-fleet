@@ -62,6 +62,8 @@ Future<void> _deleteLotLocal(
   );
   if (!ok) return;
   final res = await ref.read(loadingRepoProvider).deleteLot(lotId);
+  // Arrête le suivi GPS si plus aucun lot en cours.
+  if (res.isRight()) await ref.read(tripTrackerProvider).restoreFromDatabase();
   if (!context.mounted) return;
   await showAppMessage(
     context,
@@ -102,9 +104,12 @@ class ChargementDetailScreen extends ConsumerWidget {
         data: (d) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
           children: [
+            // Score affiché uniquement une fois le lot validé.
             Center(
-              child: d.score != null
+              child: d.validationStatus == 'validated' && d.score != null
                   ? _ScoreCircle(score: d.score!)
+                  : d.validationStatus == 'rejected'
+                  ? null
                   : const StatusPill(
                       kind: PillKind.neutral,
                       label: 'Évaluation en cours',
@@ -303,8 +308,10 @@ class ChargementDetailScreen extends ConsumerWidget {
                         'Dépôt',
                         d.arrivee!.depotId ?? 'Attribué par le serveur',
                       ),
-                      _kv('Chauffeur', d.arrivee!.chauffeur),
-                      _kv('Permis', d.arrivee!.numPermis),
+                      if (d.arrivee!.chauffeur.isNotEmpty)
+                        _kv('Chauffeur', d.arrivee!.chauffeur),
+                      if (d.arrivee!.numPermis.isNotEmpty)
+                        _kv('Permis', d.arrivee!.numPermis),
                       if (d.arrivee!.numLot.isNotEmpty)
                         _kv('N° de lot', d.arrivee!.numLot),
                       if (d.arrivee!.plaqueArrivee != null)

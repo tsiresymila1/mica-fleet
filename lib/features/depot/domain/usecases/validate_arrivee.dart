@@ -8,8 +8,8 @@ class ValidateArrivee {
     required String lotId,
     required double lat,
     required double lon,
-    required String chauffeur,
-    required String numPermis,
+    String chauffeur = '',
+    String numPermis = '',
     required String numLot,
     String? plaqueArrivee,
     String? plaqueAttendue, // dernière plaque connue de CE lot
@@ -23,13 +23,8 @@ class ValidateArrivee {
     double? photoPermisHeadingAccuracy,
     String? photoPermisHeadingReference,
   }) {
-    if (chauffeur.trim().isEmpty || numPermis.trim().isEmpty) {
-      return left(const Failure.validation('Chauffeur et permis obligatoires'));
-    }
-    if (numPermis.trim().length > 12) {
-      return left(
-        const Failure.validation('Le permis est limité à 12 caractères'),
-      );
+    if (photoPermisPath?.trim().isNotEmpty != true) {
+      return left(const Failure.validation('Photo du permis obligatoire'));
     }
     if (plaqueArrivee?.trim().isNotEmpty != true) {
       return left(const Failure.validation('Plaque du camion obligatoire'));

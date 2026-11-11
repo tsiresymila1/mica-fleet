@@ -267,6 +267,8 @@ class _AddMineScreenState extends ConsumerState<AddMineScreen> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _plaqueCtrl,
+              inputFormatters: plateInputFormatters,
+              textCapitalization: TextCapitalization.characters,
               onChanged: (_) => setState(() {}),
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Plaque du camion obligatoire'

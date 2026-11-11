@@ -56,9 +56,10 @@ class TripTracker {
         .getSingleOrNull();
     final id = row?.read<String>('session_id');
     if (id == null || id.isEmpty) {
-      if (await _backgroundService?.isRunning() == true) await stop();
+      await stop();
       return;
     }
+    if (_chargementId != null && _chargementId != id) await stop();
     await start(id);
   }
 
@@ -71,7 +72,8 @@ class TripTracker {
       await backgroundService.start(chargementId);
       _nativeTracking = true;
       _nativeRefresh?.cancel();
-      _nativeRefresh = Timer.periodic(const Duration(seconds: 3), (_) {
+      // Rafraîchit la carte ; 10 s suffisent et évitent de réveiller le CPU.
+      _nativeRefresh = Timer.periodic(const Duration(seconds: 10), (_) {
         db.notifyUpdates({TableUpdate.onTable(db.trajetPoints)});
       });
       return;

@@ -8,9 +8,11 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../sync/presentation/sync_provider.dart';
 import '../../../sync/presentation/widgets/sync_icon_button.dart';
 import '../../../../shared/ui/ui_kit.dart';
+import '../../../trip/presentation/trip_provider.dart';
 import '../providers/chargement_detail_provider.dart' show SyncEtat;
 import '../providers/chargements_list_provider.dart';
 import '../providers/loading_provider.dart';
+import '../widgets/lot_filters.dart';
 
 Future<void> _deleteLotFromList(
   BuildContext context,
@@ -26,6 +28,8 @@ Future<void> _deleteLotFromList(
   );
   if (!ok) return;
   final res = await ref.read(loadingRepoProvider).deleteLot(lotId);
+  // Arrête le suivi GPS si plus aucun lot en cours.
+  if (res.isRight()) await ref.read(tripTrackerProvider).restoreFromDatabase();
   if (!context.mounted) return;
   ref.invalidate(lotsListProvider);
   await showAppMessage(
@@ -47,6 +51,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _filter = 'all';
   final _searchController = TextEditingController();
   bool _newestFirst = true;
+  List<LotFilterRule> _rules = const [];
 
   @override
   void dispose() {
@@ -106,6 +111,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               if (_filter != 'all' && item.validationStatus != _filter) {
                 return false;
               }
+              if (!_rules.every((r) => r.matches(item))) return false;
               return query.isEmpty ||
                   [
                     item.id,
@@ -204,13 +210,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          IconButton.outlined(
-                            tooltip: _newestFirst
-                                ? 'Plus anciens'
-                                : 'Plus récents',
-                            onPressed: () =>
-                                setState(() => _newestFirst = !_newestFirst),
-                            icon: const Icon(Icons.swap_vert),
+                          Badge(
+                            isLabelVisible: _rules.isNotEmpty,
+                            label: Text('${_rules.length}'),
+                            child: IconButton.outlined(
+                              tooltip: 'Filtres',
+                              onPressed: () async {
+                                final r = await showLotFilters(context, _rules);
+                                if (r != null) setState(() => _rules = r);
+                              },
+                              icon: const Icon(Icons.filter_list),
+                            ),
                           ),
                         ],
                       ),
@@ -225,9 +235,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               style: Theme.of(context).textTheme.titleSmall,
                             ),
                           ),
-                          Text(
-                            _newestFirst ? 'Plus récents' : 'Plus anciens',
-                            style: Theme.of(context).textTheme.bodySmall,
+                          TextButton.icon(
+                            onPressed: () =>
+                                setState(() => _newestFirst = !_newestFirst),
+                            icon: const Icon(Icons.swap_vert, size: 18),
+                            label: Text(
+                              _newestFirst ? 'Plus récents' : 'Plus anciens',
+                            ),
                           ),
                         ],
                       ),
@@ -284,6 +298,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     final res = await ref
                         .read(loadingRepoProvider)
                         .deleteChargement(l.sessionId);
+                    if (res.isRight()) {
+                      await ref.read(tripTrackerProvider).restoreFromDatabase();
+                    }
                     ref.invalidate(lotsListProvider);
                     if (context.mounted) {
                       await showAppMessage(
@@ -637,8 +654,8 @@ class _LotCard extends StatelessWidget {
         lot.sync == SyncEtat.local ? const Color(0xFF94A3BF) : AppColors.warn,
     };
     final textTheme = Theme.of(context).textTheme;
-    final showStatusRail =
-        lot.validationStatus == 'validated' || lot.score != null;
+    final validated = lot.validationStatus == 'validated';
+    final showStatusRail = validated;
     final compact = MediaQuery.sizeOf(context).width <= 350;
     return Material(
       color: Colors.white,
@@ -796,7 +813,7 @@ class _LotCard extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (lot.score != null) ...[
+                      if (validated && lot.score != null) ...[
                         _ScoreBadge(score: lot.score!),
                         const SizedBox(height: 5),
                       ],

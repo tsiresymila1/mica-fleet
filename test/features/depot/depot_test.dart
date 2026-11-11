@@ -54,8 +54,7 @@ void main() {
       lotId: 'MICA-2026-0001-L1',
       lat: -18.95,
       lon: 47.55,
-      chauffeur: 'Jean',
-      numPermis: 'P1',
+      photoPermisPath: '/permis.jpg',
       numLot: 'L1',
       plaqueArrivee: '1234 TBR',
     );
@@ -64,13 +63,11 @@ void main() {
     expect(arrivee.depotId, isNull);
   });
 
-  test('validate échoue si champs obligatoires vides', () {
+  test('validate échoue sans photo du permis', () {
     final r = ValidateArrivee()(
       lotId: 'MICA-2026-0001-L1',
       lat: -18.9,
       lon: 47.5,
-      chauffeur: '',
-      numPermis: 'P1',
       numLot: 'L1',
       plaqueArrivee: '1234 TBR',
     );
@@ -82,8 +79,7 @@ void main() {
       lotId: 'MICA-2026-0001-L1',
       lat: -18.90005,
       lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: 'P1',
+      photoPermisPath: '/permis.jpg',
       numLot: '',
       plaqueArrivee: '1234 TBR',
     );
@@ -95,8 +91,7 @@ void main() {
       lotId: 'MICA-2026-0001-L1',
       lat: -18.90005,
       lon: 47.5,
-      chauffeur: 'J',
-      numPermis: 'P',
+      photoPermisPath: '/permis.jpg',
       numLot: 'L',
       plaqueArrivee: '1234 tbr',
       plaqueAttendue: '1234-TBR',
@@ -109,8 +104,7 @@ void main() {
       lotId: 'MICA-2026-0001-L1',
       lat: -18.90005,
       lon: 47.5,
-      chauffeur: 'J',
-      numPermis: 'P',
+      photoPermisPath: '/permis.jpg',
       numLot: 'L',
       plaqueArrivee: '9999 ABC',
       plaqueAttendue: '1234 TBR',
@@ -123,8 +117,7 @@ void main() {
       lotId: 'MICA-2026-0001-L1',
       lat: -18.90005,
       lon: 47.5,
-      chauffeur: 'J',
-      numPermis: 'P',
+      photoPermisPath: '/permis.jpg',
       numLot: 'L',
       plaqueArrivee: '9999 ABC',
       plaqueAttendue: null,
@@ -132,40 +125,12 @@ void main() {
     expect(r.getRight().toNullable()!.plaqueCoherente, isFalse);
   });
 
-  test('refuse un permis de plus de 12 caractères', () {
-    final r = ValidateArrivee()(
-      lotId: 'lot',
-      lat: -18.9,
-      lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: '1234567890123',
-      numLot: '',
-      plaqueArrivee: '1234 TBR',
-    );
-    expect(r.isLeft(), isTrue);
-  });
-
-  test('accepte un permis de 12 caractères et ne calcule pas de score', () {
-    final r = ValidateArrivee()(
-      lotId: 'lot',
-      lat: -18.9,
-      lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: '123456789012',
-      numLot: '',
-      plaqueArrivee: '1234 TBR',
-    );
-    expect(r.getRight().toNullable()?.scoreTracabilite, isNull);
-    expect(r.isRight(), isTrue);
-  });
-
   test('refuse une plaque vide à l’arrivée', () {
     final r = ValidateArrivee()(
       lotId: 'lot',
       lat: -18.9,
       lon: 47.5,
-      chauffeur: 'Jean',
-      numPermis: 'P1',
+      photoPermisPath: '/permis.jpg',
       numLot: '',
       plaqueArrivee: ' ',
     );

@@ -9,7 +9,6 @@ import '../../../../shared/ui/ui_kit.dart';
 import '../../../capture/domain/entities/captured_photo.dart';
 import '../../../capture/domain/entities/traceability_photos.dart';
 import '../../../transport/presentation/providers/transport_provider.dart';
-import '../../../trip/presentation/sim_session.dart';
 import '../../../trip/presentation/trip_provider.dart';
 import '../../../loading/presentation/providers/chargements_list_provider.dart';
 import '../providers/depot_provider.dart';
@@ -26,8 +25,6 @@ class ArriveeScreen extends ConsumerStatefulWidget {
 
 class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _chauffeurCtrl = TextEditingController();
-  final _permisCtrl = TextEditingController();
   final _plaqueCtrl = TextEditingController();
   CapturedPhoto? _platePhoto;
   CapturedPhoto? _micaPhoto;
@@ -52,10 +49,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
   @override
   void initState() {
     super.initState();
-    if (ref.read(simSessionProvider) != null) {
-      _chauffeurCtrl.text = 'Chauffeur Sim';
-      _permisCtrl.text = 'SIM-PERMIS';
-    }
     _loadSchema();
   }
 
@@ -71,8 +64,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
 
   @override
   void dispose() {
-    _chauffeurCtrl.dispose();
-    _permisCtrl.dispose();
     _plaqueCtrl.dispose();
     super.dispose();
   }
@@ -101,6 +92,14 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
     final missingStructured =
         _structuredPhotos &&
         (_truckPhoto == null || (_requiresMicaPhoto && _micaPhoto == null));
+    if (_permisPhoto == null) {
+      await showAppMessage(
+        context,
+        'La photo du permis est obligatoire',
+        kind: AppMsgKind.warning,
+      );
+      return;
+    }
     if (photo == null || missingStructured) {
       await showAppMessage(
         context,
@@ -124,8 +123,6 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
         lotId: widget.lotId,
         lat: photo.lat,
         lon: photo.lon,
-        chauffeur: _chauffeurCtrl.text.trim(),
-        numPermis: _permisCtrl.text.trim(),
         numLot: '',
         plaqueArrivee: _plaqueCtrl.text.trim(),
         // Plaque attendue = fin de la chaîne du lot, sinon sa plaque de départ.
@@ -289,6 +286,8 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _plaqueCtrl,
+              inputFormatters: plateInputFormatters,
+              textCapitalization: TextCapitalization.characters,
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Plaque du camion obligatoire'
                   : null,
@@ -298,40 +297,19 @@ class _ArriveeScreenState extends ConsumerState<ArriveeScreen> {
               ),
             ),
             const SizedBox(height: 24),
-            StepHeader(numero: 2, titre: 'Le chauffeur'),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _chauffeurCtrl,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Nom du chauffeur obligatoire'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Nom du chauffeur',
-                prefixIcon: Icon(Icons.person),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _permisCtrl,
-              maxLength: 12,
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Numéro de permis obligatoire'
-                  : value.trim().length > 12
-                  ? 'Le permis est limité à 12 caractères'
-                  : null,
-              decoration: const InputDecoration(
-                labelText: 'Numéro de permis',
-                prefixIcon: Icon(Icons.badge),
-              ),
-            ),
+            StepHeader(numero: 2, titre: 'Le permis du chauffeur'),
             const SizedBox(height: 12),
             ActionTile(
               icon: _permisPhoto == null
                   ? Icons.add_a_photo
                   : Icons.check_circle,
               color: _permisPhoto == null ? AppColors.inkSoft : AppColors.ok,
-              titre: 'Photo du permis',
-              sousTitre: 'Optionnel',
+              titre: _permisPhoto == null
+                  ? 'Photo du permis *'
+                  : 'Photo du permis ✓',
+              sousTitre: _permisPhoto == null
+                  ? 'Obligatoire'
+                  : 'Photo enregistrée',
               onTap: () async {
                 final p = await _capture(
                   'Photo permis',
