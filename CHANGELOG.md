@@ -1,3 +1,7 @@
+## v1.2.12 - 2026-11-11
+
+- feat: lot filters, GPS stop on delete, arrival permit photo, plate input
+
 ## v1.2.6 - 2026-08-13
 
 - chore(release): v1.2.6
