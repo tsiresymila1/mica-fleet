@@ -138,6 +138,13 @@ class Lots extends Table {
   TextColumn get serverReference => text().nullable()();
   DateTimeColumn get serverUpdatedAt => dateTime().nullable()();
   BoolColumn get remoteOnly => boolean().withDefault(const Constant(false))();
+  // Localisation administrative de la mine et données de pesée (serveur).
+  TextColumn get mineAdministrativeLocation => text().nullable()();
+  RealColumn get weighingGross => real().nullable()();
+  RealColumn get weighingNet => real().nullable()();
+  RealColumn get weighingCoefficient => real().nullable()();
+  RealColumn get weighingQualityTare => real().nullable()();
+  RealColumn get weighingNominalTare => real().nullable()();
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -291,7 +298,7 @@ class TrajetPoints extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
   @override
-  int get schemaVersion => 22;
+  int get schemaVersion => 23;
 
   // Les installations historiques antérieures à v12 sont recréées. Depuis
   // v12, chaque évolution doit utiliser une migration additive et préserver
@@ -418,6 +425,14 @@ class AppDatabase extends _$AppDatabase {
         // La migration conserve les anciennes valeurs mais autorise null pour
         // les nouvelles arrivées.
         await m.alterTable(TableMigration(arriveesDepot));
+      }
+      if (from >= 12 && from < 23) {
+        await m.addColumn(lots, lots.mineAdministrativeLocation);
+        await m.addColumn(lots, lots.weighingGross);
+        await m.addColumn(lots, lots.weighingNet);
+        await m.addColumn(lots, lots.weighingCoefficient);
+        await m.addColumn(lots, lots.weighingQualityTare);
+        await m.addColumn(lots, lots.weighingNominalTare);
       }
       if (from < 22) {
         await customStatement(

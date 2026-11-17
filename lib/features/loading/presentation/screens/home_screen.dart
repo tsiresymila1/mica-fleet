@@ -742,15 +742,29 @@ class _LotCard extends StatelessWidget {
                             ),
                           ),
                           Flexible(
-                            child: Text(
-                              lot.mineName,
-                              maxLines: 1,
+                            child: Text.rich(
+                              TextSpan(
+                                text: lot.mineName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF525A73),
+                                ),
+                                children: [
+                                  if (lot.mineLocation?.isNotEmpty == true)
+                                    TextSpan(
+                                      text: ' · ${lot.mineLocation}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.inkSoft,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: textTheme.bodySmall?.copyWith(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w700,
                                 height: 1.2,
-                                color: const Color(0xFF525A73),
                               ),
                             ),
                           ),
@@ -803,6 +817,20 @@ class _LotCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                    if (lot.netPercent != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Pesée : brut ${_kg(lot.grossWeight!)} · '
+                          'net ${_kg(lot.netWeight!)} '
+                          '(${NumberFormat('0.#', 'fr').format(lot.netPercent)} %)',
+                          style: textTheme.bodySmall?.copyWith(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -827,6 +855,9 @@ class _LotCard extends StatelessWidget {
       ),
     );
   }
+
+  static String _kg(double v) =>
+      '${NumberFormat.decimalPattern('fr').format(v)} kg';
 
   Widget _fact(
     BuildContext context,

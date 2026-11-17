@@ -22,6 +22,9 @@ class LotListItem {
   final String? serverReference;
   final bool remoteOnly;
   final String? plate;
+  final String? mineLocation;
+  final double? grossWeight;
+  final double? netWeight;
   const LotListItem({
     required this.id,
     required this.sessionId,
@@ -39,7 +42,15 @@ class LotListItem {
     required this.serverReference,
     required this.remoteOnly,
     this.plate,
+    this.mineLocation,
+    this.grossWeight,
+    this.netWeight,
   });
+
+  /// Net / brut en %, seulement si la pesée a eu lieu (brut > 0).
+  double? get netPercent => (grossWeight ?? 0) > 0 && netWeight != null
+      ? netWeight! / grossWeight! * 100
+      : null;
 }
 
 String normalizeValidationStatus(String status) {
@@ -112,6 +123,9 @@ final lotsListProvider = FutureProvider.autoDispose<List<LotListItem>>((
         serverReference: l.serverReference,
         remoteOnly: l.remoteOnly,
         plate: l.plaqueDepart,
+        mineLocation: l.mineAdministrativeLocation,
+        grossWeight: l.weighingGross,
+        netWeight: l.weighingNet,
       ),
     );
   }

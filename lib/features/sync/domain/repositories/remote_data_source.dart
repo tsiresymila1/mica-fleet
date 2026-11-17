@@ -179,6 +179,12 @@ class RemoteLot {
   final List<RemoteTransload> transloads;
   final RemoteLotArrival? arrival;
   final List<RemoteTrackPoint> track;
+  final String? mineAdministrativeLocation;
+  final double? weighingGross;
+  final double? weighingNet;
+  final double? weighingCoefficient;
+  final double? weighingQualityTare;
+  final double? weighingNominalTare;
 
   const RemoteLot({
     required this.payloadId,
@@ -205,6 +211,12 @@ class RemoteLot {
     this.transloads = const [],
     this.arrival,
     this.track = const [],
+    this.mineAdministrativeLocation,
+    this.weighingGross,
+    this.weighingNet,
+    this.weighingCoefficient,
+    this.weighingQualityTare,
+    this.weighingNominalTare,
   });
 }
 

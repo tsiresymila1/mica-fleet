@@ -189,6 +189,7 @@ void main() {
               "note": "Note issue de la traçabilité",
               "color": "Blanc",
               "estimated_quantity": 120,
+              "mine_administrative_location": "Ambohidahy/5e Arrondissement/Analamanga",
               "plate": "1234 TBR",
               "lat": -18.91,
               "lon": 47.52,
@@ -234,6 +235,8 @@ void main() {
             },
             "track": [[-18.91, 47.52, "2026-08-14 08:00:00"]],
             "traceability_score": 96,
+            "weighing_data": {"gross": 125.5, "net": 120.0, "coefficient": 0.9,
+              "quality_tare": 1.5, "nominal_tare": 4.0},
             "traceability_reference": "MICA-2026-0042",
             "validation_status": "validated",
             "validation_reason": null
@@ -255,6 +258,13 @@ void main() {
       expect(lots.single.mineNote, 'Note issue de la traçabilité');
       expect(lots.single.estimatedQuantity, 120);
       expect(lots.single.score, 96);
+      expect(
+        lots.single.mineAdministrativeLocation,
+        'Ambohidahy/5e Arrondissement/Analamanga',
+      );
+      expect(lots.single.weighingGross, 125.5);
+      expect(lots.single.weighingNet, 120);
+      expect(lots.single.weighingNominalTare, 4);
       expect(lots.single.minePlate, '1234 TBR');
       expect(
         lots.single.minePhotos

@@ -884,6 +884,14 @@ class SyncEngine {
             // Après un GET tracking, le score serveur est la seule valeur
             // canonique. Un null serveur efface donc tout ancien score local.
             score: Value(remoteLot.score),
+            mineAdministrativeLocation: Value(
+              remoteLot.mineAdministrativeLocation,
+            ),
+            weighingGross: Value(remoteLot.weighingGross),
+            weighingNet: Value(remoteLot.weighingNet),
+            weighingCoefficient: Value(remoteLot.weighingCoefficient),
+            weighingQualityTare: Value(remoteLot.weighingQualityTare),
+            weighingNominalTare: Value(remoteLot.weighingNominalTare),
           ),
         );
         await _replaceRemoteLotDetails(local.id, local.sessionId, remoteLot);
@@ -936,6 +944,14 @@ class SyncEngine {
                 serverReference: Value(remoteLot.reference),
                 serverUpdatedAt: Value(remoteLot.updatedAt),
                 remoteOnly: const Value(true),
+                mineAdministrativeLocation: Value(
+                  remoteLot.mineAdministrativeLocation,
+                ),
+                weighingGross: Value(remoteLot.weighingGross),
+                weighingNet: Value(remoteLot.weighingNet),
+                weighingCoefficient: Value(remoteLot.weighingCoefficient),
+                weighingQualityTare: Value(remoteLot.weighingQualityTare),
+                weighingNominalTare: Value(remoteLot.weighingNominalTare),
               ),
               mode: InsertMode.insertOrIgnore,
             );

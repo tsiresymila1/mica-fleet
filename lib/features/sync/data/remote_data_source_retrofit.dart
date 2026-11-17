@@ -198,6 +198,9 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
       if (mineId == null || mineId.isEmpty) continue;
       final mineLat = _toDouble(mine['lat']);
       final mineLon = _toDouble(mine['lon']);
+      final weighing = entry['weighing_data'] is Map
+          ? entry['weighing_data'] as Map
+          : const <dynamic, dynamic>{};
       result.add(
         RemoteLot(
           payloadId: payloadId,
@@ -254,6 +257,14 @@ class RetrofitRemoteDataSource implements RemoteDataSource {
             fallbackLon: mineLon,
           ),
           track: _track(entry['track']),
+          mineAdministrativeLocation:
+              _asOptionalString(mine['mine_administrative_location']) ??
+              _asOptionalString(entry['mine_administrative_location']),
+          weighingGross: _toDouble(weighing['gross']),
+          weighingNet: _toDouble(weighing['net']),
+          weighingCoefficient: _toDouble(weighing['coefficient']),
+          weighingQualityTare: _toDouble(weighing['quality_tare']),
+          weighingNominalTare: _toDouble(weighing['nominal_tare']),
         ),
       );
     }
