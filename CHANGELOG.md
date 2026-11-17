@@ -1,3 +1,8 @@
+## v1.2.13 - 2026-11-18
+
+- feat(loading): show mine administrative location and weighing on lot cards
+- feat(brand): replace Radoran logo with transparent-background version
+
 ## v1.2.12 - 2026-11-11
 
 - feat: lot filters, GPS stop on delete, arrival permit photo, plate input
